@@ -297,6 +297,24 @@ export async function notifyEventCreated(e: EventRow) {
   if (msg?.message_id) db.prepare('UPDATE events SET tg_message_id = ? WHERE id = ?').run(msg.message_id, e.id);
 }
 
+/**
+ * «Напомнить» от админа/тренера: пост события новым сообщением внизу топика.
+ * Дальше счётчик обновляется уже в новом посте; у старого убираем кнопки, чтобы не путались.
+ */
+export async function remindEventInChat(e: EventRow) {
+  const going = goingCount(e.id);
+  const head = pick(['🔔 Напоминаем!', '🔔 Не забываем отметиться!', '🔔 Кто ещё с нами?']);
+  const left = e.capacity ? Math.max(0, e.capacity - going) : null;
+  const intro = p(`${head} ${left != null ? (left ? `Осталось мест: ${left}.` : 'Мест нет — дальше резерв.') : ''}`.trim());
+  const msg = await sendRich(teamFor(e), [intro, ...eventBlocks(e)], eventButtons(e));
+  if (!msg?.message_id) return false;
+  const old = e.tg_message_id;
+  db.prepare('UPDATE events SET tg_message_id = ? WHERE id = ?').run(msg.message_id, e.id);
+  if (old && teamTarget())
+    void api('editMessageReplyMarkup', { chat_id: teamTarget(), message_id: old, reply_markup: { inline_keyboard: [] } });
+  return true;
+}
+
 /** Обновляет пост события в командном чате: счётчик и список идущих. */
 const pendingRefresh = new Map<number, ReturnType<typeof setTimeout>>();
 export function refreshEventPost(eventId: number) {

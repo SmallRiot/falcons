@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Ban, LayoutGrid, Pencil, Plus } from 'lucide-react';
+import { Ban, BellRing, LayoutGrid, Pencil, Plus } from 'lucide-react';
 import { api, type EventSummary } from '@shared/api';
 import { DEFAULT_LOCATION, fmt, fromLocalInput, plural, toLocalInput } from '@shared/format';
 import { DatesPicker } from '@shared/DatesPicker';
@@ -111,6 +111,19 @@ export default function Schedule() {
                       <button className="btn ghost xs" onClick={() => setEdit(e)}>
                         <Pencil size={14} /> Изменить
                       </button>
+                      {!e.cancelled && scope === 'upcoming' && (
+                        <button
+                          className="btn ghost xs"
+                          title="Пост события новым сообщением в чат"
+                          disabled={busy}
+                          onClick={async () =>
+                            (await ask(`Напомнить в чате про «${e.title || (e.type === 'game' ? 'игру' : 'тренировку')}»? Пост события придёт новым сообщением.`, { okText: 'Напомнить' })) &&
+                            run(() => api.post(`/api/events/${e.id}/remind`), 'Напомнили в чате 🔔')
+                          }
+                        >
+                          <BellRing size={14} />
+                        </button>
+                      )}
                       {!e.cancelled && scope === 'upcoming' && (
                         <button
                           className="btn bad-soft xs"

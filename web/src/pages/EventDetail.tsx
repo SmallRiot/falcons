@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Ban, Clock, LayoutGrid, MapPin, Pencil, StickyNote, UserPlus, Users, X } from 'lucide-react';
+import { Ban, BellRing, Clock, LayoutGrid, MapPin, Pencil, StickyNote, UserPlus, Users, X } from 'lucide-react';
 import { GuestAdd } from '@shared/GuestAdd';
 import { api, type EventDetail as ED, type PublicUser, type Team } from '@shared/api';
 import { fmt, POS_SHORT } from '@shared/format';
@@ -107,9 +107,21 @@ export default function EventDetail() {
       ) : tab === 'roster' ? (
         <>
           {ev.canEdit && !ev.cancelled && !isPast && (
-            <button className="btn secondary block" onClick={() => setGuestOpen(true)}>
-              <UserPlus size={18} /> Записать гостя
-            </button>
+            <div className="btn-row">
+              <button
+                className="btn secondary"
+                disabled={busy}
+                onClick={async () =>
+                  (await ask('Напомнить в чате? Пост события придёт новым сообщением внизу топика.', { okText: 'Напомнить' })) &&
+                  run(() => api.post(`/api/events/${ev.id}/remind`), 'Напомнили в чате 🔔')
+                }
+              >
+                <BellRing size={18} /> Напомнить
+              </button>
+              <button className="btn secondary" onClick={() => setGuestOpen(true)}>
+                <UserPlus size={18} /> Гость
+              </button>
+            </div>
           )}
           {ev.players.length ? (
             <div className="list">

@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { requireActive, requireRole } from '../auth.ts';
 import { ANNOUNCE_DAYS, DEFAULT_LOCATION } from '../config.ts';
+import { markSent } from '../reminders.ts';
 import { db, hasRole, nowIso, publicUser, type UserRow } from '../db.ts';
-import { notifyEventCreated, notifyGuestFee, notifyLineupPersonal, notifyLineupPublished, refreshEventPost, renderFor } from '../telegram.ts';
+import { notifyEventCreated, notifyGuestFee, remindEventInChat, notifyLineupPersonal, notifyLineupPublished, refreshEventPost, renderFor } from '../telegram.ts';
 import { myFee, setSignup, type EventRow } from '../signup.ts';
 import { canSeeEvent, canSeeRoster, eventSquadIds, setEventSquads, squadsMap, VISIBLE_SQL } from '../squads.ts';
 
@@ -212,6 +213,21 @@ export default async function eventRoutes(app: FastifyInstance) {
   );
 
   /** Картинка пятёрок (как уйдёт в чат) — для предпросмотра в консоли. */
+  /** Админ/тренер: «Напомнить» — пост события новым сообщением в чат (не чаще раза в 10 минут). */
+  app.post<{ Params: { id: string } }>('/api/events/:id/remind', { preHandler: requireRole('coach', 'admin') }, async (req, reply) => {
+    const e = db.prepare('SELECT * FROM events WHERE id = ?').get(Number(req.params.id)) as EventRow | undefined;
+    if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
+    if (e.cancelled) return reply.code(400).send({ error: 'Событие отменено' });
+    if (Date.parse(e.starts_at) < Date.now()) return reply.code(400).send({ error: 'Событие уже началось' });
+    const key = `remind:${e.id}`;
+    const last = db.prepare('SELECT sent_at FROM notify_log WHERE key = ?').get(key) as { sent_at: string } | undefined;
+    if (last && Date.now() - Date.parse(last.sent_at) < 10 * 60e3) return reply.code(429).send({ error: 'Уже напомнили — можно снова через 10 минут' });
+    const ok = await remindEventInChat(e);
+    if (!ok) return reply.code(400).send({ error: 'Не получилось отправить в чат — привязан ли топик (/here_trainings, /here_games)?' });
+    markSent(key);
+    return { ok: true };
+  });
+
   /* ---------- гости: админ/тренер записывает человека без Telegram ---------- */
 
   /** Недавние гости — чтобы второй раз выбрать из списка, а не вбивать заново. */

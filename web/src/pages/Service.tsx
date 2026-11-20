@@ -26,6 +26,9 @@ export default function Service() {
   const tab = (useParams().tab as ServiceTab) || 'checks';
   const { data, loading, reload } = useApi<Item[]>('/api/service/sharpening');
   const [debtOpen, setDebtOpen] = useState(false);
+  const [checksView, setChecksView] = useState<'wait' | 'done'>('wait');
+  const history = useApi<Item[]>(tab === 'checks' && checksView === 'done' ? '/api/service/sharpening?all=1' : null, [tab, checksView]);
+  const [shown, setShown] = useState<number | null>(null);
   const { busy, run } = useAction();
 
   const all = data ?? [];
@@ -73,11 +76,56 @@ export default function Service() {
 
       {loading ? (
         <Spinner />
+      ) : tab === 'checks' && checksView === 'done' ? (
+        <>
+          <ChecksSwitch value={checksView} onChange={setChecksView} waiting={checks.length} />
+          {history.loading ? (
+            <Spinner />
+          ) : (
+            (() => {
+              const done = (history.data ?? [])
+                .filter((x) => x.payment === 'paid')
+                .sort((a, b) => (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at));
+              return !done.length ? (
+                <Empty icon={<Check size={26} />} title="Принятых оплат пока нет" />
+              ) : (
+                <div className="list">
+                  {done.map((x) => (
+                    <div key={x.id} className="row" style={{ flexWrap: 'wrap' }}>
+                      <Avatar user={x.user} size="sm" />
+                      <div className="grow">
+                        <div className="title">{x.user.name}</div>
+                        <div className="meta">
+                          принято {fmt.dateShort(x.updated_at ?? x.created_at)} · {x.proof ? 'по скрину' : 'без скрина'}
+                        </div>
+                      </div>
+                      <b className="num">{fmt.gel(x.price)}</b>
+                      {x.proof && (
+                        <button className="btn ghost xs" onClick={() => setShown((v) => (v === x.id ? null : x.id))}>
+                          {shown === x.id ? 'Скрыть' : 'Скрин'}
+                        </button>
+                      )}
+                      {shown === x.id && x.proof && (
+                        <div style={{ flexBasis: '100%' }}>
+                          <ProofImage name={x.proof} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()
+          )}
+        </>
       ) : tab === 'checks' ? (
         !checks.length ? (
-          <Empty icon={<Check size={26} />} title="Чеков на проверку нет 👌" />
+          <>
+            <ChecksSwitch value={checksView} onChange={setChecksView} waiting={0} />
+            <Empty icon={<Check size={26} />} title="Чеков на проверку нет 👌" />
+          </>
         ) : (
           <div className="vstack">
+            <ChecksSwitch value={checksView} onChange={setChecksView} waiting={checks.length} />
             <div className="muted small">Сверь скрин с поступлением на свой счёт.</div>
             {checks.map((s) => (
               <div key={s.id} className="card vstack">
@@ -166,6 +214,23 @@ export default function Service() {
           await Promise.all([reload(), refresh()]);
         }}
       />
+    </div>
+  );
+}
+
+function ChecksSwitch({ value, onChange, waiting }: { value: 'wait' | 'done'; onChange: (v: 'wait' | 'done') => void; waiting: number }) {
+  return (
+    <div className="chips">
+      {(
+        [
+          ['wait', `Ждут проверки${waiting ? ` · ${waiting}` : ''}`],
+          ['done', 'Принятые'],
+        ] as const
+      ).map(([k, l]) => (
+        <button key={k} className={`chip ${value === k ? 'info' : ''}`} style={{ border: 0, height: 32, padding: '0 14px' }} onClick={() => onChange(k)}>
+          {l}
+        </button>
+      ))}
     </div>
   );
 }

@@ -18,6 +18,10 @@ interface TgWebApp {
   openLink?(url: string): void;
   onEvent?(e: string, cb: () => void): void;
   isVersionAtLeast?(v: string): boolean;
+  /** Bot API 8.0+: отступы под системные элементы и под шапку Telegram (в полноэкранном режиме) */
+  safeAreaInset?: { top: number; bottom: number; left: number; right: number };
+  contentSafeAreaInset?: { top: number; bottom: number; left: number; right: number };
+  isFullscreen?: boolean;
 }
 
 declare global {
@@ -42,3 +46,17 @@ export function openLink(url: string) {
 }
 
 export const startParam = tg?.initDataUnsafe.start_param ?? new URLSearchParams(location.search).get('startapp') ?? '';
+
+/**
+ * Полноэкранный режим Telegram (iPhone): сверху статус-бар и кнопки Telegram поверх приложения.
+ * Пишем общий отступ в --top-inset, чтобы наши кнопки сверху не уезжали под них.
+ */
+export function watchSafeArea() {
+  if (!tg) return;
+  const apply = () => {
+    const top = (tg.safeAreaInset?.top ?? 0) + (tg.contentSafeAreaInset?.top ?? 0);
+    document.documentElement.style.setProperty('--top-inset', `${top}px`);
+  };
+  apply();
+  for (const e of ['safeAreaChanged', 'contentSafeAreaChanged', 'fullscreenChanged', 'viewportChanged']) tg.onEvent?.(e, apply);
+}

@@ -1,12 +1,13 @@
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App';
-import { tg } from '@shared/tg';
+import { tg, watchSafeArea } from '@shared/tg';
 import '@shared/styles.css';
 
 if (tg) {
   tg.ready();
   tg.expand();
+  watchSafeArea();
   document.documentElement.dataset.theme = tg.colorScheme;
   tg.onEvent?.('themeChanged', () => (document.documentElement.dataset.theme = tg!.colorScheme));
   try {

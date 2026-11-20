@@ -105,7 +105,7 @@ export default async function consoleRoutes(app: FastifyInstance) {
           .all(since, now) as { user_id: number; t: number; g: number }[]
       ).map((r) => [r.user_id, r]),
     );
-    return (db.prepare(`SELECT * FROM users ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'active' THEN 1 ELSE 2 END, last_name`).all() as unknown as UserRow[]).map((u) => ({
+    return (db.prepare(`SELECT * FROM users WHERE status != 'guest' ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'active' THEN 1 ELSE 2 END, last_name`).all() as unknown as UserRow[]).map((u) => ({
       ...publicUser(u),
       roles: rolesOf(u),
       status: u.status,

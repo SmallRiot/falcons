@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Ban, Clock, LayoutGrid, MapPin, Pencil, StickyNote, Users } from 'lucide-react';
+import { Ban, Clock, LayoutGrid, MapPin, Pencil, StickyNote, UserPlus, Users, X } from 'lucide-react';
+import { GuestAdd } from '@shared/GuestAdd';
 import { api, type EventDetail as ED, type PublicUser, type Team } from '@shared/api';
 import { fmt, POS_SHORT } from '@shared/format';
-import { ask, Avatar, Empty, Jersey, Segmented, Spinner, SquadChip, useAction, useApi, useMe } from '@shared/ui';
+import { ask, Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 import { SignupButtons, typeLabel } from './EventCard';
 import Lines, { ORD, TEAM_GEN } from './Lines';
 
@@ -15,6 +16,7 @@ export default function EventDetail() {
   const [tab, setTab] = useState<'roster' | 'lines'>('roster');
   const [teamView, setTeamView] = useState<Team | null>(null);
   const { busy, run } = useAction();
+  const [guestOpen, setGuestOpen] = useState(false);
 
   const players = useMemo(() => new Map<number, PublicUser>((ev?.players ?? []).map((p) => [p.id, p])), [ev]);
   if (loading || !ev) return <Spinner />;
@@ -100,6 +102,11 @@ export default function EventDetail() {
 
       {tab === 'roster' ? (
         <>
+          {ev.canEdit && !ev.cancelled && !isPast && (
+            <button className="btn secondary block" onClick={() => setGuestOpen(true)}>
+              <UserPlus size={18} /> Записать гостя
+            </button>
+          )}
           {ev.players.length ? (
             <div className="list">
               {ev.players.map((p, i) => (
@@ -112,8 +119,26 @@ export default function EventDetail() {
                     <div className="title">{p.name}</div>
                     <div className="meta">{p.position ? POS_SHORT[p.position] : 'позиция не указана'}</div>
                   </div>
+                  {p.guest && <span className="chip info">гость</span>}
                   {p.reserve && <span className="chip warn">резерв</span>}
-                  <Jersey n={p.number} />
+                  {p.guest && ev.canEdit ? (
+                    <button
+                      className="icon-btn"
+                      aria-label="Убрать гостя"
+                      disabled={busy}
+                      onClick={async () =>
+                        (await ask(`Убрать гостя ${p.name} с события?`, { okText: 'Убрать', danger: true })) &&
+                        run(async () => {
+                          await api.del(`/api/events/${ev.id}/guests/${p.id}`);
+                          await reload();
+                        }, 'Гость убран')
+                      }
+                    >
+                      <X size={16} />
+                    </button>
+                  ) : (
+                    <Jersey n={p.number} />
+                  )}
                 </div>
               ))}
             </div>
@@ -183,6 +208,11 @@ export default function EventDetail() {
         >
           Отменить событие
         </button>
+      )}
+      {ev.canEdit && (
+        <Sheet open={guestOpen} onClose={() => setGuestOpen(false)} title="Гость на событие">
+          {guestOpen && <GuestAdd eventId={ev.id} already={ev.players.map((p) => p.id)} onAdded={reload} />}
+        </Sheet>
       )}
     </div>
   );

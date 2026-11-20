@@ -23,7 +23,7 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   app.get('/api/admin/users', admin, async () => {
     const users = db
-      .prepare(`SELECT * FROM users ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'active' THEN 1 ELSE 2 END, first_name`)
+      .prepare(`SELECT * FROM users WHERE status != 'guest' ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'active' THEN 1 ELSE 2 END, first_name`)
       .all() as unknown as UserRow[];
     return users.map((u) => {
       const debts = debtsOf(u.id);

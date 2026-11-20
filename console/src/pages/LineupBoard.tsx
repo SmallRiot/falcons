@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eraser, Image, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, Eraser, Image, Send, Sparkles, UserPlus } from 'lucide-react';
+import { GuestAdd } from '@shared/GuestAdd';
 import { api, fetchBlobUrl, type EventDetail, type LineupItem, type PublicUser, type Team } from '@shared/api';
 import { fmt, POS_SHORT } from '@shared/format';
 import { autoFill, autoFillSplit, DEF, FWD, GOALIES, LINE_COLORS, SLOT_LABEL } from '@shared/lineup';
@@ -15,7 +16,10 @@ const posOf = (slot: string) => (slot.startsWith('G') ? 'G' : slot.endsWith('D')
 export default function LineupBoard() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { data: ev, loading } = useApi<EventDetail>(`/api/events/${id}`, [id]);
+  const { data: ev, loading, setData } = useApi<EventDetail>(`/api/events/${id}`, [id]);
+  const [guestOpen, setGuestOpen] = useState(false);
+  // расстановку берём из базы один раз на событие — добавление гостя не сбрасывает несохранённое
+  const inited = useRef<number | null>(null);
   const [lineup, setLineup] = useState<LineupItem[]>([]);
   const [split, setSplit] = useState(true);
   const [lines, setLines] = useState<'3' | '4'>('3');
@@ -26,7 +30,8 @@ export default function LineupBoard() {
   const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!ev) return;
+    if (!ev || inited.current === ev.id) return;
+    inited.current = ev.id;
     const going = new Set(ev.players.map((p) => p.id));
     setLineup(ev.lineup.filter((i) => going.has(i.user_id)));
     setSplit(ev.lineup.length ? ev.lineup.some((l) => l.team !== '') : ev.type === 'training');
@@ -200,7 +205,12 @@ export default function LineupBoard() {
             Без места · {ev.players.length - placed.size}
             <span className="muted small" style={{ fontWeight: 500 }}>из {ev.players.length}</span>
           </h3>
-          <input className="input" style={{ height: 38, marginBottom: 10 }} placeholder="Поиск" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="hstack" style={{ gap: 6, marginBottom: 10 }}>
+            <input className="input" style={{ height: 38 }} placeholder="Поиск" value={q} onChange={(e) => setQ(e.target.value)} />
+            <button className="btn secondary sm" title="Записать гостя без Telegram" onClick={() => setGuestOpen(true)}>
+              <UserPlus size={16} /> Гость
+            </button>
+          </div>
           <div
             className={`pool-list ${over === 'pool' ? 'over' : ''}`}
             onDragOver={(e) => {
@@ -220,6 +230,7 @@ export default function LineupBoard() {
               >
                 <span className="jersey">{p.number ?? '–'}</span>
                 {p.name}
+                {p.guest && <span className="chip info" style={{ height: 20, fontSize: 11 }}>гость</span>}
                 <span className="pos">{p.position ? POS_SHORT[p.position] : ''}</span>
               </div>
             ))}
@@ -276,6 +287,18 @@ export default function LineupBoard() {
         >
           <Send size={16} /> Опубликовать
         </button>
+      </Drawer>
+      <Drawer open={guestOpen} onClose={() => setGuestOpen(false)} title="Гость на событие">
+        {guestOpen && (
+          <GuestAdd
+            eventId={ev.id}
+            already={ev.players.map((p) => p.id)}
+            onAdded={async () => {
+              const fresh = await api.get<EventDetail>(`/api/events/${ev.id}`);
+              setData((d) => (d ? { ...d, players: fresh.players, notGoing: fresh.notGoing, going: fresh.going } : d));
+            }}
+          />
+        )}
       </Drawer>
     </div>
   );

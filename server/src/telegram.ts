@@ -186,7 +186,12 @@ const LINK_LABEL: Record<string, string> = {
 const linkButton = (link: string): Button => ({ text: LINK_LABEL[link] ?? '🦅 Открыть', url: appLink(link) });
 
 /** Личное сообщение: в Telegram + в ленту уведомлений приложения. */
+/** Гости (записаны админом, без Telegram) — им бот не пишет. */
+const isGuest = (userId: number) =>
+  (db.prepare('SELECT status FROM users WHERE id = ?').get(userId) as { status: string } | undefined)?.status === 'guest';
+
 export function dm(userId: number, text: string, link?: string, buttons?: Button[][]) {
+  if (isGuest(userId)) return Promise.resolve(null);
   db.prepare('INSERT INTO notifications(user_id, text, link) VALUES(?,?,?)').run(userId, stripHtml(text), link ?? null);
   const kb = buttons ?? (link ? [[linkButton(link)]] : undefined);
   return sendMessage(userId, text, kb);
@@ -194,6 +199,7 @@ export function dm(userId: number, text: string, link?: string, buttons?: Button
 
 /** Личное rich-сообщение (таблицы) + запись в ленту приложения. */
 export function dmRich(userId: number, blocks: Block[], link?: string, buttons?: Button[][]) {
+  if (isGuest(userId)) return Promise.resolve(null);
   db.prepare('INSERT INTO notifications(user_id, text, link) VALUES(?,?,?)').run(userId, toPlain(blocks), link ?? null);
   return sendRich(userId, blocks, buttons ?? (link ? [[linkButton(link)]] : undefined));
 }
@@ -327,7 +333,7 @@ export function lineupCaption(e: EventRow, item: { team: string; line: number })
 export async function notifyLineupPersonal(e: EventRow, items: { user_id: number; team: string; line: number }[]) {
   const TEST_CAP = 3; // в тестовом режиме всё летит одному человеку — не заваливаем картинками
   let skipped = 0;
-  items.forEach((i, idx) => {
+  items.filter((i) => !isGuest(i.user_id)).forEach((i, idx) => {
     const caption = lineupCaption(e, i);
     db.prepare('INSERT INTO notifications(user_id, text, link) VALUES(?,?,?)').run(i.user_id, stripHtml(caption), `e${e.id}`);
     if (config.testChatId && idx >= TEST_CAP) return void skipped++;

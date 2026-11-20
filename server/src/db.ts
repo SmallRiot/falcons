@@ -198,7 +198,7 @@ export interface UserRow {
   position: string | null;
   birth_date: string | null;
   roles: string;
-  status: 'pending' | 'active' | 'rejected';
+  status: 'pending' | 'active' | 'rejected' | 'guest';
   signup_blocked: number;
   created_at: string;
 }
@@ -219,6 +219,8 @@ export function publicUser(u: UserRow) {
     number: u.number,
     position: u.position,
     birth_date: u.birth_date ?? null,
+    /** гость без Telegram, записанный админом/тренером на событие */
+    guest: u.status === 'guest',
   };
 }
 

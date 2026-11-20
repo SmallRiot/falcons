@@ -189,6 +189,68 @@ export default async function eventRoutes(app: FastifyInstance) {
   );
 
   /** Картинка пятёрок (как уйдёт в чат) — для предпросмотра в консоли. */
+  /* ---------- гости: админ/тренер записывает человека без Telegram ---------- */
+
+  /** Недавние гости — чтобы второй раз выбрать из списка, а не вбивать заново. */
+  app.get('/api/guests', { preHandler: requireRole('coach', 'admin') }, async () =>
+    (db.prepare(`SELECT * FROM users WHERE status = 'guest' ORDER BY created_at DESC LIMIT 30`).all() as unknown as UserRow[]).map(publicUser),
+  );
+
+  app.post<{ Params: { id: string }; Body: { name?: string; guest_id?: number; position?: string } }>(
+    '/api/events/:id/guests',
+    { preHandler: requireRole('coach', 'admin') },
+    async (req, reply) => {
+      const e = db.prepare('SELECT * FROM events WHERE id = ?').get(Number(req.params.id)) as EventRow | undefined;
+      if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
+      if (e.cancelled) return reply.code(400).send({ error: 'Событие отменено' });
+      const b = req.body ?? {};
+      let gid: number;
+      if (b.guest_id) {
+        const g = db.prepare(`SELECT id FROM users WHERE id = ? AND status = 'guest'`).get(Number(b.guest_id)) as { id: number } | undefined;
+        if (!g) return reply.code(404).send({ error: 'Гость не найден' });
+        gid = g.id;
+      } else {
+        const name = (b.name ?? '').trim().replace(/\s+/g, ' ');
+        if (name.length < 2) return reply.code(400).send({ error: 'Впиши имя гостя' });
+        const [first, ...rest] = name.split(' ');
+        const last = rest.join(' ') || null;
+        const pos = b.position && ['F', 'D', 'G'].includes(b.position) ? b.position : null;
+        const same = db
+          .prepare(`SELECT id FROM users WHERE status = 'guest' AND lower(first_name) = lower(?) AND COALESCE(lower(last_name), '') = COALESCE(lower(?), '')`)
+          .get(first, last) as { id: number } | undefined;
+        if (same) gid = same.id;
+        else {
+          // у гостей отрицательные id — с telegram id не пересекаются
+          const min = (db.prepare('SELECT MIN(id) m FROM users').get() as { m: number | null }).m ?? 0;
+          gid = Math.min(-1, min - 1);
+          db.prepare(`INSERT INTO users(id, first_name, last_name, position, status) VALUES(?,?,?,?, 'guest')`).run(gid, first, last, pos);
+        }
+      }
+      db.prepare(
+        `INSERT INTO signups(event_id, user_id, status, created_at) VALUES(?,?, 'in', ?)
+         ON CONFLICT(event_id,user_id) DO UPDATE SET status='in'`,
+      ).run(e.id, gid, nowIso());
+      refreshEventPost(e.id);
+      return { ok: true, id: gid };
+    },
+  );
+
+  app.delete<{ Params: { id: string; uid: string } }>(
+    '/api/events/:id/guests/:uid',
+    { preHandler: requireRole('coach', 'admin') },
+    async (req) => {
+      const eid = Number(req.params.id);
+      const uid = Number(req.params.uid);
+      const g = db.prepare(`SELECT 1 FROM users WHERE id = ? AND status = 'guest'`).get(uid);
+      if (g) {
+        db.prepare('DELETE FROM signups WHERE event_id = ? AND user_id = ?').run(eid, uid);
+        db.prepare('DELETE FROM lineups WHERE event_id = ? AND user_id = ?').run(eid, uid);
+        refreshEventPost(eid);
+      }
+      return { ok: true };
+    },
+  );
+
   app.get<{ Params: { id: string } }>('/api/events/:id/lineup.png', { preHandler: requireRole('coach', 'admin') }, async (req, reply) => {
     const e = db.prepare('SELECT * FROM events WHERE id = ?').get(Number(req.params.id)) as EventRow | undefined;
     if (!e) return reply.code(404).send({ error: 'Событие не найдено' });

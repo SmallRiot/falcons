@@ -100,6 +100,8 @@ export interface PublicUser {
   number: number | null;
   position: 'F' | 'D' | 'G' | null;
   birth_date?: string | null;
+  /** гость без Telegram, записан админом/тренером */
+  guest?: boolean;
 }
 
 export interface Squad {

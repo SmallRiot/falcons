@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { api, type PublicUser, type Role } from '@shared/api';
 import { birthday, fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
-import { can, Spinner, useAction, useApi, useMe } from '@shared/ui';
+import { Avatar, can, Spinner, useAction, useApi, useMe } from '@shared/ui';
+import { PlayerEdit } from '@shared/PlayerEdit';
+import { Pencil } from 'lucide-react';
+import Drawer from '../Drawer';
 
 type Row = PublicUser & {
   roles: Role[];
@@ -20,6 +23,7 @@ export default function ConsolePlayers() {
   const [squad, setSquad] = useState(0);
   const [status, setStatus] = useState<'active' | 'pending' | 'rejected'>('active');
   const { run } = useAction();
+  const [editId, setEditId] = useState<number | null>(null);
   const admin = can(me, 'admin');
   if (!data) return <Spinner />;
   const squads = me.squads ?? [];
@@ -86,8 +90,14 @@ export default function ConsolePlayers() {
                 <td className="sticky-col">
                   <div className="player">
                     <span className="no">{u.number ?? ''}</span>
+                    <Avatar user={u} size="sm" />
                     {u.name}
                     {u.username && <span className="muted" style={{ fontWeight: 400 }}>@{u.username}</span>}
+                    {admin && (
+                      <button className="icon-btn xs" title="Изменить профиль и фото" onClick={() => setEditId(u.id)}>
+                        <Pencil size={14} />
+                      </button>
+                    )}
                   </div>
                 </td>
                 <td className="muted">{u.position ? POS_SHORT[u.position] : '—'}</td>
@@ -163,6 +173,11 @@ export default function ConsolePlayers() {
           </tbody>
         </table>
       </div>
+      <Drawer open={editId != null} onClose={() => setEditId(null)} title={data.find((u) => u.id === editId)?.name ?? 'Игрок'}>
+        {editId != null && data.find((u) => u.id === editId) && (
+          <PlayerEdit user={data.find((u) => u.id === editId)!} onSaved={() => Promise.all([reload(), refresh()])} />
+        )}
+      </Drawer>
     </div>
   );
 }

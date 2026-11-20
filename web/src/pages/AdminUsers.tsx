@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { PlayerEdit } from '@shared/PlayerEdit';
 import { Search, Users } from 'lucide-react';
 import { api, type PublicUser, type Role } from '@shared/api';
-import { fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
+import { birthday, fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
 import { Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
 
 type AdminUser = PublicUser & { squads: number[]; roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; debt: number; created_at: string };
@@ -13,6 +14,11 @@ export default function AdminUsers() {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<AdminUser | null>(null);
   const { busy, run } = useAction();
+  const [editOpen, setEditOpen] = useState(false);
+  // после правки/фото подтягиваем свежие данные в открытую карточку
+  useEffect(() => {
+    setOpen((o) => (o ? (data ?? []).find((u) => u.id === o.id) ?? o : o));
+  }, [data]);
 
   const all = data ?? [];
   const pending = all.filter((u) => u.status === 'pending').length;
@@ -90,7 +96,14 @@ export default function AdminUsers() {
         </div>
       )}
 
-      <Sheet open={!!open} onClose={() => setOpen(null)} title={open?.name}>
+      <Sheet
+        open={!!open}
+        onClose={() => {
+          setOpen(null);
+          setEditOpen(false);
+        }}
+        title={open?.name}
+      >
         {open && (
           <>
             <div className="hstack">
@@ -99,10 +112,19 @@ export default function AdminUsers() {
                 <div className="muted small">{open.username ? `@${open.username}` : `Telegram id ${open.id}`}</div>
                 <div className="small">
                   {open.number != null ? `#${open.number}` : 'без номера'} · {open.position ? POS_SHORT[open.position] : '—'}
+                  {open.birth_date ? ` · 🎂 ${birthday(open.birth_date)}` : ''}
                 </div>
                 {open.debt > 0 && <span className="chip bad">Долг {fmt.gel(open.debt)}</span>}
               </div>
             </div>
+            <button className="btn secondary block" onClick={() => setEditOpen((x) => !x)}>
+              {editOpen ? 'Скрыть' : 'Изменить профиль и фото'}
+            </button>
+            {editOpen && (
+              <div className="card">
+                <PlayerEdit user={open} onSaved={() => Promise.all([reload(), refresh()])} />
+              </div>
+            )}
 
             {open.status !== 'active' ? (
               <div className="btn-row">

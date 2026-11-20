@@ -6,6 +6,7 @@ import { uploadsDir } from '../config.ts';
 import { db, hasRole, publicUser, rolesOf, type Role, type UserRow } from '../db.ts';
 import { debtsOf } from '../finance.ts';
 import { notifyAccessGranted, notifySignupBlocked } from '../telegram.ts';
+import { removeAvatar, saveAvatar, updateProfile, type ProfileBody } from '../profile.ts';
 import { allSquads, setUserSquads, squadIdsOf, type Squad } from '../squads.ts';
 
 const ROLES: Role[] = ['admin', 'coach', 'service'];
@@ -38,7 +39,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     });
   });
 
-  app.patch<{ Params: { id: string }; Body: { status?: UserRow['status']; roles?: Role[]; signup_blocked?: boolean; squads?: number[] } }>(
+  app.patch<{ Params: { id: string }; Body: ProfileBody & { status?: UserRow['status']; roles?: Role[]; signup_blocked?: boolean; squads?: number[] } }>(
     '/api/admin/users/:id',
     admin,
     async (req, reply) => {
@@ -48,6 +49,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       const b = req.body ?? {};
       if (id === req.user.id && (b.status && b.status !== 'active' || (b.roles && !b.roles.includes('admin'))))
         return reply.code(400).send({ error: 'Нельзя снять админку или доступ с самого себя' });
+      const perr = updateProfile(u, b);
+      if (perr) return reply.code(400).send({ error: perr });
       const status = b.status && ['pending', 'active', 'rejected'].includes(b.status) ? b.status : u.status;
       const roles = b.roles ? b.roles.filter((r) => ROLES.includes(r)).join(',') : u.roles;
       const blocked = b.signup_blocked !== undefined ? (b.signup_blocked ? 1 : 0) : u.signup_blocked;
@@ -59,6 +62,16 @@ export default async function adminRoutes(app: FastifyInstance) {
       return { ok: true };
     },
   );
+
+  app.post<{ Params: { id: string } }>('/api/admin/users/:id/photo', admin, async (req, reply) => {
+    const id = Number(req.params.id);
+    if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id)) return reply.code(404).send({ error: 'Пользователь не найден' });
+    return { photo_url: await saveAvatar(req, id) };
+  });
+  app.delete<{ Params: { id: string } }>('/api/admin/users/:id/photo', admin, async (req) => {
+    removeAvatar(Number(req.params.id));
+    return { ok: true };
+  });
 
   /** Отдаём скрины только админу, владельцу и (для заточки) сервис-менеджеру. */
   app.get<{ Params: { name: string } }>('/api/files/:name', { preHandler: requireActive }, async (req, reply) => {

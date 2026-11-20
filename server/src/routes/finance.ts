@@ -12,6 +12,7 @@ import {
   notifyPollOpened,
 } from '../telegram.ts';
 import { readUpload } from '../uploads.ts';
+import { squadIdsOf } from '../squads.ts';
 import { markSent, runReminders } from '../reminders.ts';
 
 const PLANS: Plan[] = ['full', 'partial', 'donation'];
@@ -90,8 +91,8 @@ export default async function financeRoutes(app: FastifyInstance) {
     return periods.map((p) => {
       const agg = db
         .prepare(
-          `SELECT status, COUNT(*) c FROM dues d JOIN users u ON u.id=d.user_id
-           WHERE period_id = ? AND u.status='active' GROUP BY status`,
+          `SELECT d.status, COUNT(*) c FROM dues d JOIN users u ON u.id=d.user_id
+           WHERE d.period_id = ? AND u.status='active' GROUP BY d.status`,
         )
         .all(p.id) as { status: string; c: number }[];
       const by = Object.fromEntries(agg.map((a) => [a.status, a.c]));
@@ -184,7 +185,7 @@ export default async function financeRoutes(app: FastifyInstance) {
       period: { ...p, locked: !!p.locked },
       rates,
       dues: rows.map((r) => ({
-        user: { ...publicUser({ ...r, id: r.uid }), signup_blocked: !!r.signup_blocked },
+        user: { ...publicUser({ ...r, id: r.uid }), signup_blocked: !!r.signup_blocked, squads: squadIdsOf(r.uid) },
         plan: r.plan,
         custom_amount: r.custom_amount,
         amount: amountFor(p, r, rates),

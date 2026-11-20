@@ -17,6 +17,7 @@ const list = (v?: string) =>
 
 export const config = {
   port: Number(process.env.PORT ?? 8787),
+  consolePort: Number(process.env.CONSOLE_PORT ?? 8788),
   dataDir: path.resolve(import.meta.dirname, '../..', process.env.DATA_DIR ?? './data'),
   devAuth: process.env.DEV_AUTH === '1',
   botToken: process.env.BOT_TOKEN ?? '',

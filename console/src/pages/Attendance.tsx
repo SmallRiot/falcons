@@ -127,7 +127,7 @@ export function GameAttendance() {
   const countFor = (e: Ev) => players.filter((p) => m.present(e, p.id)).length;
 
   return (
-    <div className="page wide">
+    <div className="cpage">
       <div className="c-head">
         <div>
           <h1>Посещаемость игр</h1>
@@ -222,7 +222,7 @@ export function TrainingStats() {
     .sort((a, b) => (sort === 'most' ? total(b.id) - total(a.id) : 0) || `${a.last_name}${a.first_name}`.localeCompare(`${b.last_name}${b.first_name}`));
 
   return (
-    <div className="page wide">
+    <div className="cpage">
       <div className="c-head">
         <div>
           <h1>Стата тренировок</h1>

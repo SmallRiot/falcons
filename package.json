@@ -1,12 +1,16 @@
 {
   "name": "falcons",
   "private": true,
-  "workspaces": ["server", "web"],
+  "workspaces": [
+    "server",
+    "web",
+    "console"
+  ],
   "scripts": {
-    "dev": "npm run dev -w server & npm run dev -w web & wait",
-    "build": "npm run build -w web",
+    "dev": "npm run dev -w server & npm run dev -w web & npm run dev -w console & wait",
+    "build": "npm run build -w web && npm run build -w console",
     "start": "npm run start -w server",
     "seed": "npm run seed -w server --",
-    "typecheck": "npm run typecheck -w server && npm run typecheck -w web"
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web && npm run typecheck -w console"
   }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Ban, BellRing, ClipboardList, Eye, Lock, Play, Unlock } from 'lucide-react';
+import { Ban, BellRing, ClipboardList, Eye, Lock, Play, Plus, Settings2, Unlock } from 'lucide-react';
+import Drawer from '../Drawer';
 import { api, type DueStatus, type Period, type Plan, type PublicUser, type Rates } from '@shared/api';
 import { DUE_STATUS, fmt, PLAN_LABEL } from '@shared/format';
 import { copyText, ProofImage, Sheet, Spinner, SquadChip, toast, useAction, useApi, useMe } from '@shared/ui';
@@ -30,13 +31,15 @@ export default function ConsoleFinance() {
   const [squad, setSquad] = useState(0);
   const [proof, setProof] = useState<DueItem | null>(null);
   const [debtors, setDebtors] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { busy, run } = useAction();
   const reloadAll = () => Promise.all([periods.reload(), detail.reload(), refresh()]);
 
   if (periods.loading) return <Spinner />;
   if (periods.error)
     return (
-      <div className="page wide">
+      <div className="cpage">
         <div className="alert bad">
           <div className="body">Не удалось загрузить финансы: {periods.error}</div>
         </div>
@@ -44,13 +47,17 @@ export default function ConsoleFinance() {
     );
   if (!periods.data?.length)
     return (
-      <div className="page wide">
+      <div className="cpage">
         <div className="c-head">
           <h1>Финансы</h1>
         </div>
-        <div className="c-card" style={{ padding: 32 }}>
-          Сборов ещё не было — создай месяц в мобильной админке «Взносы».
+        <div className="c-card pad">
+          <p>Сборов ещё не было.</p>
+          <button className="btn" onClick={() => setCreateOpen(true)}>
+            <Plus size={18} /> Новый месяц
+          </button>
         </div>
+        <CreatePeriod open={createOpen} onClose={() => setCreateOpen(false)} onCreated={async (id) => { await periods.reload(); setPid(id); }} />
       </div>
     );
 
@@ -89,7 +96,7 @@ export default function ConsoleFinance() {
       : '';
 
   return (
-    <div className="page wide">
+    <div className="cpage">
       <div className="c-head">
         <div>
           <div className="small" style={{ color: 'var(--falcon)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -101,6 +108,9 @@ export default function ConsoleFinance() {
           </div>
         </div>
         <div className="hstack wrap">
+          <button className="btn ghost sm" onClick={() => setCreateOpen(true)}>
+            <Plus size={16} /> Новый месяц
+          </button>
           <button className="btn sm" style={{ background: '#0d1f2d' }} disabled={!d?.period.locked} onClick={() => setDebtors(debtorsText())}>
             <ClipboardList size={16} /> Список должников
           </button>
@@ -178,6 +188,9 @@ export default function ConsoleFinance() {
               </button>
             </>
           )}
+          <button className="icon-btn" title="Бюджет и проценты" onClick={() => setSettingsOpen(true)}>
+            <Settings2 size={17} />
+          </button>
           <span className="muted small" style={{ marginLeft: 'auto' }}>
             Бюджет {fmt.gel(d.period.budget)} · полный {fmt.gel(d.rates.full)} × {d.rates.nFull} · частичный {fmt.gel(d.rates.partial)} × {d.rates.nPartial} · донат{' '}
             {fmt.gel(d.rates.donation)} × {d.rates.nDonation}
@@ -308,6 +321,8 @@ export default function ConsoleFinance() {
         </div>
       )}
 
+      <CreatePeriod open={createOpen} onClose={() => setCreateOpen(false)} onCreated={async (id) => { await periods.reload(); setPid(id); }} />
+      {d && <PeriodSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} period={d.period} onSaved={reloadAll} />}
       <ProofSheet item={proof} onClose={() => setProof(null)} busy={busy} onPatch={patchDue} />
       <Sheet open={!!debtors} onClose={() => setDebtors(null)} title="Список должников">
         <pre className="card" style={{ whiteSpace: 'pre-wrap', margin: 0, font: 'inherit' }}>{debtors}</pre>
@@ -368,5 +383,94 @@ function ProofSheet({ item, onClose, busy, onPatch }: { item: DueItem | null; on
         </>
       )}
     </Sheet>
+  );
+}
+
+function CreatePeriod({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: number) => Promise<void> }) {
+  const next = new Date();
+  next.setMonth(next.getMonth() + 1);
+  const [f, setF] = useState({ month: next.toISOString().slice(0, 7), budget: '6000', partial: '70', donation: '100', notify: true });
+  const { busy, run } = useAction();
+  return (
+    <Drawer open={open} onClose={onClose} title="Новый месяц">
+      <div className="muted small">
+        Сначала опрос: игроки выбирают вариант (в приложении или кнопками в чате), сумм не видят. Когда все выберут — «Начать сбор», и бот разошлёт каждому его сумму. Выбор из прошлого месяца переносится.
+      </div>
+      <div className="form-row">
+        <label className="field">
+          <span>Месяц</span>
+          <input className="input" type="month" value={f.month} onChange={(e) => setF({ ...f, month: e.target.value })} />
+        </label>
+        <label className="field">
+          <span>Бюджет, ₾</span>
+          <input className="input" inputMode="numeric" value={f.budget} onChange={(e) => setF({ ...f, budget: e.target.value })} />
+        </label>
+      </div>
+      <div className="form-row">
+        <label className="field">
+          <span>Частичный, % от полного</span>
+          <input className="input" inputMode="numeric" value={f.partial} onChange={(e) => setF({ ...f, partial: e.target.value })} />
+        </label>
+        <label className="field">
+          <span>Донат, ₾</span>
+          <input className="input" inputMode="numeric" value={f.donation} onChange={(e) => setF({ ...f, donation: e.target.value })} />
+        </label>
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={f.notify} onChange={(e) => setF({ ...f, notify: e.target.checked })} />
+        Опрос в командный чат с кнопками
+      </label>
+      <button
+        className="btn block"
+        disabled={busy}
+        onClick={() =>
+          run(async () => {
+            const p = await api.post<Period>('/api/admin/periods', { month: f.month, budget: Number(f.budget), partial_ratio: Number(f.partial) / 100, donation_amount: Number(f.donation), notify: f.notify });
+            await onCreated(p.id);
+            onClose();
+          }, 'Опрос запущен')
+        }
+      >
+        Запустить опрос
+      </button>
+    </Drawer>
+  );
+}
+
+function PeriodSettings({ open, onClose, period, onSaved }: { open: boolean; onClose: () => void; period: Period; onSaved: () => Promise<unknown> }) {
+  const [f, setF] = useState({ budget: '', partial: '', donation: '' });
+  const { busy, run } = useAction();
+  useEffect(() => setF({ budget: String(period.budget), partial: String(Math.round(period.partial_ratio * 100)), donation: String(period.donation_amount) }), [period, open]);
+  return (
+    <Drawer open={open} onClose={onClose} title={`Настройки · ${fmt.month(period.month)}`}>
+      <label className="field">
+        <span>Бюджет, ₾</span>
+        <input className="input" inputMode="numeric" value={f.budget} onChange={(e) => setF({ ...f, budget: e.target.value })} />
+      </label>
+      <div className="form-row">
+        <label className="field">
+          <span>Частичный, %</span>
+          <input className="input" inputMode="numeric" value={f.partial} onChange={(e) => setF({ ...f, partial: e.target.value })} />
+        </label>
+        <label className="field">
+          <span>Донат, ₾</span>
+          <input className="input" inputMode="numeric" value={f.donation} onChange={(e) => setF({ ...f, donation: e.target.value })} />
+        </label>
+      </div>
+      {period.locked && <div className="muted small">Сбор уже идёт: новые суммы применятся после «Вернуть в опрос» и повторного «Начать сбор».</div>}
+      <button
+        className="btn block"
+        disabled={busy}
+        onClick={() =>
+          run(async () => {
+            await api.patch(`/api/admin/periods/${period.id}`, { budget: Number(f.budget), partial_ratio: Number(f.partial) / 100, donation_amount: Number(f.donation) });
+            await onSaved();
+            onClose();
+          }, 'Сохранено')
+        }
+      >
+        Сохранить
+      </button>
+    </Drawer>
   );
 }

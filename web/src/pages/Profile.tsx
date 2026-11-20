@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarCheck, ChevronRight, Coins, Flame, Landmark, Receipt, Scissors, Shield, Trophy, Users } from 'lucide-react';
-import { api, setDevUser, setSession } from '@shared/api';
+import { api, setDevUser } from '@shared/api';
 import { inTelegram } from '@shared/tg';
 import { fmt, plural, POS_LABEL, ROLE_LABEL } from '@shared/format';
 import { Avatar, can, Segmented, Sheet, SquadChip, useAction, useApi, useMe } from '@shared/ui';
@@ -119,12 +119,11 @@ export default function Profile() {
         <button
           className="btn ghost block"
           onClick={() => {
-            setSession(null);
             setDevUser(null);
             location.href = '/';
           }}
         >
-          Выйти
+          Сменить тестового пользователя
         </button>
       )}
 

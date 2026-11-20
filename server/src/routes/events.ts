@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { requireActive, requireRole } from '../auth.ts';
 import { db, hasRole, nowIso, publicUser, type UserRow } from '../db.ts';
-import { notifyEventCreated, notifyLineupPersonal, notifyLineupPublished, refreshEventPost } from '../telegram.ts';
+import { notifyEventCreated, notifyLineupPersonal, notifyLineupPublished, refreshEventPost, renderFor } from '../telegram.ts';
 import { setSignup, type EventRow } from '../signup.ts';
 import { canSeeEvent, eventSquadIds, setEventSquads, squadsMap, VISIBLE_SQL } from '../squads.ts';
 
@@ -168,6 +168,14 @@ export default async function eventRoutes(app: FastifyInstance) {
       return summarize(db.prepare('SELECT * FROM events WHERE id = ?').get(id) as unknown as EventRow, req.user.id);
     },
   );
+
+  /** Картинка пятёрок (как уйдёт в чат) — для предпросмотра в консоли. */
+  app.get<{ Params: { id: string } }>('/api/events/:id/lineup.png', { preHandler: requireRole('coach', 'admin') }, async (req, reply) => {
+    const e = db.prepare('SELECT * FROM events WHERE id = ?').get(Number(req.params.id)) as EventRow | undefined;
+    if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
+    reply.header('content-type', 'image/png').header('cache-control', 'no-store');
+    return reply.send(renderFor(e));
+  });
 
   app.put<{
     Params: { id: string };

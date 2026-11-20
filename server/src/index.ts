@@ -16,41 +16,51 @@ import devRoutes from './routes/dev.ts';
 import authRoutes from './routes/auth.ts';
 import consoleRoutes from './routes/console.ts';
 
-const app = Fastify({ logger: { level: 'warn' } });
-
-await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
-
-if (config.devAuth) {
-  console.warn('⚠️  DEV_AUTH=1 — вход без Telegram включён. Не используйте в проде.');
-  await app.register(devRoutes);
+/**
+ * Два фронта — два порта, одно API и одна база:
+ *  PORT          — мини-приложение для игроков (web/dist) + API
+ *  CONSOLE_PORT  — веб-консоль для админов и тренера (console/dist) + то же API
+ * В разработке фронты крутит Vite (5180 и 5181), а сюда проксирует /api.
+ */
+async function buildServer(staticDir: string | null) {
+  const app = Fastify({ logger: { level: 'warn' } });
+  await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
+  if (config.devAuth) await app.register(devRoutes);
+  await app.register(authRoutes);
+  await app.register(async (api) => {
+    api.addHook('preHandler', authenticate);
+    await api.register(meRoutes);
+    await api.register(eventRoutes);
+    await api.register(financeRoutes);
+    await api.register(sharpeningRoutes);
+    await api.register(adminRoutes);
+    await api.register(consoleRoutes);
+  });
+  app.get('/healthz', async () => ({ ok: true }));
+  if (staticDir && existsSync(staticDir)) {
+    await app.register(fastifyStatic, { root: staticDir });
+    app.setNotFoundHandler((req, reply) =>
+      req.url.startsWith('/api/') ? reply.code(404).send({ error: 'Not found' }) : reply.sendFile('index.html'),
+    );
+  }
+  return app;
 }
 
-await app.register(authRoutes);
-
-await app.register(async (api) => {
-  api.addHook('preHandler', authenticate);
-  await api.register(meRoutes);
-  await api.register(eventRoutes);
-  await api.register(financeRoutes);
-  await api.register(sharpeningRoutes);
-  await api.register(adminRoutes);
-  await api.register(consoleRoutes);
-});
-
-app.get('/healthz', async () => ({ ok: true }));
-
-// в проде отдаём собранный фронт
-const webDist = path.resolve(import.meta.dirname, '../../web/dist');
-if (existsSync(webDist)) {
-  await app.register(fastifyStatic, { root: webDist });
-  app.setNotFoundHandler((req, reply) =>
-    req.url.startsWith('/api/') ? reply.code(404).send({ error: 'Not found' }) : reply.sendFile('index.html'),
-  );
-}
-
+if (config.devAuth) console.warn('⚠️  DEV_AUTH=1 — вход без Telegram включён. Не используйте в проде.');
 await resolveBotUsername();
 if (config.testChatId) console.warn(`🧪 TEST_CHAT_ID задан — все сообщения бота уходят на ${config.testChatId}`);
-await app.listen({ port: config.port, host: '0.0.0.0' });
-console.log(`🦅 Falcons API на http://localhost:${config.port}`);
+
+const root = path.resolve(import.meta.dirname, '../..');
+const mini = await buildServer(path.join(root, 'web/dist'));
+await mini.listen({ port: config.port, host: '0.0.0.0' });
+console.log(`🦅 Мини-приложение + API: http://localhost:${config.port}`);
+
+const consoleDist = path.join(root, 'console/dist');
+if (existsSync(consoleDist)) {
+  const cons = await buildServer(consoleDist);
+  await cons.listen({ port: config.consolePort, host: '0.0.0.0' });
+  console.log(`🖥  Консоль + API: http://localhost:${config.consolePort}`);
+}
+
 void startPolling();
 startReminders();

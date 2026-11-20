@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Home as HomeIcon, Scissors, User, Wallet, AlertTriangle, FlaskConical } from 'lucide-react';
-import { api, ApiError, getDevUser, getSession, setSession, type Me } from '@shared/api';
+import { api, ApiError, getDevUser, type Me } from '@shared/api';
 import { inTelegram, startParam, tg } from '@shared/tg';
 import { MeCtx, Sheet, Spinner, Toaster } from '@shared/ui';
 import { fmt } from '@shared/format';
 import { startRoute } from '@shared/nav';
 import Gate, { DevPicker } from './pages/Gate';
-import Login from './pages/Login';
 import Home from './pages/Home';
 import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';
@@ -22,34 +21,16 @@ import AdminAccounts from './pages/AdminAccounts';
 import Service from './pages/Service';
 import Notifications from './pages/Notifications';
 import AdminSquads from './pages/AdminSquads';
-import DesktopShell from './console/DesktopShell';
-import ConsolePlayers from './console/Players';
-import ConsoleFinance from './console/Finance';
-import { GameAttendance, TrainingStats } from './console/Attendance';
+
 
 const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile'];
 
 
-/** Веб на компьютере — с боковым меню; Telegram и телефон — мобильный вид с таббаром. */
-function useDesktop() {
-  const q = '(min-width: 1024px)';
-  const [d, setD] = useState(() => !inTelegram && window.matchMedia(q).matches);
-  useEffect(() => {
-    if (inTelegram) return;
-    const m = window.matchMedia(q);
-    const on = () => setD(m.matches);
-    m.addEventListener('change', on);
-    return () => m.removeEventListener('change', on);
-  }, []);
-  return d;
-}
-
 export default function App() {
-  const desktop = useDesktop();
   const [me, setMe] = useState<Me | null>(null);
   const [err, setErr] = useState<{ status: number; message: string } | null>(null);
-  // на сайте: вход через Telegram (или тестовый вход, если включён на сервере)
-  const [needDev, setNeedDev] = useState(!inTelegram && !getSession() && !getDevUser());
+  // мини-приложение живёт в Telegram; в браузере — только тестовый вход (DEV_AUTH=1)
+  const [needDev, setNeedDev] = useState(!inTelegram && !getDevUser());
   const [debtOpen, setDebtOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
   const nav = useNavigate();
@@ -60,11 +41,6 @@ export default function App() {
       setMe(await api.get<Me>('/api/me'));
       setErr(null);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401 && !inTelegram && getSession()) {
-        setSession(null);
-        setNeedDev(true);
-        return;
-      }
       setErr({ status: e instanceof ApiError ? e.status : 0, message: (e as Error).message });
     }
   }, []);
@@ -102,7 +78,7 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [loc.pathname]);
 
-  if (needDev) return <Login onDone={() => setNeedDev(false)} />;
+  if (needDev) return <DevPicker onPick={() => setNeedDev(false)} />;
   if (err) return <Gate kind="error" message={err.message} onRetry={refresh} onDev={() => setDevOpen(true)} devOpen={devOpen} setDevOpen={setDevOpen} />;
   if (!me) return <Spinner />;
   if (me.user.status !== 'active')
@@ -129,21 +105,13 @@ export default function App() {
       <Route path="/service" element={<Service />} />
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/admin/squads" element={<AdminSquads />} />
-      <Route path="/console/players" element={<ConsolePlayers />} />
-      <Route path="/console/games" element={<GameAttendance />} />
-      <Route path="/console/trainings" element={<TrainingStats />} />
-      <Route path="/console/finance" element={<ConsoleFinance />} />
       <Route path="*" element={<Home />} />
     </Routes>
   );
 
   return (
     <MeCtx.Provider value={{ me, refresh }}>
-      {desktop ? (
-        <DesktopShell>{routes}</DesktopShell>
-      ) : (
-        <>
-      <div className={`app ${inTelegram || getSession() ? '' : 'dev'}`}>
+      <div className={`app ${inTelegram ? '' : 'dev'}`}>
         {routes}
       </div>
 
@@ -156,10 +124,8 @@ export default function App() {
           <Tab to="/profile" icon={<User size={22} />} label="Профиль" dot={staffBadge || undefined} />
         </div>
       </nav>
-        </>
-      )}
 
-      {!inTelegram && !getSession() && !desktop && (
+      {!inTelegram && (
         <button className="dev-pill" onClick={() => setDevOpen(true)}>
           <FlaskConical size={14} /> {me.user.first_name}
         </button>

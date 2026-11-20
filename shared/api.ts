@@ -73,6 +73,13 @@ export const api = {
   del: <T>(url: string) => request<T>('DELETE', url),
 };
 
+/** Скачать защищённый ресурс API (картинку) и вернуть blob-URL. */
+export async function fetchBlobUrl(path: string): Promise<string> {
+  const res = await fetch(path, { headers: authHeaders() });
+  if (!res.ok) throw new ApiError(res.status, 'Не удалось загрузить');
+  return URL.createObjectURL(await res.blob());
+}
+
 export async function fetchFileUrl(name: string): Promise<string> {
   const res = await fetch(`/api/files/${encodeURIComponent(name)}`, { headers: authHeaders() });
   if (!res.ok) throw new ApiError(res.status, 'Не удалось загрузить файл');

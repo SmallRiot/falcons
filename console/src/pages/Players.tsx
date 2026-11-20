@@ -39,7 +39,7 @@ export default function ConsolePlayers() {
   const count = (s: Row['status']) => data.filter((u) => u.status === s).length;
 
   return (
-    <div className="page wide">
+    <div className="cpage">
       <div className="c-head">
         <div>
           <h1>Игроки</h1>

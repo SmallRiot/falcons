@@ -295,7 +295,7 @@ function lineupTitle(e: EventRow) {
   return `${kind} · ${dayWord(e.starts_at).toUpperCase()}, ${fmtTime(e.starts_at)}`;
 }
 
-function renderFor(e: EventRow, highlight?: number) {
+export function renderFor(e: EventRow, highlight?: number) {
   return renderLineupPng({
     title: lineupTitle(e),
     slots: lineupSlots(e.id),

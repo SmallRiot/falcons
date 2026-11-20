@@ -311,9 +311,24 @@ export default function ConsoleFinance() {
       <ProofSheet item={proof} onClose={() => setProof(null)} busy={busy} onPatch={patchDue} />
       <Sheet open={!!debtors} onClose={() => setDebtors(null)} title="Список должников">
         <pre className="card" style={{ whiteSpace: 'pre-wrap', margin: 0, font: 'inherit' }}>{debtors}</pre>
-        <button className="btn block" onClick={() => copyText(debtors ?? '', 'Список скопирован — можно вставить в чат')}>
-          Скопировать
-        </button>
+        <div className="btn-row">
+          <button className="btn ghost" onClick={() => copyText(debtors ?? '', 'Список скопирован')}>
+            Скопировать
+          </button>
+          <button
+            className="btn"
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                const r = await api.post<{ posted: number }>(`/api/admin/periods/${pid}/debtors-post`);
+                toast(`Таблица должников (${r.posted}) отправлена в чат`);
+                setDebtors(null);
+              })
+            }
+          >
+            Отправить в чат таблицей
+          </button>
+        </div>
       </Sheet>
     </div>
   );

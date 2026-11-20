@@ -63,7 +63,7 @@ export async function runReminders(force = false) {
     const key = `debt:dues:${u.id}`;
     if (!isDue(key, every)) continue;
     const total = debts.reduce((s, d) => s + d.amount, 0);
-    if (budget()) await reminderDues(u.id, u.first_name, total, debts.map((d) => monthName(d.month)));
+    if (budget()) await reminderDues(u.id, u.first_name, debts);
     markSent(key);
     sent++;
   }

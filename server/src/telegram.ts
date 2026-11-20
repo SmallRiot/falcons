@@ -6,6 +6,7 @@ import { config } from './config.ts';
 import { db, displayName, type UserRow } from './db.ts';
 import { getEvent, goingCount, setSignup, type EventRow } from './signup.ts';
 import { eventSquadIds, squadsMap } from './squads.ts';
+import { h, kv, p, quote, table, toLegacyHtml, toPlain, type Block } from './rich.ts';
 
 type Button = { text: string; url?: string; callback_data?: string; web_app?: { url: string } };
 
@@ -32,40 +33,78 @@ async function api(method: string, body: Record<string, unknown>) {
 /* Очередь отправки: Telegram режет частые сообщения в один чат (~1/сек), поэтому шлём по одному. */
 let queue: Promise<unknown> = Promise.resolve();
 const GAP_MS = 1100;
-
-/** Куда реально слать: в тестовом режиме — всё тестировщику. */
-const TEAM = 'team';
-function route(chatId: string | number) {
-  if (!config.testChatId) return { to: chatId === TEAM ? config.teamChatId : chatId, label: '' };
-  let label = '💬 в командный чат';
-  if (chatId !== TEAM && String(chatId) !== String(config.teamChatId)) {
-    const u = db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(Number(chatId)) as
-      | { first_name: string; last_name: string | null }
-      | undefined;
-    label = `👤 в личку: ${u ? esc([u.first_name, u.last_name].filter(Boolean).join(' ')) : chatId}`;
-  }
-  return { to: config.testChatId, label: `<i>🧪 тест · ${label}</i>\n\n` };
-}
-
-export function sendMessage(chatId: string | number, text: string, buttons?: Button[][]) {
-  const { to, label } = route(chatId);
-  if (!to) {
-    console.log(`\n[tg → командный чат (TEAM_CHAT_ID не задан)]\n${stripHtml(text)}\n`);
-    return Promise.resolve(null);
-  }
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   const job = queue.then(async () => {
-    const r = await api('sendMessage', {
-      chat_id: to,
-      text: label + text,
-      parse_mode: 'HTML',
-      link_preview_options: { is_disabled: true },
-      ...(buttons ? { reply_markup: { inline_keyboard: buttons } } : {}),
-    });
+    const r = await fn();
     if (config.botToken) await new Promise((res) => setTimeout(res, GAP_MS));
     return r;
   });
   queue = job.catch(() => undefined);
-  return job as Promise<{ message_id: number } | null>;
+  return job;
+}
+
+/** Куда реально слать: в тестовом режиме — всё тестировщику, с пометкой «кому». */
+const TEAM = 'team';
+function route(chatId: string | number) {
+  if (!config.testChatId) return { to: chatId === TEAM ? config.teamChatId : chatId, tag: '' };
+  let tag = '💬 в командный чат';
+  if (chatId !== TEAM && String(chatId) !== String(config.teamChatId)) {
+    const u = db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(Number(chatId)) as
+      | { first_name: string; last_name: string | null }
+      | undefined;
+    tag = `👤 в личку: ${u ? [u.first_name, u.last_name].filter(Boolean).join(' ') : chatId}`;
+  }
+  return { to: config.testChatId, tag: `🧪 тест · ${tag}` };
+}
+
+const keyboard = (buttons?: Button[][]) => (buttons?.length ? { reply_markup: { inline_keyboard: buttons } } : {});
+
+export function sendMessage(chatId: string | number, text: string, buttons?: Button[][]) {
+  const { to, tag } = route(chatId);
+  if (!to) {
+    console.log(`\n[tg → командный чат (TEAM_CHAT_ID не задан)]\n${stripHtml(text)}\n`);
+    return Promise.resolve(null);
+  }
+  return enqueue(() =>
+    api('sendMessage', {
+      chat_id: to,
+      text: (tag ? `<i>${esc(tag)}</i>\n\n` : '') + text,
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true },
+      ...keyboard(buttons),
+    }),
+  ) as Promise<{ message_id: number } | null>;
+}
+
+/** Rich-сообщение (таблицы, заголовки). Если Telegram его не примет — шлём обычный текст из тех же блоков. */
+export function sendRich(chatId: string | number, blocks: Block[], buttons?: Button[][]) {
+  const { to, tag } = route(chatId);
+  if (!to) {
+    console.log(`\n[tg → командный чат (TEAM_CHAT_ID не задан)]\n${toPlain(blocks)}\n`);
+    return Promise.resolve(null);
+  }
+  const all = tag ? [p(tag), ...blocks] : blocks;
+  return enqueue(async () => {
+    const r = await api('sendRichMessage', { chat_id: to, rich_message: { blocks: all }, ...keyboard(buttons) });
+    if (r) return r;
+    if (config.botToken) console.warn('[tg] rich-сообщение не прошло — отправляю обычным текстом');
+    return api('sendMessage', {
+      chat_id: to,
+      text: toLegacyHtml(all),
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true },
+      ...keyboard(buttons),
+    });
+  }) as Promise<{ message_id: number } | null>;
+}
+
+async function editRich(chatId: string | number, messageId: number, blocks: Block[], buttons?: Button[][]) {
+  const tag = config.testChatId ? '🧪 тест · 💬 в командный чат' : '';
+  const all = tag ? [p(tag), ...blocks] : blocks;
+  const kb = { reply_markup: { inline_keyboard: buttons ?? [] } };
+  const r = await api('editMessageText', { chat_id: chatId, message_id: messageId, rich_message: { blocks: all }, ...kb });
+  if (r) return r;
+  return api('editMessageText', { chat_id: chatId, message_id: messageId, text: toLegacyHtml(all), parse_mode: 'HTML', ...kb });
 }
 
 /** Если BOT_USERNAME не задан — узнаём у Telegram (нужно для ссылок t.me/<бот>). */
@@ -123,6 +162,14 @@ export function dm(userId: number, text: string, link?: string, buttons?: Button
   return sendMessage(userId, text, kb);
 }
 
+/** Личное rich-сообщение (таблицы) + запись в ленту приложения. */
+export function dmRich(userId: number, blocks: Block[], link?: string, buttons?: Button[][]) {
+  db.prepare('INSERT INTO notifications(user_id, text, link) VALUES(?,?,?)').run(userId, toPlain(blocks), link ?? null);
+  return sendRich(userId, blocks, buttons ?? (link ? [[linkButton(link)]] : undefined));
+}
+
+const shortName = (u: { first_name: string; last_name: string | null }) => `${u.first_name}${u.last_name ? ` ${u.last_name[0]}.` : ''}`;
+
 function idsWithRole(role: string): number[] {
   return (db.prepare(`SELECT id, roles FROM users WHERE status='active'`).all() as { id: number; roles: string }[])
     .filter((u) => u.roles.split(',').includes(role))
@@ -138,31 +185,35 @@ const teamTarget = () => config.testChatId || config.teamChatId;
 
 /* ---------- события ---------- */
 
-function eventPost(e: EventRow) {
+function eventBlocks(e: EventRow): Block[] {
   const going = goingCount(e.id);
   const sq = squadsMap();
   const squads = eventSquadIds(e.id).map((id) => sq.get(id)?.name).filter(Boolean).join(' + ');
-  const head =
+  const title =
     e.type === 'game'
-      ? `🥅 <b>ИГРА${squads ? ` · ${esc(squads)}` : ''}${e.title ? ` · ${esc(e.title)}` : ''}</b>`
-      : `🏒 <b>ТРЕНИРОВКА${e.title ? ` · ${esc(e.title)}` : ''}</b>`;
+      ? `🥅 Игра${squads ? ` · ${squads}` : ''}${e.title ? ` · ${e.title}` : ''}`
+      : `🏒 Тренировка${e.title ? ` · ${e.title}` : ''}`;
   const spots = e.capacity
     ? going >= e.capacity
-      ? `👥 Мест: ${e.capacity} — <b>всё занято</b>, дальше резерв`
-      : `👥 Идут: <b>${going}</b> из ${e.capacity} — осталось ${e.capacity - going}`
-    : `👥 Идут: <b>${going}</b>`;
-  const lines = [
-    head,
-    '',
-    `🗓 ${fmtDay(e.starts_at)}`,
-    `⏰ ${fmtTime(e.starts_at)} · ${e.duration_min} мин`,
-    e.location ? `📍 ${esc(e.location)}` : '',
-    e.notes ? `📝 ${esc(e.notes)}` : '',
-    '',
-    e.cancelled ? '❌ <b>Отменено</b>' : spots,
-  ].filter((l, i, a) => l !== '' || (a[i - 1] !== '' && i > 0));
-  if (!e.cancelled) lines.push('', pick(['Жми кнопку — и ты на льду 👇', 'Отметься, чтобы тренер видел состав 👇', 'Кто с нами? 👇']));
-  return lines.join('\n');
+      ? `${going} из ${e.capacity} — мест нет, дальше резерв`
+      : `${going} из ${e.capacity} · свободно ${e.capacity - going}`
+    : `${going}`;
+  const rows: [string, string][] = [
+    ['🗓 Когда', `${fmtDay(e.starts_at)}, ${fmtTime(e.starts_at)}`],
+    ['⏱ Длительность', `${e.duration_min} мин`],
+  ];
+  if (e.location) rows.push(['📍 Где', e.location]);
+  rows.push(['👥 Идут', e.cancelled ? '—' : spots]);
+  const blocks: Block[] = [h(title, 2), kv(rows)];
+  if (e.notes) blocks.push(p(`📝 ${e.notes}`));
+  const names = (
+    db
+      .prepare(`SELECT u.first_name, u.last_name FROM signups s JOIN users u ON u.id = s.user_id WHERE s.event_id = ? AND s.status = 'in' ORDER BY s.created_at`)
+      .all(e.id) as { first_name: string; last_name: string | null }[]
+  ).map(shortName);
+  if (names.length && !e.cancelled) blocks.push(quote(`✅ Идут: ${names.join(', ')}`));
+  blocks.push(p(e.cancelled ? '❌ Отменено' : pick(['Жми кнопку — и ты на льду 👇', 'Отметься, чтобы тренер видел состав 👇', 'Кто с нами? 👇'])));
+  return blocks;
 }
 
 function eventButtons(e: EventRow): Button[][] {
@@ -177,11 +228,11 @@ function eventButtons(e: EventRow): Button[][] {
 }
 
 export async function notifyEventCreated(e: EventRow) {
-  const msg = await toTeamChat(eventPost(e), eventButtons(e));
+  const msg = await sendRich(TEAM, eventBlocks(e), eventButtons(e));
   if (msg?.message_id) db.prepare('UPDATE events SET tg_message_id = ? WHERE id = ?').run(msg.message_id, e.id);
 }
 
-/** Обновляет счётчик в посте события в командном чате. */
+/** Обновляет пост события в командном чате: счётчик и список идущих. */
 const pendingRefresh = new Map<number, ReturnType<typeof setTimeout>>();
 export function refreshEventPost(eventId: number) {
   if (!config.botToken || !teamTarget()) return;
@@ -192,14 +243,7 @@ export function refreshEventPost(eventId: number) {
       pendingRefresh.delete(eventId);
       const e = getEvent(eventId);
       if (!e?.tg_message_id) return;
-      void api('editMessageText', {
-        chat_id: teamTarget(),
-        message_id: e.tg_message_id,
-        text: (config.testChatId ? '<i>🧪 тест · 💬 в командный чат</i>\n\n' : '') + eventPost(e),
-        parse_mode: 'HTML',
-        link_preview_options: { is_disabled: true },
-        reply_markup: { inline_keyboard: eventButtons(e) },
-      });
+      void editRich(teamTarget(), e.tg_message_id, eventBlocks(e), eventButtons(e));
     }, 1500),
   );
 }
@@ -208,20 +252,60 @@ export function refreshEventPost(eventId: number) {
 
 const ORD = ['', 'первой', 'второй', 'третьей', 'четвёртой'];
 const TEAM_GEN: Record<string, string> = { dark: 'тёмных', light: 'светлых', '': '' };
+const TEAM_TITLE: Record<string, string> = { dark: '⚫️ Тёмные', light: '⚪️ Светлые', '': '🦅 Состав' };
+const FWD = ['LW', 'C', 'RW'];
+const DEF = ['LD', 'RD'];
 
-export function notifyLineupPublished(e: EventRow) {
-  return toTeamChat(
-    [
-      `📋 <b>Пятёрки готовы!</b>`,
-      '',
-      `${e.type === 'game' ? '🥅 Игра' : '🏒 Тренировка'} · ${dayWord(e.starts_at)}, ${fmtTime(e.starts_at)}`,
-      'Тренер всех расставил — каждому написал в личку, где он играет 👀',
-    ].join('\n'),
-    [[{ text: '📋 Смотреть составы', url: appLink(`e${e.id}`) }]],
-  );
+interface LineupRow {
+  user_id: number;
+  team: string;
+  line: number;
+  slot: string;
+  first_name: string;
+  last_name: string | null;
+}
+const lineupRows = (eventId: number) =>
+  db
+    .prepare('SELECT l.user_id, l.team, l.line, l.slot, u.first_name, u.last_name FROM lineups l JOIN users u ON u.id = l.user_id WHERE l.event_id = ?')
+    .all(eventId) as unknown as LineupRow[];
+
+/** Таблица пятёрок одной команды: строки — звенья, колонки — позиции. */
+function teamTable(rows: LineupRow[], team: string, highlight?: number): Block[] {
+  const mine = rows.filter((r) => r.team === team);
+  const lines = Math.max(0, ...mine.map((r) => r.line));
+  const name = (line: number, slot: string) => {
+    const r = mine.find((x) => x.line === line && x.slot === slot);
+    return r ? `${r.user_id === highlight ? '⭐ ' : ''}${shortName(r)}` : '';
+  };
+  const out: Block[] = [];
+  if (lines > 0)
+    out.push(
+      table(
+        ['', 'ЛН', 'ЦН', 'ПН', 'ЛЗ', 'ПЗ'],
+        Array.from({ length: lines }, (_, i) => [`${i + 1}`, ...FWD.map((s) => name(i + 1, s)), ...DEF.map((s) => name(i + 1, s))]),
+        { align: ['center', 'center', 'center', 'center', 'center', 'center'] },
+      ),
+    );
+  const goalies = ['G1', 'G2'].map((s) => name(0, s)).filter(Boolean);
+  if (goalies.length) out.push(p(`🧤 Вратари: ${goalies.join(', ')}`));
+  return out;
 }
 
-export function lineupMessage(e: EventRow, item: { team: string; line: number }) {
+export function notifyLineupPublished(e: EventRow) {
+  const rows = lineupRows(e.id);
+  const teams = ['dark', 'light', ''].filter((t) => rows.some((r) => r.team === t));
+  const blocks: Block[] = [
+    h(`📋 Пятёрки · ${e.type === 'game' ? 'игра' : 'тренировка'} ${dayWord(e.starts_at)}, ${fmtTime(e.starts_at)}`, 2),
+  ];
+  for (const t of teams) {
+    if (teams.length > 1 || t) blocks.push(h(TEAM_TITLE[t], 3));
+    blocks.push(...teamTable(rows, t));
+  }
+  blocks.push(p('Каждому написал в личку, где он играет 👀'));
+  return sendRich(TEAM, blocks, [[{ text: '📋 Открыть в приложении', url: appLink(`e${e.id}`) }]]);
+}
+
+export function lineupBlocks(e: EventRow, item: { user_id: number; team: string; line: number }): Block[] {
   const team = TEAM_GEN[item.team] ?? '';
   const where =
     item.line === 0
@@ -231,68 +315,98 @@ export function lineupMessage(e: EventRow, item: { team: string; line: number })
     e.type === 'game'
       ? pick(['Удачной игры! Порвём их 🥅🔥', 'Удачной игры, соколы! 🦅', 'Вперёд за победой! 🏆'])
       : pick(['Хорошей тренировки на льду! 🏒', 'Хорошего льда! ⛸', 'Покатаемся! 🏒💨']);
-  return [
-    `🦅 Ты ${dayWord(e.starts_at)} <b>${where}</b>.`,
-    '',
-    `⏰ ${fmtTime(e.starts_at)}${e.location ? ` · 📍 ${esc(e.location)}` : ''}`,
-    '',
-    wish,
-  ].join('\n');
+  const blocks: Block[] = [h(`🦅 Ты ${dayWord(e.starts_at)} ${where}`, 2)];
+  if (item.line > 0) {
+    const rows = lineupRows(e.id).filter((r) => r.team === item.team && r.line === item.line);
+    const name = (slot: string) => {
+      const r = rows.find((x) => x.slot === slot);
+      return r ? `${r.user_id === item.user_id ? '⭐ ' : ''}${shortName(r)}` : '';
+    };
+    blocks.push(table(['ЛН', 'ЦН', 'ПН', 'ЛЗ', 'ПЗ'], [[...FWD, ...DEF].map(name)], { caption: 'Твоё звено', align: ['center', 'center', 'center', 'center', 'center'] }));
+  }
+  blocks.push(kv([['⏰ Начало', fmtTime(e.starts_at)], ...(e.location ? ([['📍 Где', e.location]] as [string, string][]) : [])]));
+  blocks.push(p(wish));
+  return blocks;
 }
 
 export function notifyLineupPersonal(e: EventRow, items: { user_id: number; team: string; line: number }[]) {
-  return Promise.all(items.map((i) => dm(i.user_id, lineupMessage(e, i), `e${e.id}`, [[{ text: '📋 Состав', url: appLink(`e${e.id}`) }]])));
+  return Promise.all(items.map((i) => dmRich(i.user_id, lineupBlocks(e, i), `e${e.id}`, [[{ text: '📋 Все пятёрки', url: appLink(`e${e.id}`) }]])));
 }
 
 /* ---------- взносы ---------- */
 
-export function notifyPollOpened(p: { month: string; partial_ratio: number; donation_amount: number }) {
-  return toTeamChat(
+export function notifyPollOpened(per: { month: string; partial_ratio: number; donation_amount: number }) {
+  return sendRich(
+    TEAM,
     [
-      `🗳 <b>Взносы на ${monthName(p.month)}</b>`,
-      '',
-      'Лёд, тренер, судьи — делим на всех. Выбери свой вариант:',
-      '',
-      '🔵 <b>Полный</b> — хожу на все тренировки, играю в чемпионате',
-      `🟢 <b>Частичный</b> (${Math.round(p.partial_ratio * 100)}%) — тренировки не чаще раза в неделю, играю в чемпионате`,
-      `💙 <b>Донат</b> (${p.donation_amount} ₾) — не играю в чемпионате, но поддерживаю команду`,
-      '',
-      '🧮 Суммы посчитаем, когда все выберут — и пришлём каждому лично.',
-    ].join('\n'),
+      h(`🗳 Взносы на ${monthName(per.month)}`, 2),
+      p('Лёд, тренер, судьи — делим на всех. Выбери свой вариант:'),
+      table(
+        ['Вариант', 'Для кого', 'Сумма'],
+        [
+          ['🔵 Полный', 'все тренировки + чемпионат', 'посчитаем'],
+          [`🟢 Частичный · ${Math.round(per.partial_ratio * 100)}%`, 'до 1 тренировки в неделю + чемпионат', 'посчитаем'],
+          ['💙 Донат', 'без чемпионата, поддержать команду', `${per.donation_amount} ₾`],
+        ],
+        { align: ['left', 'left', 'right'] },
+      ),
+      p('🧮 Суммы посчитаем, когда все выберут, — и пришлём каждому лично.'),
+    ],
     [[{ text: '🗳 Выбрать вариант', url: appLink('finance') }]],
   );
 }
 
-export function notifyCollectionStarted(p: { month: string; due_date: string | null }, rates: { full: number; partial: number; donation: number }) {
-  return toTeamChat(
+type RatesInfo = { full: number; partial: number; donation: number; nFull?: number; nPartial?: number; nDonation?: number };
+
+export function notifyCollectionStarted(per: { month: string; due_date: string | null }, rates: RatesInfo) {
+  const n = (x?: number) => (x == null ? '' : String(x));
+  return sendRich(
+    TEAM,
     [
-      `💰 <b>Сбор за ${monthName(p.month)} открыт!</b>`,
-      '',
-      `🔵 Полный — <b>${rates.full} ₾</b>`,
-      `🟢 Частичный — <b>${rates.partial} ₾</b>`,
-      `💙 Донат — <b>${rates.donation} ₾</b>`,
-      '',
-      `Каждому в личку прилетела его сумма. ${p.due_date ? `Оплати до ${new Date(p.due_date).getDate()} числа` : 'Оплати'} и прикрепи скрин 🧾`,
-      'Реквизиты и копирование — в приложении в один тап.',
-    ].join('\n'),
+      h(`💰 Сбор за ${monthName(per.month)} открыт!`, 2),
+      table(
+        ['Вариант', 'Человек', 'К оплате'],
+        [
+          ['🔵 Полный', n(rates.nFull), `${rates.full} ₾`],
+          ['🟢 Частичный', n(rates.nPartial), `${rates.partial} ₾`],
+          ['💙 Донат', n(rates.nDonation), `${rates.donation} ₾`],
+        ],
+        { align: ['left', 'center', 'right'] },
+      ),
+      p(`Каждому в личку пришла его сумма. ${per.due_date ? `Оплати до ${new Date(per.due_date).getDate()} числа` : 'Оплати'} и прикрепи скрин 🧾`),
+    ],
     [[{ text: '💳 Оплатить', url: appLink('finance') }]],
   );
 }
 
-const PLAN_NAME: Record<string, string> = { full: 'Полный 🔵', partial: 'Частичный 🟢', donation: 'Донат 💙', exempt: 'Освобождён' };
+const PLAN_NAME: Record<string, string> = { full: '🔵 Полный', partial: '🟢 Частичный', donation: '💙 Донат', exempt: 'Освобождён' };
 
 export function notifyDueAmount(userId: number, month: string, plan: string | null, amount: number) {
-  return dm(
+  return dmRich(
     userId,
     [
-      `💰 <b>Сбор за ${monthName(month)} открыт</b>`,
-      '',
-      plan ? `Твой вариант: ${PLAN_NAME[plan] ?? plan}` : 'Сумма назначена админом',
-      `К оплате: <b>${amount} ₾</b>`,
-      '',
-      'Переведи на счёт команды и прикрепи скрин — всё в приложении в пару тапов 👇',
-    ].join('\n'),
+      h(`💰 Сбор за ${monthName(month)} открыт`, 2),
+      kv([
+        ['Твой вариант', plan ? (PLAN_NAME[plan] ?? plan) : 'назначен админом'],
+        ['К оплате', `${amount} ₾`],
+      ]),
+      p('Переведи на счёт команды и прикрепи скрин — в приложении всё в пару тапов 👇'),
+    ],
     'finance',
+  );
+}
+
+/** Список должников в командный чат (кнопка в консоли). */
+export function postDebtorsList(month: string, rows: { name: string; amount: number }[]) {
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  return sendRich(
+    TEAM,
+    [
+      h(`📣 Взносы за ${monthName(month)}: ждём оплату`, 2),
+      table(['#', 'Игрок', 'Сумма'], rows.map((r, i) => [i + 1, r.name, `${r.amount} ₾`]), { align: ['center', 'left', 'right'], caption: `Итого: ${total} ₾` }),
+      p('Переведите, пожалуйста, и прикрепите скрин в приложении 🙏 Лёд сам себя не оплатит 🧊'),
+    ],
+    [[{ text: '💳 Оплатить', url: appLink('finance') }]],
   );
 }
 
@@ -358,15 +472,15 @@ export function notifySharpening(userId: number, ev: SharpEvent, opts: { amount?
 
 /* ---------- напоминания ---------- */
 
-export function reminderDues(userId: number, name: string, total: number, months: string[]) {
-  const m = months.join(', ');
-  return dm(
+export function reminderDues(userId: number, name: string, debts: { month: string; amount: number }[]) {
+  const total = debts.reduce((x, d) => x + d.amount, 0);
+  return dmRich(
     userId,
-    pick([
-      `⏰ <b>Напоминалка от Falcons</b>\n\n${name}, за тобой взнос за ${m} — <b>${total} ₾</b>.\nЛёд сам себя не оплатит 🧊\n\nПереведи и прикрепи скрин 👇`,
-      `🦅 ${name}, привет! Висит взнос за ${m}: <b>${total} ₾</b>.\nЗакроем, чтобы спокойно кататься? 🏒`,
-      `💸 ${name}, вежливо стучимся: <b>${total} ₾</b> за ${m}.\nОдин перевод + один скрин — и ты свободен 🙌`,
-    ]),
+    [
+      h(pick([`⏰ ${name}, напоминалка от Falcons`, `🦅 ${name}, висит взнос`, `💸 ${name}, вежливо стучимся`]), 2),
+      table(['Месяц', 'Сумма'], [...debts.map((d) => [monthName(d.month), `${d.amount} ₾`]), ['Итого', `${total} ₾`]], { align: ['left', 'right'] }),
+      p(pick(['Лёд сам себя не оплатит 🧊 Переведи и прикрепи скрин 👇', 'Один перевод + один скрин — и ты свободен 🙌', 'Закроем, чтобы спокойно кататься? 🏒'])),
+    ],
     'finance',
   );
 }

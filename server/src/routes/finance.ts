@@ -10,6 +10,7 @@ import {
   notifyDuePaid,
   notifyDueRejected,
   notifyPollOpened,
+  postDebtorsList,
 } from '../telegram.ts';
 import { readUpload } from '../uploads.ts';
 import { squadIdsOf } from '../squads.ts';
@@ -248,6 +249,23 @@ export default async function financeRoutes(app: FastifyInstance) {
       if (b.status === 'rejected') void notifyDueRejected(uid, p.month, b.comment);
     }
     return { ok: true };
+  });
+
+  /** Таблица должников месяца — в командный чат. */
+  app.post<{ Params: { id: string } }>('/api/admin/periods/:id/debtors-post', admin, async (req, reply) => {
+    const p = getPeriod(Number(req.params.id));
+    if (!p) return reply.code(404).send({ error: 'Период не найден' });
+    if (!p.locked) return reply.code(400).send({ error: 'Сбор ещё не начат' });
+    const rows = db
+      .prepare(
+        `SELECT u.first_name, u.last_name, d.amount FROM dues d JOIN users u ON u.id = d.user_id
+         WHERE d.period_id = ? AND u.status = 'active' AND d.status IN ('unpaid','rejected') AND COALESCE(d.amount,0) > 0
+         ORDER BY u.last_name, u.first_name`,
+      )
+      .all(p.id) as { first_name: string; last_name: string | null; amount: number }[];
+    if (!rows.length) return reply.code(400).send({ error: 'Должников нет 🎉' });
+    void postDebtorsList(p.month, rows.map((r) => ({ name: [r.first_name, r.last_name].filter(Boolean).join(' '), amount: r.amount })));
+    return { posted: rows.length };
   });
 
   /** Разослать напоминания должникам прямо сейчас. */

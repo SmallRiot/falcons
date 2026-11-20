@@ -382,3 +382,23 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .tab.mode-switch::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 1px; background: var(--line); }
 .tabbar.staff { background: color-mix(in srgb, var(--falcon) 10%, var(--surface)); border-top: 2px solid var(--falcon); }
 .tabbar.staff .tab.mode-switch { color: var(--muted); }
+
+/* ===== выбор дней (серия событий) ===== */
+.dp { display: flex; flex-direction: column; gap: 10px; }
+.dp-head { display: flex; align-items: center; justify-content: space-between; }
+.dp-head b { font-size: 16px; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.dp-wd { text-align: center; font-size: 11px; font-weight: 650; color: var(--muted); padding: 2px 0 4px; }
+.dp-day { position: relative; aspect-ratio: 1; max-height: 46px; border: 0; border-radius: 12px; background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 650; font-variant-numeric: tabular-nums; cursor: pointer; }
+.dp-day:disabled { background: transparent; color: var(--muted); opacity: 0.45; cursor: default; }
+.dp-day.today { box-shadow: inset 0 0 0 2px var(--falcon); }
+.dp-day.on { background: var(--falcon); color: #fff; }
+.dp-day i { position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px; margin-left: -2px; border-radius: 2px; background: var(--falcon); }
+.dp-day.on i { background: #fff; }
+.dp-repeat { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.dp-wds { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.dp-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dp-row .btn { margin-left: auto; }
+.dp-chip { height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.dp-chip.on { background: var(--falcon-soft); border-color: var(--falcon); color: var(--falcon); }
+.dp-foot { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }

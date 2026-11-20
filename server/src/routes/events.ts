@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireActive, requireRole } from '../auth.ts';
+import { ANNOUNCE_DAYS, DEFAULT_LOCATION } from '../config.ts';
 import { db, hasRole, nowIso, publicUser, type UserRow } from '../db.ts';
 import { notifyEventCreated, notifyLineupPersonal, notifyLineupPublished, refreshEventPost, renderFor } from '../telegram.ts';
 import { setSignup, type EventRow } from '../signup.ts';
@@ -94,33 +95,50 @@ export default async function eventRoutes(app: FastifyInstance) {
     };
   });
 
-  app.post<{ Body: EventBody }>(
+  /**
+   * Создание: одно событие (starts_at) или серия (starts_at_list — выбранные в календаре дни).
+   * В чат сразу уходят только события ближайших ANNOUNCE_DAYS дней, остальные бот запостит сам,
+   * когда до них останется неделя, — чтобы серия на месяц вперёд не завалила чат.
+   */
+  app.post<{ Body: EventBody & { starts_at_list?: string[] } }>(
     '/api/events',
     { preHandler: requireRole('coach', 'admin') },
     async (req, reply) => {
       const b = req.body ?? {};
-      if (!b.starts_at || isNaN(Date.parse(b.starts_at))) return reply.code(400).send({ error: 'Укажите дату и время' });
+      const list = (Array.isArray(b.starts_at_list) && b.starts_at_list.length ? b.starts_at_list : [b.starts_at]).filter(Boolean) as string[];
+      if (!list.length || list.some((x) => isNaN(Date.parse(x)))) return reply.code(400).send({ error: 'Укажите дату и время' });
+      if (list.length > 60) return reply.code(400).send({ error: 'Не больше 60 событий за раз' });
       const type = b.type === 'game' ? 'game' : 'training';
-      const r = db
-        .prepare(
-          `INSERT INTO events(type, title, starts_at, duration_min, location, capacity, notes, created_by)
-           VALUES(?,?,?,?,?,?,?,?)`,
-        )
-        .run(
+      const ins = db.prepare(
+        `INSERT INTO events(type, title, starts_at, duration_min, location, capacity, notes, created_by)
+         VALUES(?,?,?,?,?,?,?,?)`,
+      );
+      const created: EventRow[] = [];
+      for (const when of [...new Set(list)].sort()) {
+        const r = ins.run(
           type,
           b.title?.trim() || null,
-          new Date(b.starts_at).toISOString(),
+          new Date(when).toISOString(),
           Number(b.duration_min) || 90,
-          b.location?.trim() || null,
+          b.location?.trim() || DEFAULT_LOCATION,
           b.capacity ? Number(b.capacity) : null,
           b.notes?.trim() || null,
           req.user.id,
         );
-      const e = db.prepare('SELECT * FROM events WHERE id = ?').get(r.lastInsertRowid) as unknown as EventRow;
-      // тренировки общие для всего клуба, составы указываются только у игр
-      setEventSquads(e.id, type === 'game' ? (b.squad_ids ?? []).map(Number) : []);
-      if (b.notify !== false) void notifyEventCreated(e);
-      return e;
+        const e = db.prepare('SELECT * FROM events WHERE id = ?').get(r.lastInsertRowid) as unknown as EventRow;
+        // тренировки общие для всего клуба, составы указываются только у игр
+        setEventSquads(e.id, type === 'game' ? (b.squad_ids ?? []).map(Number) : []);
+        created.push(e);
+      }
+      let announced = 0;
+      for (const e of created) {
+        if (b.notify === false) continue;
+        if (Date.parse(e.starts_at) - Date.now() <= ANNOUNCE_DAYS * 864e5) {
+          void notifyEventCreated(e);
+          announced++;
+        } else db.prepare('UPDATE events SET announce_pending = 1 WHERE id = ?').run(e.id);
+      }
+      return { ...created[0], ids: created.map((e) => e.id), count: created.length, announced };
     },
   );
 

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Ban, LayoutGrid, Pencil, Plus } from 'lucide-react';
 import { api, type EventSummary } from '@shared/api';
-import { fmt, fromLocalInput, toLocalInput } from '@shared/format';
-import { Segmented, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
+import { DEFAULT_LOCATION, fmt, fromLocalInput, plural, toLocalInput } from '@shared/format';
+import { DatesPicker } from '@shared/DatesPicker';
+import { Segmented, Spinner, SquadChip, SquadPicker, toast, useAction, useApi, useMe } from '@shared/ui';
 import Drawer from '../Drawer';
 
 type Scope = 'upcoming' | 'past';
@@ -135,6 +136,7 @@ export default function Schedule() {
         </div>
       )}
       <EventDrawer
+        marked={scope === 'upcoming' ? (data ?? []).filter((e) => !e.cancelled).map((e) => toLocalInput(e.starts_at).slice(0, 10)) : []}
         value={edit}
         onClose={() => setEdit(null)}
         onSaved={async () => {
@@ -152,10 +154,10 @@ function defaultStart() {
   return d.toISOString();
 }
 
-function EventDrawer({ value, onClose, onSaved }: { value: EventSummary | 'new' | null; onClose: () => void; onSaved: () => Promise<void> }) {
+function EventDrawer({ value, onClose, onSaved, marked }: { value: EventSummary | 'new' | null; onClose: () => void; onSaved: () => Promise<void>; marked: string[] }) {
   const { me } = useMe();
   const editing = value && value !== 'new' ? value : null;
-  const [f, setF] = useState({ type: 'training' as 'training' | 'game', title: '', when: '', duration_min: '90', capacity: '', notes: '', squad_ids: [] as number[], score_us: '', score_them: '', notify: true });
+  const [f, setF] = useState({ type: 'training' as 'training' | 'game', title: '', when: '', days: [] as string[], time: '21:30', location: DEFAULT_LOCATION, duration_min: '90', capacity: '', notes: '', squad_ids: [] as number[], score_us: '', score_them: '', notify: true });
   const { busy, run } = useAction();
   useEffect(() => {
     if (!value) return;
@@ -164,6 +166,9 @@ function EventDrawer({ value, onClose, onSaved }: { value: EventSummary | 'new' 
       type: e?.type ?? 'training',
       title: e?.title ?? '',
       when: toLocalInput(e?.starts_at ?? defaultStart()),
+      days: [],
+      time: e ? toLocalInput(e.starts_at).slice(11, 16) : '21:30',
+      location: e ? e.location ?? '' : DEFAULT_LOCATION,
       duration_min: String(e?.duration_min ?? 90),
       capacity: e?.capacity ? String(e.capacity) : '',
       notes: e?.notes ?? '',
@@ -180,7 +185,9 @@ function EventDrawer({ value, onClose, onSaved }: { value: EventSummary | 'new' 
       const body = {
         type: f.type,
         title: f.title,
-        starts_at: fromLocalInput(f.when),
+        starts_at: editing ? fromLocalInput(f.when) : undefined,
+        starts_at_list: editing ? undefined : f.days.map((d) => fromLocalInput(`${d}T${f.time}`)),
+        location: f.location,
         duration_min: Number(f.duration_min),
         capacity: f.capacity ? Number(f.capacity) : null,
         notes: f.notes,
@@ -190,9 +197,15 @@ function EventDrawer({ value, onClose, onSaved }: { value: EventSummary | 'new' 
         notify: f.notify,
       };
       if (editing) await api.patch(`/api/events/${editing.id}`, body);
-      else await api.post('/api/events', body);
+      else {
+        const r = await api.post<{ count: number; announced: number }>('/api/events', body);
+        toast(
+          `Создано ${r.count} ${plural(r.count, 'событие', 'события', 'событий')}` +
+            (f.notify ? (r.announced === r.count ? ', бот написал в чат' : ` · в чат сейчас ${r.announced}, остальные — за неделю до`) : ''),
+        );
+      }
       await onSaved();
-    }, editing ? 'Сохранено' : f.notify ? 'Создано, бот написал в чат' : 'Создано');
+    }, editing ? 'Сохранено' : undefined);
 
   return (
     <Drawer open={!!value} onClose={onClose} title={editing ? 'Изменить событие' : 'Новое событие'}>
@@ -205,16 +218,39 @@ function EventDrawer({ value, onClose, onSaved }: { value: EventSummary | 'new' 
       ) : (
         <div className="muted small">Тренировки общие — их видят все составы.</div>
       )}
-      <div className="form-row">
-        <label className="field">
-          <span>Дата и время (Тбилиси)</span>
-          <input className="input" type="datetime-local" value={f.when} onChange={(e) => set('when', e.target.value)} />
-        </label>
-        <label className="field" style={{ maxWidth: 140 }}>
-          <span>Минут</span>
-          <input className="input" inputMode="numeric" value={f.duration_min} onChange={(e) => set('duration_min', e.target.value)} />
-        </label>
-      </div>
+      {editing ? (
+        <div className="form-row">
+          <label className="field">
+            <span>Дата и время (Тбилиси)</span>
+            <input className="input" type="datetime-local" value={f.when} onChange={(e) => set('when', e.target.value)} />
+          </label>
+          <label className="field" style={{ maxWidth: 140 }}>
+            <span>Минут</span>
+            <input className="input" inputMode="numeric" value={f.duration_min} onChange={(e) => set('duration_min', e.target.value)} />
+          </label>
+        </div>
+      ) : (
+        <>
+          <div className="field">
+            <span>Дни — отметь в календаре, можно сразу на месяц вперёд</span>
+            <DatesPicker value={f.days} onChange={(v) => set('days', v)} marked={marked} />
+          </div>
+          <div className="form-row">
+            <label className="field">
+              <span>Время начала (Тбилиси)</span>
+              <input className="input" type="time" value={f.time} onChange={(e) => set('time', e.target.value)} />
+            </label>
+            <label className="field" style={{ maxWidth: 140 }}>
+              <span>Минут</span>
+              <input className="input" inputMode="numeric" value={f.duration_min} onChange={(e) => set('duration_min', e.target.value)} />
+            </label>
+          </div>
+        </>
+      )}
+      <label className="field">
+        <span>Место</span>
+        <input className="input" value={f.location} placeholder={DEFAULT_LOCATION} onChange={(e) => set('location', e.target.value)} />
+      </label>
       <label className="field">
         <span>{f.type === 'game' ? 'Соперник' : 'Название (необязательно)'}</span>
         <input className="input" value={f.title} placeholder={f.type === 'game' ? 'vs Tbilisi Wolves' : 'Двусторонка, ОФП, броски…'} onChange={(e) => set('title', e.target.value)} />
@@ -242,11 +278,11 @@ function EventDrawer({ value, onClose, onSaved }: { value: EventSummary | 'new' 
       {!editing && (
         <label className="check">
           <input type="checkbox" checked={f.notify} onChange={(e) => set('notify', e.target.checked)} />
-          Пост в командный чат с кнопками «Иду / Не иду»
+          Пост в командный чат с кнопками «Иду / Не иду»{f.days.length > 1 ? ' — каждое событие за неделю до' : ''}
         </label>
       )}
-      <button className="btn block" disabled={busy || !f.when} onClick={save}>
-        {editing ? 'Сохранить' : 'Создать'}
+      <button className="btn block" disabled={busy || (editing ? !f.when : !f.days.length || !f.time)} onClick={save}>
+        {editing ? 'Сохранить' : f.days.length > 1 ? `Создать ${f.days.length} ${plural(f.days.length, 'событие', 'события', 'событий')}` : 'Создать'}
       </button>
     </Drawer>
   );

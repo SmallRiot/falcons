@@ -165,6 +165,8 @@ function addColumn(table: string, column: string, def: string) {
   if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
 }
 addColumn('users', 'birth_date', 'TEXT');
+// событие из серии ждёт, когда до него останется неделя, чтобы бот запостил его в чат
+addColumn('events', 'announce_pending', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('periods', 'tg_message_id', 'INTEGER');
 addColumn('periods', 'locked_full', 'REAL');
 addColumn('periods', 'locked_partial', 'REAL');

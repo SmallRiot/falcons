@@ -43,3 +43,8 @@ function loadSessionSecret() {
   return readFileSync(file, 'utf8').trim();
 }
 export const sessionSecret = loadSessionSecret();
+
+/** Лёд у команды один — подставляется, если место не указали. */
+export const DEFAULT_LOCATION = 'Арена Боба Уолша';
+/** За сколько дней до события бот постит его в чат (для серий, созданных наперёд). */
+export const ANNOUNCE_DAYS = 7;

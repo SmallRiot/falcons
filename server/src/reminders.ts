@@ -6,14 +6,14 @@
  *  - не отметился на завтрашнюю тренировку/игру — один раз.
  * Не пишем ночью: только с 10:00 до 22:00 по Тбилиси.
  */
-import { config } from './config.ts';
+import { ANNOUNCE_DAYS, config } from './config.ts';
 
 /** В тестовом режиме не заваливаем тестировщика: не больше N напоминаний за прогон. */
 const TEST_CAP = 5;
 import { db, getSetting, nowIso } from './db.ts';
 import { debtsOf } from './finance.ts';
-import { notifyBirthdays, sendMessage, reminderDues, reminderPlan, reminderRsvp, reminderSharpening, monthName } from './telegram.ts';
-import { getEvent } from './signup.ts';
+import { notifyEventCreated, notifyBirthdays, sendMessage, reminderDues, reminderPlan, reminderRsvp, reminderSharpening, monthName } from './telegram.ts';
+import { getEvent, type EventRow } from './signup.ts';
 import { eventAudience } from './squads.ts';
 
 const lastSent = db.prepare('SELECT sent_at FROM notify_log WHERE key = ?');
@@ -159,10 +159,27 @@ export async function runBirthdays() {
   console.log(`[birthdays] поздравили: ${fresh.map((p) => p.first_name).join(', ')}`);
 }
 
+/** События из серии: когда до них остаётся неделя — пост в чат с кнопками «Иду / Не иду». */
+export async function runAnnouncements() {
+  if (quietHours()) return;
+  const due = db
+    .prepare(
+      `SELECT * FROM events WHERE announce_pending = 1 AND cancelled = 0
+       AND starts_at > ? AND starts_at <= ? ORDER BY starts_at`,
+    )
+    .all(new Date().toISOString(), new Date(Date.now() + ANNOUNCE_DAYS * 864e5).toISOString()) as unknown as EventRow[];
+  for (const e of due) {
+    db.prepare('UPDATE events SET announce_pending = 0 WHERE id = ?').run(e.id);
+    await notifyEventCreated(e);
+  }
+  if (due.length) console.log(`[announce] запостили событий: ${due.length}`);
+}
+
 export function startReminders() {
   const tick = () => {
     runReminders().catch((e) => console.warn('[reminders] failed', e));
     runBirthdays().catch((e) => console.warn('[birthdays] failed', e));
+    runAnnouncements().catch((e) => console.warn('[announce] failed', e));
   };
   setTimeout(tick, 10_000);
   setInterval(tick, 15 * 60_000);

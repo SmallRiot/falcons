@@ -68,3 +68,6 @@ export function toLocalInput(iso: string) {
 export function fromLocalInput(v: string) {
   return new Date(new Date(v + ':00Z').getTime() - 4 * 3600e3).toISOString();
 }
+
+/** Лёд у команды один — подставляется в новые события (сервер делает то же, если поле пустое). */
+export const DEFAULT_LOCATION = 'Арена Боба Уолша';

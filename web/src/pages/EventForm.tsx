@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, type EventDetail } from '@shared/api';
-import { fromLocalInput, toLocalInput } from '@shared/format';
-import { Segmented, Spinner, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
+import { api, type EventDetail, type EventSummary } from '@shared/api';
+import { DatesPicker } from '@shared/DatesPicker';
+import { DEFAULT_LOCATION, fromLocalInput, plural, toLocalInput } from '@shared/format';
+import { Segmented, Spinner, SquadPicker, toast, useAction, useApi, useMe } from '@shared/ui';
 
 const LAST_KEY = 'falcons.lastEvent';
 
@@ -20,7 +21,7 @@ export default function EventForm() {
   const { busy, run } = useAction();
   const { me } = useMe();
   const [f, setF] = useState(() => {
-    let last: { location?: string; capacity?: string; time?: string } = {};
+    let last: { location?: string; capacity?: string; time?: string; duration?: string } = {};
     try {
       last = JSON.parse(localStorage.getItem(LAST_KEY) ?? '{}');
     } catch {
@@ -30,8 +31,10 @@ export default function EventForm() {
       type: 'training' as 'training' | 'game',
       title: '',
       when: toLocalInput(nextWeekdayAt(21, 30)),
-      duration_min: '90',
-      location: last.location ?? '',
+      days: [] as string[],
+      time: last.time ?? '21:30',
+      duration_min: last.duration ?? '90',
+      location: last.location || DEFAULT_LOCATION,
       capacity: last.capacity ?? '',
       notes: '',
       notify: true,
@@ -48,6 +51,8 @@ export default function EventForm() {
       type: e.type,
       title: e.title ?? '',
       when: toLocalInput(e.starts_at),
+      days: [],
+      time: toLocalInput(e.starts_at).slice(11, 16),
       duration_min: String(e.duration_min),
       location: e.location ?? '',
       capacity: e.capacity ? String(e.capacity) : '',
@@ -59,6 +64,9 @@ export default function EventForm() {
     });
   }, [existing.data]);
 
+  const all = useApi<EventSummary[]>(editing ? null : '/api/events?all=1');
+  const marked = (all.data ?? []).filter((e) => !e.cancelled).map((e) => toLocalInput(e.starts_at).slice(0, 10));
+
   if (editing && existing.loading) return <Spinner />;
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
 
@@ -67,7 +75,8 @@ export default function EventForm() {
       const body = {
         type: f.type,
         title: f.title,
-        starts_at: fromLocalInput(f.when),
+        starts_at: editing ? fromLocalInput(f.when) : undefined,
+        starts_at_list: editing ? undefined : f.days.map((d) => fromLocalInput(`${d}T${f.time}`)),
         duration_min: Number(f.duration_min),
         location: f.location,
         capacity: f.capacity ? Number(f.capacity) : null,
@@ -78,7 +87,7 @@ export default function EventForm() {
         score_them: f.score_them === '' ? null : Number(f.score_them),
       };
       try {
-        localStorage.setItem(LAST_KEY, JSON.stringify({ location: f.location, capacity: f.capacity }));
+        localStorage.setItem(LAST_KEY, JSON.stringify({ location: f.location, capacity: f.capacity, time: f.time, duration: f.duration_min }));
       } catch {
         /* ок */
       }
@@ -86,10 +95,16 @@ export default function EventForm() {
         await api.patch(`/api/events/${id}`, body);
         nav(`/events/${id}`, { replace: true });
       } else {
-        const e = await api.post<{ id: number }>('/api/events', body);
-        nav(`/events/${e.id}`, { replace: true });
+        const r = await api.post<{ id: number; count: number; announced: number }>('/api/events', body);
+        if (r.count > 1) {
+          toast(
+            `Создано ${r.count} ${plural(r.count, 'событие', 'события', 'событий')}` +
+              (f.notify ? ` · в чат сейчас ${r.announced}, остальные бот запостит за неделю до` : ''),
+          );
+          nav('/events', { replace: true });
+        } else nav(`/events/${r.id}`, { replace: true });
       }
-    }, editing ? 'Сохранено' : f.notify ? 'Создано, бот написал в чат' : 'Создано');
+    }, editing ? 'Сохранено' : f.days.length > 1 ? undefined : 'Создано');
 
   return (
     <div className="page">
@@ -114,10 +129,23 @@ export default function EventForm() {
         ) : (
           <div className="muted small">Тренировки общие — их видят все составы.</div>
         )}
-        <label className="field">
-          <span>Дата и время (Тбилиси)</span>
-          <input className="input" type="datetime-local" value={f.when} onChange={(e) => set('when', e.target.value)} />
-        </label>
+        {editing ? (
+          <label className="field">
+            <span>Дата и время (Тбилиси)</span>
+            <input className="input" type="datetime-local" value={f.when} onChange={(e) => set('when', e.target.value)} />
+          </label>
+        ) : (
+          <>
+            <div className="field">
+              <span>Дни · можно выбрать несколько, чтобы заложить наперёд</span>
+              <DatesPicker value={f.days} onChange={(v) => set('days', v)} marked={marked} />
+            </div>
+            <label className="field">
+              <span>Время начала (Тбилиси)</span>
+              <input className="input" type="time" value={f.time} onChange={(e) => set('time', e.target.value)} />
+            </label>
+          </>
+        )}
         <label className="field">
           <span>{f.type === 'game' ? 'Соперник / турнир' : 'Название (необязательно)'}</span>
           <input
@@ -129,7 +157,7 @@ export default function EventForm() {
         </label>
         <label className="field">
           <span>Место</span>
-          <input className="input" value={f.location} placeholder="Каток" onChange={(e) => set('location', e.target.value)} />
+          <input className="input" value={f.location} placeholder={DEFAULT_LOCATION} onChange={(e) => set('location', e.target.value)} />
         </label>
         <div className="form-row">
           <label className="field">
@@ -160,12 +188,12 @@ export default function EventForm() {
         {!editing && (
           <label className="check">
             <input type="checkbox" checked={f.notify} onChange={(e) => set('notify', e.target.checked)} />
-            Сообщить в командный чат
+            Сообщить в командный чат{f.days.length > 1 ? ' (каждое — за неделю до)' : ''}
           </label>
         )}
       </div>
-      <button className="btn block" disabled={busy || !f.when} onClick={submit}>
-        {editing ? 'Сохранить' : 'Создать и открыть запись'}
+      <button className="btn block" disabled={busy || (editing ? !f.when : !f.days.length || !f.time)} onClick={submit}>
+        {editing ? 'Сохранить' : f.days.length > 1 ? `Создать ${f.days.length} ${plural(f.days.length, 'событие', 'события', 'событий')}` : 'Создать и открыть запись'}
       </button>
     </div>
   );

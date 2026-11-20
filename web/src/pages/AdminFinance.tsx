@@ -29,7 +29,7 @@ export default function AdminFinance() {
     if (!pid && periods.data?.length) setPid(periods.data[0].id);
   }, [periods.data, pid]);
   const detail = useApi<PeriodDetail>(pid ? `/api/admin/periods/${pid}` : null, [pid]);
-  const [filter, setFilter] = useState<'todo' | 'unpaid' | 'paid' | 'all'>('todo');
+  const [filter, setFilter] = useState<'todo' | 'unpaid' | 'paid' | 'all'>('all');
   const [open, setOpen] = useState<DueItem | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -91,6 +91,62 @@ export default function AdminFinance() {
           </div>
 
           {d && (
+            <div className="steps">
+              <div className={`step ${d.period.locked ? 'done' : 'on'}`}>
+                <b>1</b> Опрос
+              </div>
+              <div className="step-line" />
+              <div className={`step ${d.period.locked ? 'on' : ''}`}>
+                <b>2</b> Сбор денег
+              </div>
+            </div>
+          )}
+
+          {d && !d.period.locked && (
+            <div className="card vstack" style={{ gap: 10 }}>
+              <div className="between">
+                <div>
+                  <div className="muted small">Проголосовали</div>
+                  <div style={{ fontSize: 26, fontWeight: 800 }} className="num">
+                    {dues.length - undecided} из {dues.length}
+                  </div>
+                </div>
+                <button className="icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Настройки месяца">
+                  <Settings2 size={18} />
+                </button>
+              </div>
+              <div className="progress" style={{ height: 8 }}>
+                <div style={{ width: `${dues.length ? ((dues.length - undecided) / dues.length) * 100 : 0}%` }} />
+              </div>
+              <div className="small muted">
+                Бюджет {fmt.gel(d.period.budget)} (игроки его не видят). Если завершить сейчас: полный <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.full)}</b>, частичный{' '}
+                <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.partial)}</b>, донат <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.donation)}</b>.
+              </div>
+              {undecided > 0 && (
+                <div className="alert warn">
+                  <div className="body">{undecided} чел. ещё не выбрали. Можно выбрать за них — тап по человеку внизу (фильтр «Все»).</div>
+                </div>
+              )}
+              <button
+                className="btn block"
+                disabled={busy}
+                onClick={() =>
+                  confirm(
+                    `Завершить опрос и начать сбор?\n\nПолный ${d.rates.full} ₾, частичный ${d.rates.partial} ₾, донат ${d.rates.donation} ₾.\nКаждый получит в личку свою сумму, неоплата станет долгом с напоминаниями.` +
+                      (undecided ? `\n\n${undecided} чел. не выбрали — бот попросит их выбрать, сумма посчитается по тем же ставкам.` : ''),
+                  ) &&
+                  run(async () => {
+                    await api.patch(`/api/admin/periods/${pid}`, { locked: true });
+                    await reloadAll();
+                  }, 'Опрос завершён — бот разослал суммы')
+                }
+              >
+                <Play size={16} /> Завершить опрос и начать сбор
+              </button>
+            </div>
+          )}
+
+          {d && d.period.locked && (
             <div className="card vstack" style={{ gap: 12 }}>
               <div className="between">
                 <div>
@@ -108,45 +164,24 @@ export default function AdminFinance() {
               </div>
               <div className="hstack wrap small muted" style={{ gap: 12 }}>
                 <span>Бюджет <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.period.budget)}</b></span>
-                {!d.period.locked && <span className="chip info">Опрос · суммы игрокам не видны</span>}
                 <span>Полный <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.full)}</b> ×{d.rates.nFull}</span>
                 <span>Частичный <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.partial)}</b> ×{d.rates.nPartial}</span>
                 <span>Донат <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.donation)}</b> ×{d.rates.nDonation}</span>
               </div>
-              {!d.period.locked && undecided > 0 && (
-                <div className="alert warn">
-                  <div className="body">{undecided} чел. ещё не выбрали вариант. Можно выбрать за них — тап по человеку.</div>
-                </div>
-              )}
               <div className="btn-row">
-                {d.period.locked ? (
-                  <button
-                    className="btn ghost sm"
-                    disabled={busy}
-                    onClick={() =>
-                      run(async () => {
-                        await api.patch(`/api/admin/periods/${pid}`, { locked: false });
-                        await reloadAll();
-                      }, 'Суммы разблокированы')
-                    }
-                  >
-                    <Unlock size={16} /> Вернуть в опрос
-                  </button>
-                ) : (
-                  <button
-                    className="btn sm"
-                    disabled={busy}
-                    onClick={() =>
-                      confirm(`Начать сбор? Каждый получит в личку свою сумму (полный ${d.rates.full} ₾, частичный ${d.rates.partial} ₾), а неоплата станет долгом с напоминаниями.`) &&
-                      run(async () => {
-                        await api.patch(`/api/admin/periods/${pid}`, { locked: true });
-                        await reloadAll();
-                      }, 'Сбор начат — бот разослал суммы')
-                    }
-                  >
-                    <Play size={16} /> Начать сбор
-                  </button>
-                )}
+                <button
+                  className="btn ghost sm"
+                  disabled={busy}
+                  onClick={() =>
+                    confirm('Вернуть в опрос? Суммы снова будут считаться по голосам, при повторном старте бот разошлёт их заново.') &&
+                    run(async () => {
+                      await api.patch(`/api/admin/periods/${pid}`, { locked: false });
+                      await reloadAll();
+                    }, 'Вернули в опрос')
+                  }
+                >
+                  <Unlock size={16} /> Вернуть в опрос
+                </button>
                 <button
                   className="btn bad-soft sm"
                   disabled={busy}
@@ -162,7 +197,7 @@ export default function AdminFinance() {
                   <Ban size={16} /> Закрыть запись
                 </button>
               </div>
-              {d.period.locked && (
+              {(
                 <button
                   className="btn ghost sm"
                   disabled={busy}
@@ -179,6 +214,10 @@ export default function AdminFinance() {
               <div className="muted small">Бот сам напоминает должникам раз в ~2,5 дня (с 10 до 22).</div>
             </div>
           )}
+
+          <div className="muted small" style={{ padding: '0 4px' }}>
+            👋 Новичок посреди месяца, хочет просто задонатить или его надо освободить? Тапни по человеку → «Вариант и сумма». Бот сам пришлёт ему сумму.
+          </div>
 
           <Segmented
             value={filter}
@@ -210,7 +249,13 @@ export default function AdminFinance() {
                   <span className="num" style={{ fontWeight: 700 }}>
                     {fmt.gel(x.amount)}
                   </span>
-                  <span className={`chip ${DUE_STATUS[x.status].tone}`}>{DUE_STATUS[x.status].label}</span>
+                  {x.plan === 'exempt' && x.custom_amount == null ? (
+                    <span className="chip ok">Освобождён</span>
+                  ) : !d?.period.locked ? (
+                    <span className="chip info">{x.plan || x.custom_amount != null ? 'Голос' : 'Не выбрал'}</span>
+                  ) : (
+                    <span className={`chip ${DUE_STATUS[x.status].tone}`}>{DUE_STATUS[x.status].label}</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -218,14 +263,28 @@ export default function AdminFinance() {
         </>
       )}
 
-      <DueSheet item={open} onClose={() => setOpen(null)} busy={busy} onPatch={patchDue} />
+      <DueSheet item={open} onClose={() => setOpen(null)} busy={busy} onPatch={patchDue} rates={d?.rates ?? null} locked={!!d?.period.locked} />
       <CreatePeriod open={createOpen} onClose={() => setCreateOpen(false)} onCreated={async (id) => { await periods.reload(); setPid(id); }} />
       {d && <PeriodSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} period={d.period} onSaved={reloadAll} />}
     </div>
   );
 }
 
-function DueSheet({ item, onClose, busy, onPatch }: { item: DueItem | null; onClose: () => void; busy: boolean; onPatch: (u: DueItem, b: Record<string, unknown>, ok: string) => void }) {
+function DueSheet({
+  item,
+  onClose,
+  busy,
+  onPatch,
+  rates,
+  locked,
+}: {
+  item: DueItem | null;
+  onClose: () => void;
+  busy: boolean;
+  onPatch: (u: DueItem, b: Record<string, unknown>, ok: string) => void;
+  rates: Rates | null;
+  locked: boolean;
+}) {
   const [comment, setComment] = useState('');
   const [custom, setCustom] = useState('');
   useEffect(() => {
@@ -269,22 +328,47 @@ function DueSheet({ item, onClose, busy, onPatch }: { item: DueItem | null; onCl
         </button>
       )}
 
-      <div className="section-title">Изменить вариант</div>
+      <div className="section-title">Вариант и сумма</div>
+      <div className="muted small">
+        {locked
+          ? 'Сбор уже идёт — новая сумма считается по зафиксированным ставкам, бот сразу пришлёт её человеку.'
+          : 'Идёт опрос — можно выбрать за человека. Сумма придёт ему, когда начнёшь сбор.'}
+      </div>
       <div className="chips">
         {(['full', 'partial', 'donation', 'exempt'] as Plan[]).map((p) => (
           <button
             key={p}
-            className={`chip ${item.plan === p ? 'info' : ''}`}
-            style={{ border: 0, height: 32, padding: '0 12px' }}
+            className={`chip ${item.plan === p && item.custom_amount == null ? 'info' : ''}`}
+            style={{ border: 0, height: 34, padding: '0 12px' }}
             disabled={busy}
-            onClick={() => onPatch(item, { plan: p }, 'Вариант изменён')}
+            onClick={() => onPatch(item, { plan: p, custom_amount: null }, p === 'exempt' ? 'Освобождён — бот сообщил' : 'Вариант изменён')}
           >
             {PLAN_LABEL[p]}
+            {rates && p !== 'exempt' ? ` · ${fmt.gel(p === 'full' ? rates.full : p === 'partial' ? rates.partial : rates.donation)}` : ''}
           </button>
         ))}
       </div>
+      {rates && (
+        <div className="chips">
+          <span className="muted small" style={{ alignSelf: 'center' }}>Пришёл посреди месяца:</span>
+          {[
+            ['½ полного', Math.ceil(rates.full / 2 / 5) * 5],
+            ['½ частичного', Math.ceil(rates.partial / 2 / 5) * 5],
+          ].map(([label, v]) => (
+            <button
+              key={label as string}
+              className="chip"
+              style={{ border: 0, height: 34, padding: '0 12px' }}
+              disabled={busy}
+              onClick={() => onPatch(item, { custom_amount: v }, `Назначено ${v} ₾`)}
+            >
+              {label} · {fmt.gel(v as number)}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="hstack">
-        <input className="input" inputMode="numeric" placeholder="Своя сумма, ₾" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d.]/g, ''))} />
+        <input className="input" inputMode="numeric" placeholder="Своя сумма, ₾ (например, разовый донат)" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d.]/g, ''))} />
         <button className="btn secondary" disabled={busy} onClick={() => onPatch(item, { custom_amount: custom === '' ? null : Number(custom) }, custom === '' ? 'Сумма по варианту' : 'Сумма назначена')}>
           {custom === '' ? 'Сброс' : 'OK'}
         </button>

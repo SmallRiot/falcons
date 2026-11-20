@@ -155,12 +155,13 @@ export default function ConsoleFinance() {
           {d.period.locked ? (
             <>
               <span className="chip ok">
-                <Lock size={12} /> Сбор идёт · суммы видны игрокам
+                <Lock size={12} /> Шаг 2 из 2 · сбор идёт · суммы у игроков
               </span>
               <button
                 className="btn ghost sm"
                 disabled={busy}
                 onClick={() =>
+                  confirm('Вернуть в опрос? Суммы снова будут считаться по голосам, при повторном старте бот разошлёт их заново.') &&
                   run(async () => {
                     await api.patch(`/api/admin/periods/${pid}`, { locked: false });
                     await reloadAll();
@@ -172,25 +173,33 @@ export default function ConsoleFinance() {
             </>
           ) : (
             <>
-              <span className="chip info">Опрос · игроки выбирают вариант, сумм не видят</span>
+              <span className="chip info">
+                Шаг 1 из 2 · опрос · проголосовали {dues.filter(chosen).length} из {dues.length}
+              </span>
               <button
                 className="btn sm"
                 disabled={busy}
                 onClick={() =>
-                  confirm(`Начать сбор? Полный ${d.rates.full} ₾, частичный ${d.rates.partial} ₾. Каждый получит свою сумму в личку.`) &&
+                  confirm(
+                    `Завершить опрос и начать сбор?\n\nПолный ${d.rates.full} ₾, частичный ${d.rates.partial} ₾, донат ${d.rates.donation} ₾. Каждый получит свою сумму в личку.` +
+                      (dues.some((x) => !chosen(x)) ? `\n\nНе выбрали: ${dues.filter((x) => !chosen(x)).length} — бот попросит их выбрать.` : ''),
+                  ) &&
                   run(async () => {
                     await api.patch(`/api/admin/periods/${pid}`, { locked: true });
                     await reloadAll();
                   }, 'Сбор начат — бот разослал суммы')
                 }
               >
-                <Play size={15} /> Начать сбор
+                <Play size={15} /> Завершить опрос и начать сбор
               </button>
             </>
           )}
           <button className="icon-btn" title="Бюджет и проценты" onClick={() => setSettingsOpen(true)}>
             <Settings2 size={17} />
           </button>
+          <span className="muted small" style={{ flexBasis: '100%' }}>
+            👋 Новичок посреди месяца, разовый донат или освобождение — выбери в колонке «Вариант» (там же «Своя сумма…»). Бот сам пришлёт человеку сумму.
+          </span>
           <span className="muted small" style={{ marginLeft: 'auto' }}>
             Бюджет {fmt.gel(d.period.budget)} · полный {fmt.gel(d.rates.full)} × {d.rates.nFull} · частичный {fmt.gel(d.rates.partial)} × {d.rates.nPartial} · донат{' '}
             {fmt.gel(d.rates.donation)} × {d.rates.nDonation}
@@ -268,7 +277,11 @@ export default function ConsoleFinance() {
                       className="input"
                       style={{ height: 32, width: 140, padding: '0 8px' }}
                       value={x.custom_amount != null ? 'custom' : (x.plan ?? '')}
-                      onChange={(e) => e.target.value !== 'custom' && patchDue(x, { plan: e.target.value || null, custom_amount: null }, 'Вариант изменён')}
+                      onChange={(e) => {
+                        if (e.target.value !== 'custom') return patchDue(x, { plan: e.target.value || null, custom_amount: null }, 'Вариант изменён');
+                        const v = prompt(`Своя сумма для ${x.user.name}, ₾ (новичок посреди месяца, разовый донат…)`, x.custom_amount != null ? String(x.custom_amount) : '');
+                        if (v && Number(v) >= 0) void patchDue(x, { custom_amount: Number(v) }, `Назначено ${Number(v)} ₾`);
+                      }}
                     >
                       <option value="">— не выбран</option>
                       {(['full', 'partial', 'donation', 'exempt'] as Plan[]).map((p) => (
@@ -276,14 +289,20 @@ export default function ConsoleFinance() {
                           {PLAN_LABEL[p]}
                         </option>
                       ))}
-                      {x.custom_amount != null && <option value="custom">Своя сумма</option>}
+                      <option value="custom">{x.custom_amount != null ? `Своя сумма · ${x.custom_amount} ₾` : 'Своя сумма…'}</option>
                     </select>
                   </td>
                   <td className="num">
                     <b>{d?.period.locked ? fmt.gel(x.amount) : <span className="muted">{fmt.gel(x.amount)}</span>}</b>
                   </td>
                   <td>
-                    <span className={`chip ${DUE_STATUS[x.status].tone}`}>{DUE_STATUS[x.status].label}</span>
+                    {x.plan === 'exempt' && x.custom_amount == null ? (
+                      <span className="chip ok">Освобождён</span>
+                    ) : !d?.period.locked ? (
+                      <span className="chip info">{chosen(x) ? 'Проголосовал' : 'Не выбрал'}</span>
+                    ) : (
+                      <span className={`chip ${DUE_STATUS[x.status].tone}`}>{DUE_STATUS[x.status].label}</span>
+                    )}
                   </td>
                   <td>
                     {x.proof ? (

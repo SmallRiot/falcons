@@ -409,3 +409,13 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .photo-edit { display: flex; align-items: center; gap: 16px; }
 .photo-edit-av { position: relative; border: 0; padding: 0; background: none; border-radius: 50%; cursor: pointer; }
 .photo-edit-cam { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 13px; background: var(--falcon); color: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid var(--surface); }
+
+/* шаги сбора: опрос → сбор */
+.steps { display: flex; align-items: center; gap: 8px; }
+.step { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+.step b { width: 24px; height: 24px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-2); font-size: 12px; }
+.step.on { color: var(--ink); }
+.step.on b { background: var(--falcon); color: #fff; }
+.step.done { color: var(--ok); }
+.step.done b { background: var(--ok); color: #fff; }
+.step-line { flex: 1; height: 2px; background: var(--line); border-radius: 1px; min-width: 20px; }

@@ -25,7 +25,7 @@ import Onboarding from './pages/Onboarding';
 import Manage from './pages/Manage';
 
 
-const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile', '/manage', '/admin/users', '/admin/finance', '/service'];
+const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile', '/manage', '/admin/users', '/admin/finance', '/service', '/service/queue', '/service/debts'];
 /** Экраны режима «Управление». /events общий — режим не меняет. */
 const STAFF_PATH = /^\/(manage|admin|service)(\/|$)/;
 const MODE_KEY = 'falcons.mode';
@@ -61,7 +61,9 @@ export default function App() {
   };
   // у админа/тренера/сервиса главная — «Управление» (если сам не переключился в игрока)
   useEffect(() => {
-    if (me && can(me, 'admin', 'coach', 'service') && mode !== 'player' && loc.pathname === '/') nav('/manage', { replace: true });
+    if (!me || !can(me, 'admin', 'coach', 'service') || mode === 'player') return;
+    const home = can(me, 'admin', 'coach') ? '/manage' : '/service';
+    if (loc.pathname === '/' || (loc.pathname === '/manage' && home !== '/manage')) nav(home, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.user.id, loc.pathname]);
 
@@ -102,7 +104,7 @@ export default function App() {
   const goBack = useCallback(() => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     if (idx > 0) nav(-1);
-    else nav(me && can(me, 'admin', 'coach', 'service') && mode !== 'player' ? '/manage' : '/', { replace: true });
+    else nav(me && can(me, 'admin', 'coach', 'service') && mode !== 'player' ? (can(me, 'admin', 'coach') ? '/manage' : '/service') : '/', { replace: true });
   }, [nav, mode, me]);
   useEffect(() => {
     if (!tg) return;
@@ -130,10 +132,13 @@ export default function App() {
   const staffBadge = (me.badges?.pendingUsers ?? 0) + (me.badges?.proofs ?? 0) + (me.badges?.sharpenings ?? 0);
   const isStaff = can(me, 'admin', 'coach', 'service');
   const staffMode = isStaff && (mode ?? 'staff') === 'staff';
-  const staffLabel = can(me, 'admin') ? 'Админка' : can(me, 'coach') ? 'Тренер' : 'Сервис';
+  const staffLabel = can(me, 'admin') ? 'Админка' : can(me, 'coach') ? 'Тренер' : 'Заточка';
+  // точильщик без других ролей: своя простая панель — чеки, очередь, долги
+  const serviceOnly = can(me, 'service') && !can(me, 'admin', 'coach');
+  const staffHome = serviceOnly ? '/service' : '/manage';
   const switchTo = (next: Mode) => {
     setMode(next);
-    nav(next === 'staff' ? '/manage' : '/', { replace: true });
+    nav(next === 'staff' ? staffHome : '/', { replace: true });
   };
 
   const routes = (
@@ -151,6 +156,7 @@ export default function App() {
       <Route path="/admin/finance" element={<AdminFinance />} />
       <Route path="/admin/accounts" element={<AdminAccounts />} />
       <Route path="/service" element={<Service />} />
+      <Route path="/service/:tab" element={<Service />} />
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/admin/squads" element={<AdminSquads />} />
       <Route path="/manage" element={isStaff ? <Manage /> : <Home />} />
@@ -168,11 +174,19 @@ export default function App() {
         <div className="tabbar-inner">
           {staffMode ? (
             <>
+              {serviceOnly ? (
+                <>
+                  <Tab to="/service" end icon={<Receipt size={22} />} label="Чеки" dot={me.badges?.sharpChecks || undefined} />
+                  <Tab to="/service/queue" icon={<Scissors size={22} />} label="Очередь" dot={me.badges?.sharpQueue || undefined} />
+                  <Tab to="/service/debts" icon={<Wallet size={22} />} label="Долги" />
+                </>
+              ) : (
               <Tab to="/manage" icon={<LayoutGrid size={22} />} label="Обзор" />
+              )}
               {can(me, 'admin', 'coach') && <Tab to="/events" icon={<CalendarDays size={22} />} label="События" />}
               {can(me, 'admin') && <Tab to="/admin/users" icon={<Users size={22} />} label="Люди" dot={me.badges?.pendingUsers || undefined} />}
               {can(me, 'admin') && <Tab to="/admin/finance" icon={<Receipt size={22} />} label="Взносы" dot={me.badges?.proofs || undefined} />}
-              {can(me, 'admin', 'service') && <Tab to="/service" icon={<Scissors size={22} />} label="Заточка" dot={me.badges?.sharpenings || undefined} />}
+              {!serviceOnly && can(me, 'admin', 'service') && <Tab to="/service" icon={<Scissors size={22} />} label="Заточка" dot={me.badges?.sharpenings || undefined} />}
             </>
           ) : (
             <>

@@ -31,6 +31,12 @@ export default async function meRoutes(app: FastifyInstance) {
       badges.proofs = (db.prepare(`SELECT COUNT(*) c FROM dues WHERE status='pending'`).get() as { c: number }).c;
     }
     if (hasRole(u, 'service', 'admin')) {
+      badges.sharpChecks = (
+        db.prepare(`SELECT COUNT(*) c FROM sharpenings WHERE payment='pending' AND status != 'rejected'`).get() as { c: number }
+      ).c;
+      badges.sharpQueue = (
+        db.prepare(`SELECT COUNT(*) c FROM sharpenings WHERE status IN ('new','accepted') AND payment != 'pending'`).get() as { c: number }
+      ).c;
       badges.sharpenings = (
         db.prepare(`SELECT COUNT(*) c FROM sharpenings WHERE status IN ('new','accepted')`).get() as { c: number }
       ).c;

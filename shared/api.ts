@@ -116,7 +116,7 @@ export interface Me {
   squads?: Squad[];
   debts?: { period_id: number; month: string; amount: number; status: string; comment: string | null }[];
   sharpeningDebt?: { count: number; total: number } | null;
-  badges?: { pendingUsers?: number; proofs?: number; sharpenings?: number; unread?: number };
+  badges?: { pendingUsers?: number; proofs?: number; sharpenings?: number; sharpChecks?: number; sharpQueue?: number; unread?: number };
 }
 
 export interface EventSummary {

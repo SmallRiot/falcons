@@ -1,32 +1,61 @@
 import { useMemo, useState } from 'react';
-import { Plus, Scissors, Search } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Check, Plus, Scissors, Search, X } from 'lucide-react';
 import { api, type PublicUser } from '@shared/api';
-import { fmt } from '@shared/format';
+import { fmt, plural } from '@shared/format';
 import { Avatar, Empty, Jersey, ProofImage, Segmented, Sheet, Spinner, useAction, useApi, useMe } from '@shared/ui';
-import { PAY_STATUS, SHARP_STATUS, Steps, type SharpItem } from './Sharpening';
+import { type SharpItem } from './Sharpening';
 
 type Item = SharpItem & { user: PublicUser };
+export type ServiceTab = 'checks' | 'queue' | 'debts';
+const TABS: [ServiceTab, string][] = [
+  ['checks', 'Чеки'],
+  ['queue', 'Очередь'],
+  ['debts', 'Долги'],
+];
 
+/**
+ * Заточка для точильщика (и админа) — максимально просто, всё действие прямо на карточке:
+ *  Чеки   — скрины оплат: «Деньги пришли» / «Не пришли»;
+ *  Очередь — взять в работу / готово;
+ *  Долги  — кто сколько должен, «Получил деньги», «Записать долг».
+ */
 export default function Service() {
   const { refresh } = useMe();
-  const [scope, setScope] = useState<'active' | 'debts' | 'all'>('active');
-  const { data, loading, reload } = useApi<Item[]>(`/api/service/sharpening${scope === 'all' ? '?all=1' : ''}`, [scope === 'all']);
-  const [open, setOpen] = useState<Item | null>(null);
+  const nav = useNavigate();
+  const tab = (useParams().tab as ServiceTab) || 'checks';
+  const { data, loading, reload } = useApi<Item[]>('/api/service/sharpening');
   const [debtOpen, setDebtOpen] = useState(false);
-  const [comment, setComment] = useState('');
   const { busy, run } = useAction();
 
-  const isDebt = (s: Item) => s.payment === 'unpaid' && s.status !== 'rejected';
-  const list = (data ?? []).filter((s) => (scope === 'debts' ? isDebt(s) : scope === 'active' ? !isDebt(s) : true));
-  const debtTotal = (data ?? []).filter(isDebt).reduce((a, s) => a + s.price, 0);
+  const all = data ?? [];
+  const checks = all.filter((s) => s.payment === 'pending' && s.status !== 'rejected');
+  const queue = all.filter((s) => (s.status === 'new' || s.status === 'accepted') && s.payment !== 'pending');
+  const debts = all.filter((s) => s.payment === 'unpaid' && s.status !== 'rejected');
+  const byUser = useMemo(() => {
+    const m = new Map<number, { user: PublicUser; items: Item[]; total: number }>();
+    for (const s of debts) {
+      const g = m.get(s.user.id) ?? { user: s.user, items: [], total: 0 };
+      g.items.push(s);
+      g.total += s.price;
+      m.set(s.user.id, g);
+    }
+    return [...m.values()].sort((a, b) => b.total - a.total);
+  }, [debts]);
+  const debtTotal = debts.reduce((a, s) => a + s.price, 0);
 
   const patch = (s: Item, body: Partial<Pick<SharpItem, 'status' | 'payment'>>, ok: string) =>
     run(async () => {
-      await api.patch(`/api/service/sharpening/${s.id}`, { ...body, comment });
-      setOpen(null);
-      setComment('');
+      await api.patch(`/api/service/sharpening/${s.id}`, body);
       await Promise.all([reload(), refresh()]);
     }, ok);
+  const paidAll = (items: Item[], name: string) =>
+    run(async () => {
+      for (const s of items) await api.patch(`/api/service/sharpening/${s.id}`, { payment: 'paid' });
+      await Promise.all([reload(), refresh()]);
+    }, `Долг ${name} закрыт`);
+
+  const count: Record<ServiceTab, number> = { checks: checks.length, queue: queue.length, debts: byUser.length };
 
   return (
     <div className="page">
@@ -37,99 +66,121 @@ export default function Service() {
         </button>
       </div>
       <Segmented
-        value={scope}
-        onChange={setScope}
-        options={[
-          ['active', 'Очередь'],
-          ['debts', `Должники${debtTotal ? ` · ${debtTotal} ₾` : ''}`],
-          ['all', 'Все'],
-        ]}
+        value={tab}
+        onChange={(v) => nav(v === 'checks' ? '/service' : `/service/${v}`, { replace: true })}
+        options={TABS.map(([k, l]) => [k, count[k] ? `${l} · ${count[k]}` : l])}
       />
+
       {loading ? (
         <Spinner />
-      ) : !list.length ? (
-        <Empty icon={<Scissors size={26} />} title={scope === 'debts' ? 'Должников нет 🎉' : 'Очередь пуста'} />
-      ) : (
-        <div className="vstack">
-          {list.map((s) => (
-            <div key={s.id} className="card tight vstack clickable" onClick={() => setOpen(s)}>
-              <div className="hstack">
-                <Avatar user={s.user} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <b>{s.user.name}</b>
-                  <div className="muted small">
-                    #{s.id} · {fmt.dateShort(s.created_at)}, {fmt.time(s.created_at)} · {fmt.gel(s.price)}
-                  </div>
-                </div>
-                <div className="chips" style={{ justifyContent: 'flex-end' }}>
-                  {s.payment !== 'paid' && <span className={`chip ${PAY_STATUS[s.payment].tone}`}>{PAY_STATUS[s.payment].label}</span>}
-                  {!isDebt(s) && <span className={`chip ${SHARP_STATUS[s.status].tone}`}>{SHARP_STATUS[s.status].label}</span>}
+      ) : tab === 'checks' ? (
+        !checks.length ? (
+          <Empty icon={<Check size={26} />} title="Чеков на проверку нет 👌" />
+        ) : (
+          <div className="vstack">
+            <div className="muted small">Сверь скрин с поступлением на свой счёт.</div>
+            {checks.map((s) => (
+              <div key={s.id} className="card vstack">
+                <Who s={s} />
+                {s.note && <div className="small">«{s.note}»</div>}
+                {s.proof ? <ProofImage name={s.proof} /> : <div className="muted small">Скрина нет</div>}
+                <div className="btn-row">
+                  <button className="btn bad-soft" disabled={busy} onClick={() => patch(s, { payment: 'unpaid' }, 'Записан долг, игрок получил пуш')}>
+                    <X size={18} /> Не пришли
+                  </button>
+                  <button
+                    className="btn ok"
+                    disabled={busy}
+                    onClick={() =>
+                      patch(s, s.status === 'new' ? { payment: 'paid', status: 'accepted' } : { payment: 'paid' }, 'Оплата принята')
+                    }
+                  >
+                    <Check size={18} /> Деньги пришли
+                  </button>
                 </div>
               </div>
-              {s.note && <div className="small">«{s.note}»</div>}
-              {!isDebt(s) && <Steps status={s.status} />}
+            ))}
+          </div>
+        )
+      ) : tab === 'queue' ? (
+        !queue.length ? (
+          <Empty icon={<Scissors size={26} />} title="Очередь пуста" />
+        ) : (
+          <div className="vstack">
+            {queue.map((s) => (
+              <div key={s.id} className="card vstack">
+                <Who s={s} />
+                {s.note && <div className="small">«{s.note}»</div>}
+                {s.status === 'new' ? (
+                  <button className="btn block" disabled={busy} onClick={() => patch(s, { status: 'accepted' }, 'Взято в работу')}>
+                    Взять в работу
+                  </button>
+                ) : (
+                  <button className="btn ok block" disabled={busy} onClick={() => patch(s, { status: 'done' }, 'Готово — игрок получил пуш')}>
+                    <Check size={18} /> Готово, можно забирать
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      ) : !byUser.length ? (
+        <Empty icon={<Check size={26} />} title="Должников нет 🎉" />
+      ) : (
+        <div className="vstack">
+          <div className="card between">
+            <div>
+              <div className="muted small">Должны за заточку</div>
+              <div className="big-amount" style={{ fontSize: 28 }}>{fmt.gel(debtTotal)}</div>
+            </div>
+            <span className="muted small">
+              {byUser.length} {plural(byUser.length, 'человек', 'человека', 'человек')}
+            </span>
+          </div>
+          <div className="muted small">Бот сам напоминает должникам раз в ~2,5 дня.</div>
+          {byUser.map((g) => (
+            <div key={g.user.id} className="card vstack">
+              <div className="hstack">
+                <Avatar user={g.user} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <b>{g.user.name}</b>
+                  <div className="muted small">
+                    {g.items.length} {plural(g.items.length, 'заточка', 'заточки', 'заточек')} · с {fmt.dateShort(g.items[g.items.length - 1].created_at)}
+                  </div>
+                </div>
+                <b className="num" style={{ color: 'var(--bad)' }}>{fmt.gel(g.total)}</b>
+              </div>
+              <button className="btn ok-soft block" disabled={busy} onClick={() => paidAll(g.items, g.user.first_name)}>
+                <Check size={18} /> Получил {fmt.gel(g.total)}
+              </button>
             </div>
           ))}
         </div>
       )}
 
-      <Sheet open={!!open} onClose={() => setOpen(null)} title={open ? `Заточка #${open.id}` : ''}>
-        {open && (
-          <>
-            <div className="hstack">
-              <Avatar user={open.user} />
-              <div>
-                <b>{open.user.name}</b>
-                <div className="muted small">
-                  {fmt.gel(open.price)} · {PAY_STATUS[open.payment].label}
-                </div>
-              </div>
-            </div>
-            {open.note && <div className="card tight">«{open.note}»</div>}
-            {open.proof && <ProofImage name={open.proof} />}
-            <input className="input" placeholder="Комментарий игроку (необязательно)" value={comment} onChange={(e) => setComment(e.target.value)} />
+      <AddDebt
+        open={debtOpen}
+        onClose={() => setDebtOpen(false)}
+        onDone={async () => {
+          nav('/service/debts', { replace: true });
+          await Promise.all([reload(), refresh()]);
+        }}
+      />
+    </div>
+  );
+}
 
-            {open.payment === 'pending' && (
-              <div className="btn-row">
-                <button className="btn bad-soft" disabled={busy} onClick={() => patch(open, { payment: 'unpaid' }, 'Записан долг, игрок получил пуш')}>
-                  Оплаты нет
-                </button>
-                <button
-                  className="btn"
-                  disabled={busy}
-                  onClick={() =>
-                    patch(open, open.status === 'new' ? { status: 'accepted' } : { payment: 'paid' }, open.status === 'new' ? 'Взято в работу' : 'Оплата подтверждена')
-                  }
-                >
-                  {open.status === 'new' ? 'Оплата ок, беру' : 'Оплата ок'}
-                </button>
-              </div>
-            )}
-            {open.payment === 'unpaid' && (
-              <button className="btn ok-soft block" disabled={busy} onClick={() => patch(open, { payment: 'paid' }, 'Долг закрыт')}>
-                Получил деньги (наличными и т.п.)
-              </button>
-            )}
-            {open.status === 'new' && open.payment !== 'pending' && (
-              <button className="btn block" disabled={busy} onClick={() => patch(open, { status: 'accepted' }, 'Взято в работу')}>
-                Взять в работу
-              </button>
-            )}
-            {open.status === 'accepted' && (
-              <button className="btn ok block" disabled={busy} onClick={() => patch(open, { status: 'done' }, 'Готово — игрок получил пуш')}>
-                Готово, можно забирать
-              </button>
-            )}
-            {open.payment === 'paid' && open.status !== 'accepted' && (
-              <button className="btn bad-soft block" disabled={busy} onClick={() => patch(open, { payment: 'unpaid' }, 'Записан долг')}>
-                Деньги не пришли — записать долг
-              </button>
-            )}
-          </>
-        )}
-      </Sheet>
-
-      <AddDebt open={debtOpen} onClose={() => setDebtOpen(false)} onDone={async () => { setScope('debts'); await Promise.all([reload(), refresh()]); }} />
+function Who({ s }: { s: Item }) {
+  return (
+    <div className="hstack">
+      <Avatar user={s.user} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <b>{s.user.name}</b>
+        <div className="muted small">
+          {fmt.dateShort(s.created_at)}, {fmt.time(s.created_at)}
+        </div>
+      </div>
+      <b className="num">{fmt.gel(s.price)}</b>
     </div>
   );
 }

@@ -22,11 +22,30 @@ import AdminAccounts from './pages/AdminAccounts';
 import Service from './pages/Service';
 import Notifications from './pages/Notifications';
 import AdminSquads from './pages/AdminSquads';
+import DesktopShell from './console/DesktopShell';
+import ConsolePlayers from './console/Players';
+import ConsoleFinance from './console/Finance';
+import { GameAttendance, TrainingStats } from './console/Attendance';
 
 const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile'];
 
 
+/** Веб на компьютере — с боковым меню; Telegram и телефон — мобильный вид с таббаром. */
+function useDesktop() {
+  const q = '(min-width: 1024px)';
+  const [d, setD] = useState(() => !inTelegram && window.matchMedia(q).matches);
+  useEffect(() => {
+    if (inTelegram) return;
+    const m = window.matchMedia(q);
+    const on = () => setD(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return d;
+}
+
 export default function App() {
+  const desktop = useDesktop();
   const [me, setMe] = useState<Me | null>(null);
   const [err, setErr] = useState<{ status: number; message: string } | null>(null);
   // на сайте: вход через Telegram (или тестовый вход, если включён на сервере)
@@ -93,27 +112,39 @@ export default function App() {
   const debtTotal = duesDebt + (me.sharpeningDebt?.total ?? 0);
   const staffBadge = (me.badges?.pendingUsers ?? 0) + (me.badges?.proofs ?? 0) + (me.badges?.sharpenings ?? 0);
 
+  const routes = (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/events" element={<Events />} />
+      <Route path="/events/new" element={<EventForm />} />
+      <Route path="/events/:id" element={<EventDetail />} />
+      <Route path="/events/:id/edit" element={<EventForm />} />
+      <Route path="/events/:id/lineup" element={<LineupEditor />} />
+      <Route path="/finance" element={<Finance />} />
+      <Route path="/sharpening" element={<Sharpening />} />
+      <Route path="/profile" element={<Profile />} />
+      <Route path="/admin/users" element={<AdminUsers />} />
+      <Route path="/admin/finance" element={<AdminFinance />} />
+      <Route path="/admin/accounts" element={<AdminAccounts />} />
+      <Route path="/service" element={<Service />} />
+      <Route path="/notifications" element={<Notifications />} />
+      <Route path="/admin/squads" element={<AdminSquads />} />
+      <Route path="/console/players" element={<ConsolePlayers />} />
+      <Route path="/console/games" element={<GameAttendance />} />
+      <Route path="/console/trainings" element={<TrainingStats />} />
+      <Route path="/console/finance" element={<ConsoleFinance />} />
+      <Route path="*" element={<Home />} />
+    </Routes>
+  );
+
   return (
     <MeCtx.Provider value={{ me, refresh }}>
+      {desktop ? (
+        <DesktopShell>{routes}</DesktopShell>
+      ) : (
+        <>
       <div className={`app ${inTelegram || getSession() ? '' : 'dev'}`}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/events/new" element={<EventForm />} />
-          <Route path="/events/:id" element={<EventDetail />} />
-          <Route path="/events/:id/edit" element={<EventForm />} />
-          <Route path="/events/:id/lineup" element={<LineupEditor />} />
-          <Route path="/finance" element={<Finance />} />
-          <Route path="/sharpening" element={<Sharpening />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/admin/finance" element={<AdminFinance />} />
-          <Route path="/admin/accounts" element={<AdminAccounts />} />
-          <Route path="/service" element={<Service />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/admin/squads" element={<AdminSquads />} />
-          <Route path="*" element={<Home />} />
-        </Routes>
+        {routes}
       </div>
 
       <nav className="tabbar">
@@ -125,8 +156,10 @@ export default function App() {
           <Tab to="/profile" icon={<User size={22} />} label="Профиль" dot={staffBadge || undefined} />
         </div>
       </nav>
+        </>
+      )}
 
-      {!inTelegram && !getSession() && (
+      {!inTelegram && !getSession() && !desktop && (
         <button className="dev-pill" onClick={() => setDevOpen(true)}>
           <FlaskConical size={14} /> {me.user.first_name}
         </button>

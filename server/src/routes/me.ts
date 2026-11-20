@@ -5,6 +5,9 @@ import { debtsOf } from '../finance.ts';
 import { sharpeningDebts } from '../reminders.ts';
 import { allSquads, squadIdsOf } from '../squads.ts';
 
+/** «Был»: отметка тренера, а если её нет — записался «иду». */
+export const PRESENT = `COALESCE(s.attended, s.status = 'in') = 1`;
+
 export default async function meRoutes(app: FastifyInstance) {
   app.get('/api/me', async (req) => {
     const u = req.user;
@@ -61,7 +64,7 @@ export default async function meRoutes(app: FastifyInstance) {
     const attended = (type: string, from?: string) =>
       count(
         `SELECT COUNT(*) c FROM signups s JOIN events e ON e.id = s.event_id
-         WHERE s.user_id = ? AND s.status = 'in' AND e.cancelled = 0 AND e.type = ? AND e.starts_at < ? ${from ? 'AND e.starts_at >= ?' : ''}`,
+         WHERE s.user_id = ? AND ${PRESENT} AND e.cancelled = 0 AND e.type = ? AND e.starts_at < ? ${from ? 'AND e.starts_at >= ?' : ''}`,
         ...([uid, type, now, ...(from ? [from] : [])] as (string | number)[]),
       );
     const held30 = count(
@@ -74,7 +77,7 @@ export default async function meRoutes(app: FastifyInstance) {
     // серия подряд посещённых тренировок
     const recent = db
       .prepare(
-        `SELECT e.id, (SELECT status FROM signups s WHERE s.event_id=e.id AND s.user_id=?) st
+        `SELECT e.id, (SELECT CASE WHEN ${PRESENT} THEN 'in' ELSE 'out' END FROM signups s WHERE s.event_id=e.id AND s.user_id=?) st
          FROM events e WHERE e.type='training' AND e.cancelled=0 AND e.starts_at < ? ORDER BY e.starts_at DESC LIMIT 50`,
       )
       .all(uid, now) as { st: string | null }[];
@@ -98,7 +101,7 @@ export default async function meRoutes(app: FastifyInstance) {
     const byMonth = db
       .prepare(
         `SELECT substr(e.starts_at,1,7) m, COUNT(*) c FROM signups s JOIN events e ON e.id=s.event_id
-         WHERE s.user_id=? AND s.status='in' AND e.cancelled=0 AND e.starts_at < ?
+         WHERE s.user_id=? AND ${PRESENT} AND e.cancelled=0 AND e.starts_at < ?
          GROUP BY m ORDER BY m DESC LIMIT 6`,
       )
       .all(uid, now) as { m: string; c: number }[];

@@ -14,6 +14,7 @@ import sharpeningRoutes from './routes/sharpening.ts';
 import adminRoutes from './routes/admin.ts';
 import devRoutes from './routes/dev.ts';
 import authRoutes from './routes/auth.ts';
+import consoleRoutes from './routes/console.ts';
 
 const app = Fastify({ logger: { level: 'warn' } });
 
@@ -33,6 +34,7 @@ await app.register(async (api) => {
   await api.register(financeRoutes);
   await api.register(sharpeningRoutes);
   await api.register(adminRoutes);
+  await api.register(consoleRoutes);
 });
 
 app.get('/healthz', async () => ({ ok: true }));

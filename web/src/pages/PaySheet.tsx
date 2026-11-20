@@ -8,8 +8,8 @@ import { copyText, CopyRow, FilePick, Sheet } from '@shared/ui';
 
 const BANK_LOGO: Record<string, string> = { TBC: '/banks/tbc.svg', BOG: '/banks/bog.svg' };
 
-export function BankCard({ acc, amount, purpose }: { acc: Account; amount?: number | null; purpose?: string }) {
-  const all = [`Получатель: ${acc.holder}`, `IBAN: ${acc.iban}`, amount ? `Сумма: ${amount} GEL` : '', purpose ? `Назначение: ${purpose}` : '']
+export function BankCard({ acc, amount }: { acc: Account; amount?: number | null }) {
+  const all = [`IBAN: ${acc.iban}`, `Получатель: ${acc.holder}`, amount ? `Сумма: ${amount} GEL` : '']
     .filter(Boolean)
     .join('\n');
   const bank = bankFromIban(acc.iban);
@@ -25,11 +25,11 @@ export function BankCard({ acc, amount, purpose }: { acc: Account; amount?: numb
       <div className="ib">{fmt.iban(acc.iban)}</div>
       <div className="hd">{acc.holder}</div>
       <div className="actions">
-        <button onClick={() => copyText(acc.holder, 'ФИО скопировано')}>
-          <Copy size={14} /> ФИО
-        </button>
         <button onClick={() => copyText(acc.iban, 'IBAN скопирован')}>
           <Copy size={14} /> IBAN
+        </button>
+        <button onClick={() => copyText(acc.holder, 'ФИО скопировано')}>
+          <Copy size={14} /> ФИО
         </button>
         <button onClick={() => copyText(all, 'Реквизиты скопированы')}>
           <ClipboardList size={14} /> Всё
@@ -78,7 +78,7 @@ export default function PaySheet({ open, onClose, title, amount, purpose, accoun
 
       <div className="section-title">1 · Переведи на любой счёт</div>
       {accounts.length ? (
-        accounts.map((a) => <BankCard key={a.id} acc={a} amount={amount} purpose={purpose} />)
+        accounts.map((a) => <BankCard key={a.id} acc={a} amount={amount} />)
       ) : (
         <div className="alert warn">
           <div className="body">Админ ещё не добавил счета.</div>
@@ -86,7 +86,6 @@ export default function PaySheet({ open, onClose, title, amount, purpose, accoun
       )}
       <div className="vstack">
         {amount != null && <CopyRow label="Сумма" value={`${amount} GEL`} copy={String(amount)} />}
-        <CopyRow label="Назначение платежа" value={purpose} copy={purpose} />
       </div>
       {cardUrl && (
         <button className="btn secondary block" onClick={() => openLink(cardUrl)}>

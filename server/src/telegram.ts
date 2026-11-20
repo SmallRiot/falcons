@@ -605,7 +605,7 @@ export function reminderRsvp(userId: number, e: EventRow) {
 
 interface Update {
   update_id: number;
-  message?: { chat: { id: number; type: string }; from?: { id: number }; text?: string };
+  message?: { chat: { id: number; type: string }; from?: { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }; text?: string };
   callback_query?: { id: string; from: { id: number }; data?: string; message?: { chat: { id: number }; message_id: number } };
 }
 
@@ -632,16 +632,30 @@ export async function startPolling() {
 
 const answer = (id: string, text: string, alert = false) => api('answerCallbackQuery', { callback_query_id: id, text, show_alert: alert });
 
-async function handleUpdate(u: Update) {
+export async function handleUpdate(u: Update) {
   const m = u.message;
   if (m?.text) {
     const cmd = m.text.split(/[\s@]/)[0];
     if (cmd === '/chatid') await sendMessage(m.chat.id, `chat id: <code>${m.chat.id}</code>`);
-    if (cmd === '/start' && m.chat.type === 'private') {
+    if (cmd === '/start' && m.chat.type === 'private' && m.from && !m.from.is_bot) {
+      // /start = заявка в команду: человек появляется у админа в «Заявках», а бот теперь может ему писать
+      const { upsertFromTelegram } = await import('./auth.ts');
+      const was = db.prepare('SELECT status FROM users WHERE id = ?').get(m.from.id) as { status: string } | undefined;
+      const me = upsertFromTelegram(m.from);
       const btn: Button = config.webappUrl
         ? { text: '🦅 Открыть Falcons', web_app: { url: config.webappUrl } }
         : { text: '🦅 Открыть Falcons', url: appLink() };
-      await sendMessage(m.chat.id, '🦅 <b>Falcons Hockey Club</b>\n\nЗапись на лёд, пятёрки, взносы и заточка — всё здесь 👇', [[btn]]);
+      if (me.status === 'active')
+        await sendMessage(m.chat.id, '🦅 <b>Falcons Hockey Club</b>\n\nЗапись на лёд, пятёрки, взносы и заточка — всё здесь 👇', [[btn]]);
+      else if (me.status === 'rejected')
+        await sendMessage(m.chat.id, '🦅 Доступ в Falcons закрыт. Если это ошибка — напиши админу команды.');
+      else
+        await sendMessage(
+          m.chat.id,
+          was
+            ? '⏳ Заявка уже у админа — как только пустит, я напишу сюда.'
+            : '🦅 <b>Привет! Заявка в Falcons отправлена.</b>\n\nАдмин посмотрит и пустит — я сразу напишу сюда. Отсюда же будут приходить тренировки, пятёрки и напоминания 🏒',
+        );
     }
   }
 

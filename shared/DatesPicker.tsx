@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
  * Выбор нескольких дней в календаре — «вот эти дни, в такое-то время».
- * Даты — строки YYYY-MM-DD по Тбилиси. Есть быстрый повтор: дни недели × N недель.
+ * Даты — строки YYYY-MM-DD по Тбилиси.
  */
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
@@ -19,7 +19,6 @@ const parse = (s: string) => {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 };
-const weekday = (s: string) => (parse(s).getUTCDay() + 6) % 7; // 0 = Пн
 
 export function DatesPicker({
   value,
@@ -36,8 +35,6 @@ export function DatesPicker({
     const t = parse(value[0] ?? today);
     return { y: t.getUTCFullYear(), m: t.getUTCMonth() };
   });
-  const [repDays, setRepDays] = useState<number[]>([]);
-  const [weeks, setWeeks] = useState(4);
   const sel = useMemo(() => new Set(value), [value]);
   const mark = useMemo(() => new Set(marked), [marked]);
 
@@ -52,17 +49,6 @@ export function DatesPicker({
     return { y: t.getUTCFullYear(), m: t.getUTCMonth() };
   });
   const toggle = (d: string) => onChange(sel.has(d) ? value.filter((x) => x !== d) : [...value, d].sort());
-
-  const applyRepeat = () => {
-    if (!repDays.length) return;
-    const out = new Set(value);
-    const start = parse(today);
-    for (let i = 0; i < weeks * 7; i++) {
-      const s = new Date(start.getTime() + i * 864e5).toISOString().slice(0, 10);
-      if (repDays.includes(weekday(s))) out.add(s);
-    }
-    onChange([...out].sort());
-  };
 
   return (
     <div className="dp">
@@ -99,33 +85,6 @@ export function DatesPicker({
             <span key={`e${i}`} />
           ),
         )}
-      </div>
-
-      <div className="dp-repeat">
-        <div className="muted small">Повторять по дням недели</div>
-        <div className="dp-wds">
-          {WD.map((w, i) => (
-            <button
-              type="button"
-              key={w}
-              className={`dp-chip ${repDays.includes(i) ? 'on' : ''}`}
-              onClick={() => setRepDays((r) => (r.includes(i) ? r.filter((x) => x !== i) : [...r, i]))}
-            >
-              {w}
-            </button>
-          ))}
-        </div>
-        <div className="dp-row">
-          <span className="muted small">на</span>
-          {[2, 4, 8, 12].map((n) => (
-            <button type="button" key={n} className={`dp-chip ${weeks === n ? 'on' : ''}`} onClick={() => setWeeks(n)}>
-              {n} нед.
-            </button>
-          ))}
-          <button type="button" className="btn sm" disabled={!repDays.length} onClick={applyRepeat}>
-            Отметить
-          </button>
-        </div>
       </div>
 
       <div className="dp-foot">

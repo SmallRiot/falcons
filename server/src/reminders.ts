@@ -110,17 +110,21 @@ export async function runReminders(force = false) {
     }
   }
 
-  // 4. завтра событие, а человек не ответил «иду/не иду»
+  // 4. не отметился «иду / не иду»: в личку за 4 дня, за 2 дня и за 6 часов до начала
+  // (в группу событие постится за неделю — см. runAnnouncements)
+  const STAGES = [96, 48, 6];
   const soon = db
-    .prepare(
-      `SELECT id, type, starts_at FROM events WHERE cancelled = 0 AND starts_at > ? AND starts_at < ?`,
-    )
-    .all(new Date(Date.now() + 2 * 3600e3).toISOString(), new Date(Date.now() + 30 * 3600e3).toISOString()) as {
+    .prepare(`SELECT id, type, starts_at FROM events WHERE cancelled = 0 AND starts_at > ? AND starts_at < ?`)
+    .all(new Date(Date.now() + 1 * 3600e3).toISOString(), new Date(Date.now() + STAGES[0] * 3600e3).toISOString()) as {
     id: number;
     type: string;
     starts_at: string;
   }[];
   for (const e of soon) {
+    const hoursLeft = (Date.parse(e.starts_at) - Date.now()) / 3600e3;
+    // текущая ступень: самая маленькая, в которую уже попали (создали событие за сутки — придёт только «за 2 дня», потом «за 6 часов»)
+    const stage = [...STAGES].reverse().find((h) => hoursLeft <= h);
+    if (!stage) continue;
     const audience = new Set(eventAudience(e.id));
     const silent = db
       .prepare(
@@ -130,10 +134,11 @@ export async function runReminders(force = false) {
       .all(e.id)
       .filter((u) => audience.has((u as { id: number }).id)) as { id: number }[];
     for (const u of silent) {
-      const key = `rsvp:${e.id}:${u.id}`;
+      const key = `rsvp:${e.id}:${u.id}:${stage}`;
       if (!isDue(key, 24 * 365)) continue;
       if (budget()) await reminderRsvp(u.id, getEvent(e.id)!);
-      markSent(key);
+      // более ранние ступени, которые проскочили, тоже считаем отправленными
+      for (const h of STAGES.filter((x) => x >= stage)) markSent(`rsvp:${e.id}:${u.id}:${h}`);
       sent++;
     }
   }

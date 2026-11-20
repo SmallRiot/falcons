@@ -97,23 +97,10 @@ export default function Profile() {
         </div>
       )}
 
-      {can(me, 'admin', 'service') && (
-        <>
-          <div className="section-title">Управление</div>
-          <div className="list">
-            {can(me, 'admin') && (
-              <>
-                <MenuRow icon={<Users size={20} />} title="Люди и роли" count={b.pendingUsers} onClick={() => nav('/admin/users')} />
-                <MenuRow icon={<Receipt size={20} />} title="Взносы и проверка оплат" count={b.proofs} onClick={() => nav('/admin/finance')} />
-                <MenuRow icon={<Landmark size={20} />} title="Счета для оплаты" onClick={() => nav('/admin/accounts')} />
-                <MenuRow icon={<Shield size={20} />} title="Составы" onClick={() => nav('/admin/squads')} />
-              </>
-            )}
-            {can(me, 'service', 'admin') && (
-              <MenuRow icon={<Scissors size={20} />} title="Очередь заточки" count={b.sharpenings} onClick={() => nav('/service')} />
-            )}
-          </div>
-        </>
+      {can(me, 'admin', 'coach', 'service') && (
+        <div className="list">
+          <MenuRow icon={<Shield size={20} />} title="Перейти в управление" count={(b.pendingUsers ?? 0) + (b.proofs ?? 0) + (b.sharpenings ?? 0)} onClick={() => nav('/manage')} />
+        </div>
       )}
 
       {!inTelegram && (

@@ -84,22 +84,6 @@ export default function Home() {
         </div>
       )}
 
-      {(can(me, 'admin', 'coach', 'service')) && (
-        <div className="list">
-          {can(me, 'admin') && !!b.pendingUsers && (
-            <StaffRow icon={<UserPlus size={20} />} title="Заявки на доступ" count={b.pendingUsers} to="/admin/users" />
-          )}
-          {can(me, 'admin') && !!b.proofs && (
-            <StaffRow icon={<Receipt size={20} />} title="Скрины оплат на проверке" count={b.proofs} to="/admin/finance" />
-          )}
-          {can(me, 'service', 'admin') && !!b.sharpenings && (
-            <StaffRow icon={<Scissors size={20} />} title="Заявки на заточку" count={b.sharpenings} to="/service" />
-          )}
-          {can(me, 'coach', 'admin') && (
-            <StaffRow icon={<CalendarPlus size={20} />} title="Создать тренировку или игру" to="/events/new" />
-          )}
-        </div>
-      )}
 
       <div className="section-title">
         Ближайшие

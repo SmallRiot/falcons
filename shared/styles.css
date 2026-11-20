@@ -376,3 +376,9 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .team-dark { background: #0d1f2d; color: #fff; }
 .team-light { background: #fff; color: #0d1f2d; border: 1px solid var(--line); }
 
+
+/* режим «Управление» в мини-приложении: панель другого цвета + кнопка переключения */
+.tab.mode-switch { color: var(--falcon); }
+.tab.mode-switch::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 1px; background: var(--line); }
+.tabbar.staff { background: color-mix(in srgb, var(--falcon) 10%, var(--surface)); border-top: 2px solid var(--falcon); }
+.tabbar.staff .tab.mode-switch { color: var(--muted); }

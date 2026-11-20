@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { CalendarDays, Home as HomeIcon, Scissors, User, Wallet, AlertTriangle, FlaskConical } from 'lucide-react';
+import { CalendarDays, Home as HomeIcon, Scissors, User, Wallet, AlertTriangle, FlaskConical, ShieldCheck, Receipt, Users, LayoutGrid, ArrowLeftRight } from 'lucide-react';
 import { api, ApiError, getDevUser, type Me } from '@shared/api';
 import { inTelegram, startParam, tg } from '@shared/tg';
-import { MeCtx, Sheet, Spinner, Toaster } from '@shared/ui';
+import { can, MeCtx, Sheet, Spinner, Toaster } from '@shared/ui';
 import { fmt } from '@shared/format';
 import { startRoute } from '@shared/nav';
 import Gate, { DevPicker } from './pages/Gate';
@@ -22,9 +22,21 @@ import Service from './pages/Service';
 import Notifications from './pages/Notifications';
 import AdminSquads from './pages/AdminSquads';
 import Onboarding from './pages/Onboarding';
+import Manage from './pages/Manage';
 
 
-const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile'];
+const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile', '/manage', '/admin/users', '/admin/finance', '/service'];
+/** Экраны режима «Управление». /events общий — режим не меняет. */
+const STAFF_PATH = /^\/(manage|admin|service)(\/|$)/;
+const MODE_KEY = 'falcons.mode';
+type Mode = 'player' | 'staff';
+const readMode = (): Mode => {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'staff' ? 'staff' : 'player';
+  } catch {
+    return 'player';
+  }
+};
 
 
 export default function App() {
@@ -36,6 +48,20 @@ export default function App() {
   const [devOpen, setDevOpen] = useState(false);
   const nav = useNavigate();
   const loc = useLocation();
+  const [mode, setModeState] = useState<Mode>(() => (STAFF_PATH.test(location.hash.slice(1)) ? 'staff' : readMode()));
+  const setMode = (m: Mode) => {
+    setModeState(m);
+    try {
+      localStorage.setItem(MODE_KEY, m);
+    } catch {
+      /* приватный режим — просто не запомним */
+    }
+  };
+  // ссылка из бота на админский экран сама включает режим управления
+  useEffect(() => {
+    if (STAFF_PATH.test(loc.pathname) && mode !== 'staff') setMode('staff');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loc.pathname]);
 
   const refresh = useCallback(async () => {
     try {
@@ -88,6 +114,14 @@ export default function App() {
   const duesDebt = (me.debts ?? []).reduce((s, d) => s + d.amount, 0);
   const debtTotal = duesDebt + (me.sharpeningDebt?.total ?? 0);
   const staffBadge = (me.badges?.pendingUsers ?? 0) + (me.badges?.proofs ?? 0) + (me.badges?.sharpenings ?? 0);
+  const isStaff = can(me, 'admin', 'coach', 'service');
+  const staffMode = isStaff && mode === 'staff';
+  const staffLabel = can(me, 'admin') ? 'Админка' : can(me, 'coach') ? 'Тренер' : 'Сервис';
+  const switchMode = () => {
+    const next: Mode = staffMode ? 'player' : 'staff';
+    setMode(next);
+    nav(next === 'staff' ? '/manage' : '/', { replace: true });
+  };
 
   const routes = (
     <Routes>
@@ -106,7 +140,8 @@ export default function App() {
       <Route path="/service" element={<Service />} />
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/admin/squads" element={<AdminSquads />} />
-      <Route path="*" element={<Home />} />
+      <Route path="/manage" element={isStaff ? <Manage /> : <Home />} />
+      <Route path="*" element={staffMode ? <Manage /> : <Home />} />
     </Routes>
   );
 
@@ -116,13 +151,32 @@ export default function App() {
         {routes}
       </div>
 
-      <nav className="tabbar">
+      <nav className={`tabbar ${staffMode ? 'staff' : ''}`}>
         <div className="tabbar-inner">
-          <Tab to="/" icon={<HomeIcon size={22} />} label="Главная" end />
-          <Tab to="/events" icon={<CalendarDays size={22} />} label="События" />
-          <Tab to="/finance" icon={<Wallet size={22} />} label="Взносы" dot={me.debts?.length ? '!' : undefined} />
-          <Tab to="/sharpening" icon={<Scissors size={22} />} label="Заточка" dot={me.sharpeningDebt ? '!' : undefined} />
-          <Tab to="/profile" icon={<User size={22} />} label="Профиль" dot={staffBadge || undefined} />
+          {staffMode ? (
+            <>
+              <Tab to="/manage" icon={<LayoutGrid size={22} />} label="Обзор" />
+              {can(me, 'admin', 'coach') && <Tab to="/events" icon={<CalendarDays size={22} />} label="События" />}
+              {can(me, 'admin') && <Tab to="/admin/users" icon={<Users size={22} />} label="Люди" dot={me.badges?.pendingUsers || undefined} />}
+              {can(me, 'admin') && <Tab to="/admin/finance" icon={<Receipt size={22} />} label="Взносы" dot={me.badges?.proofs || undefined} />}
+              {can(me, 'admin', 'service') && <Tab to="/service" icon={<Scissors size={22} />} label="Заточка" dot={me.badges?.sharpenings || undefined} />}
+            </>
+          ) : (
+            <>
+              <Tab to="/" icon={<HomeIcon size={22} />} label="Главная" end />
+              <Tab to="/events" icon={<CalendarDays size={22} />} label="События" />
+              <Tab to="/finance" icon={<Wallet size={22} />} label="Взносы" dot={me.debts?.length ? '!' : undefined} />
+              <Tab to="/sharpening" icon={<Scissors size={22} />} label="Заточка" dot={me.sharpeningDebt ? '!' : undefined} />
+              <Tab to="/profile" icon={<User size={22} />} label="Профиль" />
+            </>
+          )}
+          {isStaff && (
+            <button className="tab mode-switch" onClick={switchMode}>
+              {staffMode ? <ArrowLeftRight size={22} /> : <ShieldCheck size={22} />}
+              {staffMode ? 'Игрок' : staffLabel}
+              {!staffMode && staffBadge ? <span className="dot">{staffBadge}</span> : null}
+            </button>
+          )}
         </div>
       </nav>
 

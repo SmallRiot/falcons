@@ -650,6 +650,8 @@ export function reminderRsvp(userId: number, e: EventRow) {
 
 interface Update {
   update_id: number;
+  /** бота добавили в чат / убрали из него */
+  my_chat_member?: { chat: { id: number; type: string; title?: string }; new_chat_member: { status: string }; old_chat_member: { status: string } };
   message?: { message_thread_id?: number; is_topic_message?: boolean; chat: { id: number; type: string; title?: string }; from?: { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }; text?: string };
   callback_query?: { id: string; from: { id: number }; data?: string; message?: { chat: { id: number }; message_id: number } };
 }
@@ -659,7 +661,7 @@ export async function startPolling() {
   console.log('[tg] polling started');
   let offset = 0;
   for (;;) {
-    const updates = (await api('getUpdates', { offset, timeout: 30, allowed_updates: ['message', 'callback_query'] })) as Update[] | null;
+    const updates = (await api('getUpdates', { offset, timeout: 30, allowed_updates: ['message', 'callback_query', 'my_chat_member'] })) as Update[] | null;
     if (!updates) {
       await new Promise((r) => setTimeout(r, 3000));
       continue;
@@ -677,7 +679,36 @@ export async function startPolling() {
 
 const answer = (id: string, text: string, alert = false) => api('answerCallbackQuery', { callback_query_id: id, text, show_alert: alert });
 
+/** Бота добавили в группу — здороваемся и зовём всех написать ему /start (иначе он не может писать в личку). */
+export function greetGroup(chatId: number) {
+  const link = config.botUsername ? `https://t.me/${config.botUsername}?start=join` : null;
+  return api('sendMessage', {
+    chat_id: chatId,
+    parse_mode: 'HTML',
+    text: [
+      '🦅 <b>Всем привет! Я бот Falcons.</b>',
+      '',
+      'Теперь я буду:',
+      '🏒 объявлять тренировки и игры — с кнопками «Иду / Не иду»;',
+      '📋 присылать пятёрки — каждому в личку, где он играет;',
+      '⏰ напоминать отметиться и про взносы, чтобы никто не забыл;',
+      '🎂 поздравлять с днём рождения.',
+      '',
+      `👉 <b>Напишите мне /start в личку</b>${link ? '' : ` (@${esc(config.botUsername || 'бот')})`} — без этого я не смогу писать вам лично. Админ пустит в команду, и всё заработает.`,
+    ].join('\n'),
+    ...(link ? { reply_markup: { inline_keyboard: [[{ text: '👋 Написать боту /start', url: link }]] } } : {}),
+  });
+}
+
 export async function handleUpdate(u: Update) {
+  const mc = u.my_chat_member;
+  if (mc && (mc.chat.type === 'group' || mc.chat.type === 'supergroup')) {
+    const was = mc.old_chat_member.status;
+    const now = mc.new_chat_member.status;
+    const inChat = (st: string) => st === 'member' || st === 'administrator';
+    if (inChat(now) && !inChat(was)) await greetGroup(mc.chat.id);
+    return;
+  }
   const m = u.message;
   if (m?.text) {
     const cmd = m.text.split(/[\s@]/)[0];

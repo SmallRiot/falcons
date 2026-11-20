@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useState } from 'react';
 import { CheckCircle2, Clock, Info, Lock, Wallet } from 'lucide-react';
 import { api, type FinanceData, type Plan } from '@shared/api';
@@ -7,9 +8,9 @@ import { can, Empty, ProofImage, Spinner, useAction, useApi, useMe } from '@shar
 import PaySheet from './PaySheet';
 
 const PLAN_DESC: Record<string, string> = {
-  full: 'Хожу на все тренировки, играю в чемпионате',
-  partial: 'Тренировки не чаще 1 раза в неделю, играю в чемпионате',
-  donation: 'Не играю в чемпионате, до 2 тренировок в месяц или просто поддержать',
+  full: t('Хожу на все тренировки, играю в чемпионате'),
+  partial: t('Тренировки не чаще 1 раза в неделю, играю в чемпионате'),
+  donation: t('Не играю в чемпионате, до 2 тренировок в месяц или просто поддержать'),
 };
 
 export default function Finance() {
@@ -25,9 +26,9 @@ export default function Finance() {
     return (
       <div className="page">
         <div className="page-head">
-          <h1>Взносы</h1>
+          <h1>{t('Взносы')}</h1>
         </div>
-        <Empty icon={<Wallet size={26} />} title="Сбор ещё не открыт" />
+        <Empty icon={<Wallet size={26} />} title={t('Сбор ещё не открыт')} />
       </div>
     );
 
@@ -54,8 +55,8 @@ export default function Finance() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Взносы</h1>
-          <div className="sub">Лёд, тренер, судьи — делим на всех</div>
+          <h1>{t('Взносы')}</h1>
+          <div className="sub">{t('Лёд, тренер, судьи — делим на всех')}</div>
         </div>
       </div>
 
@@ -64,15 +65,15 @@ export default function Finance() {
           <Info size={20} />
           <div className="body">
             <b>
-              Долг за {fmt.month(debtTarget.month).toLowerCase()} — {fmt.gel(debtTarget.amount)}
+              {t('Долг за')} {fmt.month(debtTarget.month).toLowerCase()} — {fmt.gel(debtTarget.amount)}
             </b>
-            {debtTarget.comment ? `Комментарий админа: ${debtTarget.comment}` : 'Оплати и прикрепи скрин.'}
+            {debtTarget.comment ? t('Комментарий админа: {0}', debtTarget.comment) : t('Оплати и прикрепи скрин.')}
             <div style={{ marginTop: 10 }}>
               <button
                 className="btn sm bad"
                 onClick={() => setPayFor({ id: debtTarget.period_id, month: debtTarget.month, amount: debtTarget.amount })}
               >
-                Оплатить долг
+                {t('Оплатить долг')}
               </button>
             </div>
           </div>
@@ -82,38 +83,38 @@ export default function Finance() {
       <div className="card">
         <div className="between">
           <div>
-            <div className="muted small">Взнос</div>
+            <div className="muted small">{t('Взнос')}</div>
             <div style={{ fontSize: 24, fontWeight: 800 }}>{fmt.month(p.month)}</div>
           </div>
           {p.locked ? (
             <span className="chip ok">
-              <Lock size={12} /> Сбор идёт
+              <Lock size={12} /> {t('Сбор идёт')}
             </span>
           ) : (
-            <span className="chip info">Опрос</span>
+            <span className="chip info">{t('Опрос')}</span>
           )}
         </div>
         <div className="divider" style={{ margin: '12px 0 8px' }} />
         <div className="hstack small muted wrap" style={{ gap: 14 }}>
-          <span>Полный: <b style={{ color: 'var(--ink)' }}>{r.nFull}</b></span>
-          <span>Частичный: <b style={{ color: 'var(--ink)' }}>{r.nPartial}</b></span>
-          <span>Донат: <b style={{ color: 'var(--ink)' }}>{r.nDonation}</b></span>
-          {r.nUndecided > 0 && <span>Не выбрали: <b style={{ color: 'var(--warn)' }}>{r.nUndecided}</b></span>}
+          <span>{t('Полный:')} <b style={{ color: 'var(--ink)' }}>{r.nFull}</b></span>
+          <span>{t('Частичный:')} <b style={{ color: 'var(--ink)' }}>{r.nPartial}</b></span>
+          <span>{t('Донат:')} <b style={{ color: 'var(--ink)' }}>{r.nDonation}</b></span>
+          {r.nUndecided > 0 && <span>{t('Не выбрали:')} <b style={{ color: 'var(--warn)' }}>{r.nUndecided}</b></span>}
         </div>
       </div>
 
-      <div className="section-title">Мой вариант</div>
+      <div className="section-title">{t('Мой вариант')}</div>
       {exempt ? (
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 40 }}>🙌</div>
-          <div style={{ fontSize: 20, fontWeight: 800 }}>Ты освобождён от взноса</div>
+          <div style={{ fontSize: 20, fontWeight: 800 }}>{t('Ты освобождён от взноса')}</div>
           <div className="muted small" style={{ marginTop: 4 }}>
-            За {fmt.month(p.month).toLowerCase()} платить не нужно — так решил админ. Если это ошибка, напиши ему.
+            {t('За')} {fmt.month(p.month).toLowerCase()} {t('платить не нужно — так решил админ. Если это ошибка, напиши ему.')}
           </div>
         </div>
       ) : due?.custom_amount != null ? (
         <div className="card">
-          <div className="muted small">Админ назначил индивидуальную сумму</div>
+          <div className="muted small">{t('Админ назначил индивидуальную сумму')}</div>
           <div className="big-amount">{fmt.gel(due.custom_amount)}</div>
         </div>
       ) : (
@@ -138,8 +139,7 @@ export default function Finance() {
           ))}
           {!p.locked && (
             <div className="muted small" style={{ padding: '0 4px' }}>
-              🧮 Суммы посчитаем, когда все выберут. Как только админ начнёт сбор — бот пришлёт тебе твою сумму, а здесь
-              появится кнопка «Оплатить»: реквизиты в один тап и место для скрина перевода.
+              {t('🧮 Суммы посчитаем, когда все выберут. Как только админ начнёт сбор — бот пришлёт тебе твою сумму, а здесь появится кнопка «Оплатить»: реквизиты в один тап и место для скрина перевода.')}
             </div>
           )}
         </div>
@@ -149,7 +149,7 @@ export default function Finance() {
         <div className="card">
           <div className="between">
             <div>
-              <div className="muted small">К оплате за {fmt.month(p.month).toLowerCase()}</div>
+              <div className="muted small">{t('К оплате за')} {fmt.month(p.month).toLowerCase()}</div>
               <div className="big-amount">{fmt.gel(due.amount)}</div>
             </div>
             <span className={`chip ${DUE_STATUS[due.status].tone}`}>
@@ -159,18 +159,18 @@ export default function Finance() {
           </div>
           {due.status === 'rejected' && due.comment && (
             <div className="alert bad" style={{ marginTop: 12 }}>
-              <div className="body">Админ: {due.comment}</div>
+              <div className="body">{t('Админ:')} {due.comment}</div>
             </div>
           )}
           {canPay && (
             <button className="btn block" style={{ marginTop: 14 }} onClick={() => setPayFor({ id: p.id, month: p.month, amount: due.amount })}>
-              Оплатить {fmt.gel(due.amount)}
+              {t('Оплатить')} {fmt.gel(due.amount)}
             </button>
           )}
           {due.proof && (
             <>
               <button className="btn ghost sm block" style={{ marginTop: 10 }} onClick={() => setShowProof((s) => !s)}>
-                {showProof ? 'Скрыть скрин' : 'Мой скрин'}
+                {showProof ? t('Скрыть скрин') : t('Мой скрин')}
               </button>
               {showProof && (
                 <div style={{ marginTop: 10 }}>
@@ -184,7 +184,7 @@ export default function Finance() {
 
       {history.length > 0 && (
         <>
-          <div className="section-title">История</div>
+          <div className="section-title">{t('История')}</div>
           <div className="list">
             {history.map((h) => (
               <div key={h.period.id} className="row">
@@ -197,11 +197,11 @@ export default function Finance() {
                 </span>
                 {h.due &&
                   (h.due.plan === 'exempt' && h.due.custom_amount == null ? (
-                    <span className="chip ok">Освобождён</span>
+                    <span className="chip ok">{t('Освобождён')}</span>
                   ) : h.period.locked ? (
                     <span className={`chip ${DUE_STATUS[h.due.status].tone}`}>{DUE_STATUS[h.due.status].label}</span>
                   ) : (
-                    <span className="chip info">Опрос, сбора не было</span>
+                    <span className="chip info">{t('Опрос, сбора не было')}</span>
                   ))}
               </div>
             ))}
@@ -212,7 +212,7 @@ export default function Finance() {
       <PaySheet
         open={!!payFor}
         onClose={() => setPayFor(null)}
-        title={payFor ? `Взнос · ${fmt.month(payFor.month)}` : 'Оплата'}
+        title={payFor ? t('Взнос · {0}', fmt.month(payFor.month)) : t('Оплата')}
         amount={payFor?.amount ?? null}
         purpose={`Falcons ${payFor?.month ?? p.month} — ${me.user.name}`}
         accounts={accounts}
@@ -225,7 +225,7 @@ export default function Finance() {
           return run(async () => {
             await api.post(`/api/finance/${payFor!.id}/proof`, fd);
             await Promise.all([reload(), refresh()]);
-          }, file ? 'Скрин отправлен на проверку' : 'Отмечено: оплачено');
+          }, file ? t('Скрин отправлен на проверку') : t('Отмечено: оплачено'));
         }}
       />
     </div>

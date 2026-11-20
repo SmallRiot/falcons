@@ -211,7 +211,22 @@ const LINK_LABEL: Record<string, string> = {
   'admin-users': '👥 Открыть',
   home: '🦅 Открыть Falcons',
 };
-const linkButton = (link: string): Button => ({ text: LINK_LABEL[link] ?? '🦅 Открыть', url: appLink(link) });
+function english(id: number): boolean {
+  return db.prepare('SELECT language FROM users WHERE id = ?').get(id)?.language === 'en';
+}
+
+const monthEn = (month: string) => new Intl.DateTimeFormat('en-GB', { month: 'long', timeZone: 'UTC' }).format(new Date(month + '-01T00:00:00Z'));
+const planEn: Record<string, string> = { full: 'Full', partial: 'Partial', donation: 'Donation', exempt: 'Exempt' };
+const eventEn = (e: EventRow) => {
+  const date = new Intl.DateTimeFormat('en-GB', { timeZone: config.tz, weekday: 'short', day: 'numeric', month: 'long' }).format(new Date(e.starts_at));
+  return (e.type === 'game' ? 'Game' : 'Practice') + (e.title ? ' · ' + esc(e.title) : '') + ' · ' + date + ', ' + fmtTime(e.starts_at);
+};
+
+const linkLabelsEn: Record<string, string> = {
+  finance: '💳 Pay dues', sharpening: '⛸ Skate sharpening', service: '⛸ Open queue',
+  'admin-finance': '🧾 Review payment', 'admin-users': '👥 View players', home: '🦅 Open Falcons',
+};
+const linkButton = (link: string, userId: number): Button => ({ text: english(userId) ? linkLabelsEn[link] ?? '🦅 Open' : LINK_LABEL[link] ?? '🦅 Открыть', url: appLink(link) });
 
 /** Личное сообщение: в Telegram + в ленту уведомлений приложения. */
 /** Гости (записаны админом, без Telegram) — им бот не пишет. */
@@ -221,7 +236,7 @@ const isGuest = (userId: number) =>
 export function dm(userId: number, text: string, link?: string, buttons?: Button[][]) {
   if (isGuest(userId)) return Promise.resolve(null);
   db.prepare('INSERT INTO notifications(user_id, text, link) VALUES(?,?,?)').run(userId, stripHtml(text), link ?? null);
-  const kb = buttons ?? (link ? [[linkButton(link)]] : undefined);
+  const kb = buttons ?? (link ? [[linkButton(link, userId)]] : undefined);
   return sendMessage(userId, text, kb);
 }
 
@@ -229,7 +244,7 @@ export function dm(userId: number, text: string, link?: string, buttons?: Button
 export function dmRich(userId: number, blocks: Block[], link?: string, buttons?: Button[][]) {
   if (isGuest(userId)) return Promise.resolve(null);
   db.prepare('INSERT INTO notifications(user_id, text, link) VALUES(?,?,?)').run(userId, toPlain(blocks), link ?? null);
-  return sendRich(userId, blocks, buttons ?? (link ? [[linkButton(link)]] : undefined));
+  return sendRich(userId, blocks, buttons ?? (link ? [[linkButton(link, userId)]] : undefined));
 }
 
 const shortName = (u: { first_name: string; last_name: string | null }) => `${u.first_name}${u.last_name ? ` ${u.last_name[0]}.` : ''}`;
@@ -270,13 +285,17 @@ function eventBlocks(e: EventRow): Block[] {
   rows.push(['👥 Идут', e.cancelled ? '—' : spots]);
   const blocks: Block[] = [h(title, 2), kv(rows)];
   if (e.notes) blocks.push(p(`📝 ${e.notes}`));
-  const names = (
-    db
-      .prepare(`SELECT u.first_name, u.last_name FROM signups s JOIN users u ON u.id = s.user_id WHERE s.event_id = ? AND s.status = 'in' ORDER BY s.created_at`)
-      .all(e.id) as { first_name: string; last_name: string | null }[]
-  ).map(shortName);
-  // у игр кто идёт видят только игроки состава — в общий чат имена не выносим
-  if (names.length && !e.cancelled && e.type !== 'game') blocks.push(quote(`✅ Идут: ${names.join(', ')}`));
+  // Игровую заявку своего состава игроки открывают в приложении.
+  if (!e.cancelled && e.type !== 'game') {
+    const roster = db.prepare(`SELECT u.first_name, u.last_name, u.position
+      FROM signups s JOIN users u ON u.id = s.user_id
+      WHERE s.event_id = ? AND s.status = 'in' ORDER BY s.created_at, s.user_id`).all(e.id) as
+      { first_name: string; last_name: string | null; position: string | null }[];
+    const skaters = roster.filter(p => p.position !== 'G').map(shortName);
+    const goalies = roster.filter(p => p.position === 'G').map(shortName);
+    if (skaters.length) blocks.push(quote(`✅ Идут: ${skaters.join(', ')}`));
+    if (goalies.length) blocks.push(quote(`🧤 Вратари: ${goalies.join(', ')}`));
+  }
   blocks.push(p(e.cancelled ? '❌ Отменено' : pick(['Жми кнопку — и ты на льду 👇', 'Отметься, чтобы тренер видел состав 👇', 'Кто с нами? 👇'])));
   return blocks;
 }
@@ -350,9 +369,10 @@ function lineupTitle(e: EventRow) {
   return `${kind} · ${dayWord(e.starts_at).toUpperCase()}, ${fmtTime(e.starts_at)}`;
 }
 
-export function renderFor(e: EventRow, highlight?: number) {
+export function renderFor(e: EventRow, highlight?: number, en = false) {
   return renderLineupPng({
-    title: lineupTitle(e),
+    english: en,
+    title: en ? (e.type === 'game' ? 'GAME' : 'PRACTICE') + ' · ' + new Date(e.starts_at).toLocaleString('en-GB', { timeZone: config.tz, dateStyle: 'medium', timeStyle: 'short' }) : lineupTitle(e),
     slots: lineupSlots(e.id),
     highlightUserId: highlight,
     opponent: e.type === 'game' ? e.title : null,
@@ -382,10 +402,12 @@ export async function notifyLineupPersonal(e: EventRow, items: { user_id: number
   const TEST_CAP = 3; // в тестовом режиме всё летит одному человеку — не заваливаем картинками
   let skipped = 0;
   items.filter((i) => !isGuest(i.user_id)).forEach((i, idx) => {
-    const caption = lineupCaption(e, i);
+    const en = english(i.user_id);
+    const team = i.team === 'dark' ? ' for Team Dark' : i.team === 'light' ? ' for Team Light' : '';
+    const caption = en ? `🦅 ${eventEn(e)}\nYou’re ${i.line === 0 ? 'in goal' : 'on line ' + i.line}${team}. Your position is highlighted on the diagram.` : lineupCaption(e, i);
     db.prepare('INSERT INTO notifications(user_id, text, link) VALUES(?,?,?)').run(i.user_id, stripHtml(caption), `e${e.id}`);
     if (config.testChatId && idx >= TEST_CAP) return void skipped++;
-    void sendPhoto(i.user_id, renderFor(e, i.user_id), caption, [[{ text: '📋 Открыть в приложении', url: appLink(`e${e.id}`) }]]);
+    void sendPhoto(i.user_id, renderFor(e, i.user_id, en), caption, [[{ text: en ? '📋 Open in app' : '📋 Открыть в приложении', url: appLink(`e${e.id}`) }]]);
   });
   if (skipped) void sendMessage(config.testChatId, `<i>🧪 тест · ещё ${skipped} личных схем не отправлено (лимит ${TEST_CAP}). В проде получит каждый.</i>`);
 }
@@ -485,6 +507,7 @@ export function notifyCollectionStarted(per: { month: string; due_date: string |
 }
 
 export function notifyDueAmount(userId: number, month: string, plan: string | null, amount: number) {
+  if (english(userId)) return dm(userId, `💰 <b>${monthEn(month)} dues are open</b>\n${plan ? 'Your option: ' + (planEn[plan] ?? plan) : 'Custom amount set by the admin'}\nAmount due: <b>${amount} ₾</b>. Transfer to the team account and attach a screenshot in the app.`, 'finance');
   return dm(
     userId,
     [
@@ -518,45 +541,45 @@ export function postDebtorsList(month: string, rows: { name: string; amount: num
 /** Админ поменял человеку вариант или сумму (новичок посреди месяца, освобождение, своя сумма). */
 export function notifyDueSetByAdmin(userId: number, month: string, plan: string | null, amount: number | null, locked: boolean) {
   if (plan === 'exempt' && (amount ?? 0) === 0)
-    return dm(userId, `🙌 Ты освобождён от взноса за ${monthName(month)}. Ничего платить не нужно.`, 'finance');
+    return dm(userId, english(userId) ? `🙌 You’re exempt from dues for ${monthEn(month)}.` : `🙌 Ты освобождён от взноса за ${monthName(month)}. Ничего платить не нужно.`, 'finance');
   if (!locked) return;
   return dm(
     userId,
-    `💰 Взнос за ${monthName(month)}: ${plan ? PLAN_NAME[plan] ?? plan : 'своя сумма'} — ${amount ?? 0} ₾.\nПереведи и прикрепи скрин в приложении 👇`,
+    english(userId) ? `💰 ${monthEn(month)} dues (${plan ? planEn[plan] ?? plan : 'custom amount'}): ${amount ?? 0} ₾. Transfer the amount and attach a screenshot in the app.` : `💰 Взнос за ${monthName(month)}: ${plan ? PLAN_NAME[plan] ?? plan : 'своя сумма'} — ${amount ?? 0} ₾.\nПереведи и прикрепи скрин в приложении 👇`,
     'finance',
   );
 }
 
 export function notifyChoosePlanLate(userId: number, month: string) {
-  return dm(userId, `🗳 Сбор за ${monthName(month)} уже начался, а ты не выбрал вариант. Выбери — и сразу увидишь сумму 👇`, 'finance');
+  return dm(userId, english(userId) ? `🗳 Collection for ${monthEn(month)} has started. Choose a dues option to see your amount.` : `🗳 Сбор за ${monthName(month)} уже начался, а ты не выбрал вариант. Выбери — и сразу увидишь сумму 👇`, 'finance');
 }
 
 export const notifyDuePaid = (userId: number, month: string) =>
-  dm(userId, pick([`✅ Оплата за ${monthName(month)} получена. Спасибо, что ты с нами! 💙`, `✅ Взнос за ${monthName(month)} принят. Лёд оплачен — увидимся на тренировке! 🏒`]));
+  dm(userId, english(userId) ? `✅ Your dues for ${monthEn(month)} have been received. Thank you! 🏒` : pick([`✅ Оплата за ${monthName(month)} получена. Спасибо, что ты с нами! 💙`, `✅ Взнос за ${monthName(month)} принят. Лёд оплачен — увидимся на тренировке! 🏒`]));
 
 export const notifyDueRejected = (userId: number, month: string, comment?: string) =>
-  dm(userId, `⚠️ Скрин оплаты за ${monthName(month)} не принят${comment ? `:\n«${esc(comment)}»` : ''}.\n\nЗагрузи, пожалуйста, ещё раз 👇`, 'finance');
+  dm(userId, english(userId) ? `⚠️ Your payment screenshot for ${monthEn(month)} was declined.${comment ? "\n💬 " + esc(comment) : ""}\nPlease upload it again.` : `⚠️ Скрин оплаты за ${monthName(month)} не принят${comment ? `:\n«${esc(comment)}»` : ''}.\n\nЗагрузи, пожалуйста, ещё раз 👇`, 'finance');
 
 /* ---------- доступ ---------- */
 
 export const notifyAccessGranted = (userId: number) =>
   dm(
     userId,
-    '🦅 <b>Добро пожаловать в Falcons!</b>\n\nДоступ открыт. Зайди в приложение и заполни профиль — имя, фамилию и дату рождения (поздравим в чате 🎂). Потом записывайся на лёд 🏒',
+    english(userId) ? '🦅 <b>Welcome to Falcons!</b> Your access is approved. Open the app and add your name and birthday to start signing up for ice time 🏒' : '🦅 <b>Добро пожаловать в Falcons!</b>\n\nДоступ открыт. Зайди в приложение и заполни профиль — имя, фамилию и дату рождения (поздравим в чате 🎂). Потом записывайся на лёд 🏒',
     'home',
   );
 
 export const notifySignupBlocked = (userId: number) =>
-  dm(userId, '⛔️ Запись на тренировки на паузе, пока не закрыт долг по взносам.\n\nОплатишь — сразу откроем 🙌', 'finance');
+  dm(userId, english(userId) ? '⛔️ Practice sign-up is paused until you pay your outstanding dues.' : '⛔️ Запись на тренировки на паузе, пока не закрыт долг по взносам.\n\nОплатишь — сразу откроем 🙌', 'finance');
 
 export function notifyAdminsNewUser(u: UserRow) {
   const text = `🙋 <b>Новая заявка в команду</b>\n\n${esc(displayName(u))}${u.username ? ` (@${esc(u.username)})` : ''} хочет в Falcons. Пускаем?`;
   return Promise.all(
     idsWithRole('admin').map((id) =>
-      dm(id, text, 'admin-users', [
+      dm(id, english(id) ? `🙋 <b>New membership request</b>\n${esc(displayName(u))}${u.username ? ' (@' + esc(u.username) + ')' : ''} wants to join Falcons.` : text, 'admin-users', [
         [
-          { text: '✅ Пустить', callback_data: `approve:${u.id}` },
-          { text: '⛔️ Отклонить', callback_data: `reject:${u.id}` },
+          { text: english(id) ? '✅ Approve' : '✅ Пустить', callback_data: `approve:${u.id}` },
+          { text: english(id) ? '⛔️ Decline' : '⛔️ Отклонить', callback_data: `reject:${u.id}` },
         ],
       ]),
     ),
@@ -565,7 +588,7 @@ export function notifyAdminsNewUser(u: UserRow) {
 
 export function notifyAdminsProof(u: UserRow, month: string, amount: number | null) {
   const text = `🧾 <b>${esc(displayName(u))}</b> прислал(а) скрин за ${monthName(month)}${amount ? ` — ${amount} ₾` : ''}. Проверишь?`;
-  return Promise.all(idsWithRole('admin').map((id) => dm(id, text, 'admin-finance')));
+  return Promise.all(idsWithRole('admin').map((id) => dm(id, english(id) ? `🧾 ${esc(displayName(u))} submitted a payment screenshot for ${monthEn(month)}${amount != null ? ' — ' + amount + ' ₾' : ''}. Please review it.` : text, 'admin-finance')));
 }
 
 /* ---------- заточка ---------- */
@@ -574,7 +597,7 @@ export function notifyServiceSharpening(u: UserRow, note: string | null, isPayme
   const text = isPayment
     ? `🧾 <b>${esc(displayName(u))}</b> прислал(а) скрин оплаты долга за заточку`
     : `⛸ <b>Новая заявка на заточку</b>\n\nОт: ${esc(displayName(u))}${note ? `\n💬 «${esc(note)}»` : ''}`;
-  return Promise.all(idsWithRole('service').map((id) => dm(id, text, 'service')));
+  return Promise.all(idsWithRole('service').map((id) => dm(id, english(id) ? (isPayment ? `🧾 ${esc(displayName(u))} submitted a sharpening payment screenshot.` : `⛸ New sharpening request from ${esc(displayName(u))}.${note ? '\n💬 ' + esc(note) : ''}`) : text, 'service')));
 }
 
 export type SharpEvent = 'accepted' | 'done' | 'rejected' | 'debt' | 'unpaid' | 'paid';
@@ -588,7 +611,15 @@ export function notifySharpening(userId: number, ev: SharpEvent, opts: { amount?
     unpaid: `⛸ Оплата за заточку не найдена — за тобой <b>${opts.amount} ₾</b>.${c}\n\nПрикрепи скрин ещё раз 🙏`,
     paid: '✅ Оплата за заточку подтверждена. Спасибо!',
   };
-  return dm(userId, text[ev], 'sharpening');
+  const messagesEn: Record<SharpEvent, string> = {
+    accepted: '⛸ Payment confirmed. Your skates are being sharpened.',
+    done: '✨ Your skates are ready for pickup!',
+    rejected: `⚠️ Your sharpening request was declined.${c}`,
+    debt: `⛸ Your sharpening balance is <b>${opts.amount} ₾</b>.${c} Please pay and attach a screenshot.`,
+    unpaid: `⛸ Your sharpening payment was not found. Amount due: <b>${opts.amount} ₾</b>.${c} Please attach your screenshot again.`,
+    paid: '✅ Your sharpening payment was confirmed. Thank you!',
+  };
+  return dm(userId, english(userId) ? messagesEn[ev] : text[ev], 'sharpening');
 }
 
 /* ---------- дни рождения ---------- */
@@ -606,13 +637,14 @@ export async function notifyBirthdays(people: { id: number; first_name: string; 
   const caption = `🎂 Сегодня день рождения у ${who}!\n\n${wish}\nСоколы, поздравляем в чате 👇`;
   await sendPhoto(TEAM, renderBirthdayPng(people.map((u) => ({ name: full(u), number: u.number }))), caption);
   for (const u of people)
-    await dm(u.id, `🎂 <b>${esc(u.first_name)}, с днём рождения!</b>\n\nВся команда Falcons поздравляет тебя. ${wish}`);
+    await dm(u.id, english(u.id) ? `🎂 <b>Happy birthday, ${esc(u.first_name)}!</b> Best wishes from the whole Falcons team 🏒` : `🎂 <b>${esc(u.first_name)}, с днём рождения!</b>\n\nВся команда Falcons поздравляет тебя. ${wish}`);
 }
 
 /* ---------- напоминания ---------- */
 
 export function reminderDues(userId: number, name: string, debts: { month: string; amount: number }[]) {
   const total = debts.reduce((x, d) => x + d.amount, 0);
+  if (english(userId)) return dm(userId, `⏰ ${esc(name)}, your outstanding dues for ${debts.map(d => monthEn(d.month)).join(', ')} total <b>${total} ₾</b>. Please pay and attach a screenshot.`, 'finance');
   const months = debts.map((d) => monthName(d.month)).join(', ');
   return dm(
     userId,
@@ -632,13 +664,16 @@ const evName = (e: { type: string; title: string | null; starts_at: string }) =>
 
 /** Гость записался — сразу просим оплатить выход (как с заточкой). */
 export function notifyGuestFee(userId: number, e: EventRow, amount: number) {
-  return dm(userId, `🎟 Записал тебя на ${evName(e)}.\nВыход для гостя — ${amount} ₾. Переведи и прикрепи скрин 👇`, `e${e.id}`);
+  return dm(userId, english(userId) ? `🎟 You’re signed up: ${eventEn(e)}. Guest fee: ${amount} ₾. Please pay and attach a screenshot.` : `🎟 Записал тебя на ${evName(e)}.\nВыход для гостя — ${amount} ₾. Переведи и прикрепи скрин 👇`, `e${e.id}`);
 }
 export function notifyAdminsGuestFee(u: UserRow, e: EventRow, amount: number) {
   const text = `🎟 Гость <b>${esc(displayName(u))}</b> прислал(а) скрин за ${evName(e)} — ${amount} ₾. Проверишь?`;
-  return Promise.all(idsWithRole('admin').map((id) => dm(id, text, 'admin-fees')));
+  return Promise.all(idsWithRole('admin').map((id) => dm(id, english(id) ? `🎟 ${esc(displayName(u))} submitted a guest payment screenshot for ${eventEn(e)} — ${amount} ₾. Please review it.` : text, 'admin-fees')));
 }
 export function notifyGuestFeeResult(userId: number, e: EventRow, ok: boolean, comment?: string) {
+  if (english(userId)) return dm(userId, ok
+    ? `✅ Payment received for ${eventEn(e)}. See you on the ice!`
+    : `⚠️ We couldn’t find your payment for ${eventEn(e)}.${comment ? '\n💬 ' + esc(comment) : ''} Please check your transfer and upload the screenshot again.`, `e${e.id}`);
   return dm(
     userId,
     ok
@@ -648,10 +683,11 @@ export function notifyGuestFeeResult(userId: number, e: EventRow, ok: boolean, c
   );
 }
 export function reminderGuestFees(userId: number, total: number, n: number) {
-  return dm(userId, `⏰ За тобой ${n > 1 ? `${n} выхода` : 'выход'} на лёд — <b>${total} ₾</b>. Переведи и прикрепи скрин, пожалуйста 🙏`, 'events');
+  return dm(userId, english(userId) ? `⏰ Outstanding guest fees for ${n} ice sessions: <b>${total} ₾</b>. Please pay and attach a screenshot.` : `⏰ За тобой ${n > 1 ? `${n} выхода` : 'выход'} на лёд — <b>${total} ₾</b>. Переведи и прикрепи скрин, пожалуйста 🙏`, 'events');
 }
 
 export function reminderSharpening(userId: number, total: number) {
+  if (english(userId)) return dm(userId, `⛸ Your sharpening balance is <b>${total} ₾</b>. Please pay and attach a screenshot.`, 'sharpening');
   return dm(
     userId,
     pick([
@@ -663,14 +699,14 @@ export function reminderSharpening(userId: number, total: number) {
 }
 
 export const reminderPlan = (userId: number, month: string) =>
-  dm(userId, `🗳 Ты ещё не выбрал взнос на ${monthName(month)}.\nБез тебя не посчитать суммы для всей команды — это 10 секунд 👇`, 'finance');
+  dm(userId, english(userId) ? `🗳 Please choose your dues option for ${monthEn(month)} so the team can calculate the rates.` : `🗳 Ты ещё не выбрал взнос на ${monthName(month)}.\nБез тебя не посчитать суммы для всей команды — это 10 секунд 👇`, 'finance');
 
 export function reminderRsvp(userId: number, e: EventRow) {
   const kind = e.type === 'game' ? '🥅 Игра' : '🏒 Тренировка';
-  return dm(userId, `${kind} ${dayWord(e.starts_at)} в ${fmtTime(e.starts_at)}\n\nТы ещё не отметился — идёшь?`, `e${e.id}`, [
+  return dm(userId, english(userId) ? `${eventEn(e)}\nAre you going? Please RSVP below.` : `${kind} ${dayWord(e.starts_at)} в ${fmtTime(e.starts_at)}\n\nТы ещё не отметился — идёшь?`, `e${e.id}`, [
     [
-      { text: '✅ Иду', callback_data: `rsvp:${e.id}:in` },
-      { text: '❌ Не иду', callback_data: `rsvp:${e.id}:out` },
+      { text: english(userId) ? '✅ Going' : '✅ Иду', callback_data: `rsvp:${e.id}:in` },
+      { text: english(userId) ? '❌ Not going' : '❌ Не иду', callback_data: `rsvp:${e.id}:out` },
     ],
   ]);
 }
@@ -706,6 +742,17 @@ export async function startPolling() {
   }
 }
 
+const callbackErrors: Record<string, string> = {
+  'Доступ ещё не открыт — дождись одобрения админа': 'Wait for the admin to approve your access.',
+  'Событие отменено': 'Event canceled.',
+  'Это событие другого состава': 'This event is for another squad.',
+  'Событие уже началось': 'The event has already started.',
+  'Запись закрыта — сначала закрой долг по взносам': 'Pay your outstanding dues to sign up.',
+  'Неизвестный вариант': 'Unknown dues option.',
+  'Доступ ещё не открыт': 'Access hasn’t been approved yet.',
+  'Сбор уже идёт — поменять вариант может только админ': 'Collection is open. Contact the admin to change your option.',
+  'Оплата уже отправлена — поменять вариант может только админ': 'Payment already submitted. Contact the admin to change your option.',
+};
 const answer = (id: string, text: string, alert = false) => api('answerCallbackQuery', { callback_query_id: id, text, show_alert: alert });
 
 /** Бота добавили в группу — здороваемся и зовём всех написать ему /start (иначе он не может писать в личку). */
@@ -773,7 +820,7 @@ export async function handleUpdate(u: Update) {
         chat_id: m.chat.id,
         ...inThread(topic),
         parse_mode: 'HTML',
-        text: `chat id: <code>${m.chat.id}</code>${topic ? `\nтопик: <code>${topic}</code>` : ''}\n\nПришли это разработчику — бот будет постить ${topic ? 'в этот топик' : 'сюда'}.`,
+        text: m.chat.type === 'private' && english(m.chat.id) ? `Chat ID: <code>${m.chat.id}</code>` : `chat id: <code>${m.chat.id}</code>${topic ? `\nтопик: <code>${topic}</code>` : ''}\n\nПришли это разработчику — бот будет постить ${topic ? 'в этот топик' : 'сюда'}.`,
       });
     }
     if (cmd === '/start' && m.chat.type === 'private' && m.from && !m.from.is_bot) {
@@ -781,17 +828,18 @@ export async function handleUpdate(u: Update) {
       const { upsertFromTelegram } = await import('./auth.ts');
       const was = db.prepare('SELECT status FROM users WHERE id = ?').get(m.from.id) as { status: string } | undefined;
       const me = upsertFromTelegram(m.from);
+      const en = english(me.id);
       const btn: Button = config.webappUrl
-        ? { text: '🦅 Открыть Falcons', web_app: { url: config.webappUrl } }
-        : { text: '🦅 Открыть Falcons', url: appLink() };
+        ? { text: en ? '🦅 Open Falcons' : '🦅 Открыть Falcons', web_app: { url: config.webappUrl } }
+        : { text: en ? '🦅 Open Falcons' : '🦅 Открыть Falcons', url: appLink() };
       if (me.status === 'active')
-        await sendMessage(m.chat.id, '🦅 <b>Falcons Hockey Club</b>\n\nЗапись на лёд, пятёрки, взносы и заточка — всё здесь 👇', [[btn]]);
+        await sendMessage(m.chat.id, en ? '🦅 <b>Falcons Hockey Club</b>\nOpen the app for ice time, lineups, dues and skate sharpening 👇' : '🦅 <b>Falcons Hockey Club</b>\n\nЗапись на лёд, пятёрки, взносы и заточка — всё здесь 👇', [[btn]]);
       else if (me.status === 'rejected')
-        await sendMessage(m.chat.id, '🦅 Доступ в Falcons закрыт. Если это ошибка — напиши админу команды.');
+        await sendMessage(m.chat.id, en ? '🦅 Access denied. Contact the team admin if this looks wrong.' : '🦅 Доступ в Falcons закрыт. Если это ошибка — напиши админу команды.');
       else
         await sendMessage(
           m.chat.id,
-          was
+          en ? (was ? '⏳ Your request is with the admin. I’ll let you know once it’s approved.' : '🦅 Your request to join Falcons was sent. I’ll message you when it’s approved.') : was
             ? '⏳ Заявка уже у админа — как только пустит, я напишу сюда.'
             : '🦅 <b>Привет! Заявка в Falcons отправлена.</b>\n\nАдмин посмотрит и пустит — я сразу напишу сюда. Отсюда же будут приходить тренировки, пятёрки и напоминания 🏒',
         );
@@ -803,40 +851,41 @@ export async function handleUpdate(u: Update) {
   const [action, a, b] = cq.data.split(':');
   const actor = db.prepare('SELECT * FROM users WHERE id = ?').get(cq.from.id) as UserRow | undefined;
 
+  const en = english(cq.from.id);
   if (action === 'rsvp') {
     const e = getEvent(Number(a));
-    if (!e) return answer(cq.id, 'Событие не найдено');
-    if (!actor) return answer(cq.id, 'Сначала открой приложение Falcons и дождись доступа 🦅', true);
+    if (!e) return answer(cq.id, en ? 'Event not found' : 'Событие не найдено');
+    if (!actor) return answer(cq.id, en ? 'Open Falcons and wait for approval first 🦅' : 'Сначала открой приложение Falcons и дождись доступа 🦅', true);
     const hadFee = !!myFee(e.id, actor.id);
     const err = setSignup(e, actor, b === 'in' ? 'in' : 'out');
-    if (err) return answer(cq.id, err, true);
+    if (err) return answer(cq.id, en ? callbackErrors[err] ?? err : err, true);
     refreshEventPost(e.id);
     const fee = myFee(e.id, actor.id);
     if (fee && !hadFee) {
       void notifyGuestFee(actor.id, e, fee.amount);
-      return answer(cq.id, `Записал! Выход для гостя — ${fee.amount} ₾, реквизиты прислал в личку 🎟`, true);
+      return answer(cq.id, en ? `You’re signed up! Guest fee: ${fee.amount} ₾. Payment details sent by DM 🎟` : `Записал! Выход для гостя — ${fee.amount} ₾, реквизиты прислал в личку 🎟`, true);
     }
-    return answer(cq.id, b === 'in' ? pick(['Записал! До встречи на льду 🏒', 'Ты в деле! 💪', 'Отлично, ждём! 🦅']) : 'Понял, в другой раз 👋');
+    return answer(cq.id, en ? (b === 'in' ? 'You’re signed up! See you on the ice 🏒' : 'Got it. See you next time 👋') : b === 'in' ? pick(['Записал! До встречи на льду 🏒', 'Ты в деле! 💪', 'Отлично, ждём! 🦅']) : 'Понял, в другой раз 👋');
   }
 
   if (action === 'plan') {
     const per = db.prepare('SELECT * FROM periods WHERE id = ?').get(Number(a)) as Period | undefined;
-    if (!per) return answer(cq.id, 'Опрос не найден');
-    if (!actor || actor.status !== 'active') return answer(cq.id, 'Сначала открой приложение Falcons и дождись доступа 🦅', true);
+    if (!per) return answer(cq.id, en ? 'Poll not found' : 'Опрос не найден');
+    if (!actor || actor.status !== 'active') return answer(cq.id, en ? 'Open Falcons and wait for approval first 🦅' : 'Сначала открой приложение Falcons и дождись доступа 🦅', true);
     const err = setPlan(per, actor.id, b as Plan);
-    if (err) return answer(cq.id, err, true);
+    if (err) return answer(cq.id, en ? callbackErrors[err] ?? err : err, true);
     refreshPollPost(per.id);
-    return answer(cq.id, `Записал: ${PLAN_NAME[b] ?? b}. Сумму пришлю, когда начнём сбор 🧮`);
+    return answer(cq.id, en ? `Saved: ${planEn[b] ?? b}. I’ll send your amount when collection opens.` : `Записал: ${PLAN_NAME[b] ?? b}. Сумму пришлю, когда начнём сбор 🧮`);
   }
 
   if (action === 'approve' || action === 'reject') {
     const isAdmin = actor?.status === 'active' && actor.roles.split(',').includes('admin');
-    if (!isAdmin) return answer(cq.id, 'Только для админов');
+    if (!isAdmin) return answer(cq.id, en ? 'Admins only' : 'Только для админов');
     const target = Number(a);
     const status = action === 'approve' ? 'active' : 'rejected';
     db.prepare('UPDATE users SET status = ? WHERE id = ?').run(status, target);
     if (status === 'active') await notifyAccessGranted(target);
-    await answer(cq.id, status === 'active' ? 'Пущен ✅' : 'Отклонён');
+    await answer(cq.id, en ? (status === 'active' ? 'Approved ✅' : 'Declined') : status === 'active' ? 'Пущен ✅' : 'Отклонён');
     if (cq.message)
       await api('editMessageReplyMarkup', {
         chat_id: cq.message.chat.id,

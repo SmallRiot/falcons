@@ -18,35 +18,18 @@ function participants(eventId: number) {
     .prepare(
       `SELECT u.*, s.status AS signup_status, s.created_at AS signed_at
        FROM signups s JOIN users u ON u.id = s.user_id
-       WHERE s.event_id = ? ORDER BY s.created_at`,
+       WHERE s.event_id = ? ORDER BY s.created_at, s.user_id`,
     )
     .all(eventId) as unknown as (UserRow & { signup_status: string; signed_at: string })[];
 }
 
-function summarize(e: EventRow, userId: number) {
-  const stats = db
-    .prepare(`SELECT status, COUNT(*) c FROM signups WHERE event_id = ? GROUP BY status`)
-    .all(e.id) as { status: string; c: number }[];
-  const going = stats.find((s) => s.status === 'in')?.c ?? 0;
-  const out = stats.find((s) => s.status === 'out')?.c ?? 0;
-  const mine = db.prepare('SELECT status, created_at FROM signups WHERE event_id = ? AND user_id = ?').get(e.id, userId) as
-    | { status: string; created_at: string }
-    | undefined;
-  let myReserve = false;
-  if (mine?.status === 'in' && e.capacity) {
-    const before = (
-      db
-        .prepare(`SELECT COUNT(*) c FROM signups WHERE event_id = ? AND status='in' AND created_at < ?`)
-        .get(e.id, mine.created_at) as { c: number }
-    ).c;
-    myReserve = before >= e.capacity;
-  }
-  const avatars = db
-    .prepare(
-      `SELECT u.id, u.first_name, u.last_name, u.photo_url FROM signups s JOIN users u ON u.id=s.user_id
-       WHERE s.event_id=? AND s.status='in' ORDER BY s.created_at LIMIT 5`,
-    )
-    .all(e.id);
+function summarize(e: EventRow, userId: number, ps = participants(e.id)) {
+  const skaters = ps.filter(p => p.signup_status === 'in' && p.position !== 'G');
+  const going = skaters.length;
+  const out = ps.filter(p => p.signup_status === 'out').length;
+  const mine = ps.find(p => p.id === userId);
+  const myReserve = skaters.findIndex(p => p.id === userId) >= (e.capacity ?? Infinity);
+  const avatars = skaters.slice(0, 5).map(({ id, first_name, last_name, photo_url }) => ({ id, first_name, last_name, photo_url }));
   const sq = squadsMap();
   const squads = eventSquadIds(e.id)
     .map((id) => sq.get(id))
@@ -60,7 +43,7 @@ function summarize(e: EventRow, userId: number) {
     lineup_published: !!e.lineup_published,
     going,
     out,
-    my: mine?.status ?? null,
+    my: mine?.signup_status ?? null,
     myReserve,
     avatars,
     /** гость: оплата за этот выход */
@@ -93,7 +76,7 @@ export default async function eventRoutes(app: FastifyInstance) {
     if (!e || !canSeeEvent(req.user, e.id)) return reply.code(404).send({ error: 'Событие не найдено' });
     const ps = participants(e.id);
     const going = ps.filter((p) => p.signup_status === 'in');
-    const cap = e.capacity ?? Infinity;
+    const reserves = new Set(going.filter(p => p.position !== 'G').slice(e.capacity ?? Infinity).map(p => p.id));
     const canEdit = hasRole(req.user, 'coach', 'admin');
     const lineup =
       e.lineup_published || canEdit
@@ -105,13 +88,13 @@ export default async function eventRoutes(app: FastifyInstance) {
           }[])
         : [];
     const roster = canSeeRoster(req.user, e);
-    const sum = summarize(e, req.user.id);
+    const sum = summarize(e, req.user.id, ps);
     return {
       ...sum,
       avatars: roster ? sum.avatars : [],
       canEdit,
       rosterHidden: !roster,
-      players: roster ? going.map((p, i) => ({ ...publicUser(p), reserve: i >= cap })) : [],
+      players: roster ? going.map(p => ({ ...publicUser(p), reserve: reserves.has(p.id) })) : [],
       notGoing: roster ? ps.filter((p) => p.signup_status === 'out').map(publicUser) : [],
       lineup: roster ? lineup : [],
     };

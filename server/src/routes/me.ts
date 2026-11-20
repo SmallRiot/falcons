@@ -11,6 +11,13 @@ import { allSquads, squadIdsOf } from '../squads.ts';
 export const PRESENT = `COALESCE(s.attended, s.status = 'in') = 1`;
 
 export default async function meRoutes(app: FastifyInstance) {
+  app.put<{ Body: { language: string } }>('/api/me/language', async (req, reply) => {
+    const language = req.body?.language;
+    if (language !== 'ru' && language !== 'en') return reply.code(400).send({ error: 'Invalid language' });
+    db.prepare('UPDATE users SET language = ? WHERE id = ?').run(language, req.user.id);
+    return { ok: true };
+  });
+
   app.get('/api/me', async (req) => {
     const u = req.user;
     const base = {

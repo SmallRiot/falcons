@@ -430,3 +430,6 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .mode-toggle button.on { background: var(--falcon); color: #fff; }
 .mode-toggle .dot { position: absolute; top: -5px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--bad); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; }
 .bank-card .bank-logo { width: 26px; height: 26px; border-radius: 7px; }
+
+.event-roster-group > .section-title { margin-bottom: 8px; }
+.event-declines > summary { display: list-item; cursor: pointer; margin: 0; padding: 10px 4px; }

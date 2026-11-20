@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useState } from 'react';
 import { Check, Ticket, X } from 'lucide-react';
 import { api, type PublicUser } from '@shared/api';
@@ -16,7 +17,7 @@ type Fee = {
 };
 
 const evLabel = (e: Fee['event']) =>
-  `${e.type === 'game' ? 'Игра' : 'Тренировка'}${e.title ? ` · ${e.title}` : ''} · ${fmt.dateShort(e.starts_at)}, ${fmt.time(e.starts_at)}`;
+  `${e.type === 'game' ? t('Игра') : t('Тренировка')}${e.title ? ` · ${e.title}` : ''} · ${fmt.dateShort(e.starts_at)}, ${fmt.time(e.starts_at)}`;
 
 /** Гости платят за каждый выход: проверка скринов, кто не оплатил, история. */
 export default function AdminFees() {
@@ -37,23 +38,23 @@ export default function AdminFees() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Оплаты гостей</h1>
-          <div className="sub">Гость платит за каждый выход на лёд</div>
+          <h1>{t('Оплаты гостей')}</h1>
+          <div className="sub">{t('Гость платит за каждый выход на лёд')}</div>
         </div>
       </div>
       <Segmented
         value={tab}
         onChange={setTab}
         options={[
-          ['pending', `Проверить${count('pending') ? ` · ${count('pending')}` : ''}`],
-          ['unpaid', `Не оплатили${count('unpaid') ? ` · ${count('unpaid')}` : ''}`],
-          ['paid', 'Оплачено'],
+          ['pending', t('Проверить{0}', count('pending') ? ` · ${count('pending')}` : '')],
+          ['unpaid', t('Не оплатили{0}', count('unpaid') ? ` · ${count('unpaid')}` : '')],
+          ['paid', t('Оплачено')],
         ]}
       />
       {loading ? (
         <Spinner />
       ) : !list.length ? (
-        <Empty icon={<Ticket size={26} />} title={tab === 'pending' ? 'Нечего проверять 🎉' : tab === 'unpaid' ? 'Все гости оплатили 👌' : 'Пока пусто'} />
+        <Empty icon={<Ticket size={26} />} title={tab === 'pending' ? t('Нечего проверять 🎉') : tab === 'unpaid' ? t('Все гости оплатили 👌') : t('Пока пусто')} />
       ) : (
         <div className="vstack">
           {list.map((f) => (
@@ -70,18 +71,18 @@ export default function AdminFees() {
                 <>
                   {f.proof && <ProofImage name={f.proof} />}
                   <div className="btn-row">
-                    <button className="btn bad-soft" disabled={busy} onClick={() => patch(f, 'unpaid', 'Гостю написал, что оплату не нашли')}>
-                      <X size={18} /> Не пришли
+                    <button className="btn bad-soft" disabled={busy} onClick={() => patch(f, 'unpaid', t('Гостю написал, что оплату не нашли'))}>
+                      <X size={18} /> {t('Не пришли')}
                     </button>
-                    <button className="btn ok" disabled={busy} onClick={() => patch(f, 'paid', 'Оплата принята')}>
-                      <Check size={18} /> Деньги пришли
+                    <button className="btn ok" disabled={busy} onClick={() => patch(f, 'paid', t('Оплата принята'))}>
+                      <Check size={18} /> {t('Деньги пришли')}
                     </button>
                   </div>
                 </>
               )}
               {f.status === 'unpaid' && (
-                <button className="btn ok-soft block" disabled={busy} onClick={() => patch(f, 'paid', 'Отмечено оплаченным')}>
-                  <Check size={18} /> Получил {fmt.gel(f.amount)} (наличные и т.п.)
+                <button className="btn ok-soft block" disabled={busy} onClick={() => patch(f, 'paid', t('Отмечено оплаченным'))}>
+                  <Check size={18} /> {t('Получил')} {fmt.gel(f.amount)} {t('(наличные и т.п.)')}
                 </button>
               )}
             </div>

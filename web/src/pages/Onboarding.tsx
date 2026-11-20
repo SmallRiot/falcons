@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useState } from 'react';
 import { api } from '@shared/api';
 import { Segmented, Sheet, useAction, useMe } from '@shared/ui';
@@ -19,34 +20,34 @@ export default function Onboarding() {
     <Sheet open onClose={() => {}}>
       <div className="vstack center" style={{ alignItems: 'center', gap: 6, paddingTop: 4 }}>
         <img src="/logo.png" alt="" style={{ width: 64, height: 64 }} />
-        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Добро пожаловать в Falcons!</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800 }}>{t('Добро пожаловать в Falcons!')}</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Заполни профиль — так тренер узнает тебя в составе, а в день рождения команда поздравит в чате 🎂
+          {t('Заполни профиль — так тренер узнает тебя в составе, а в день рождения команда поздравит в чате 🎂')}
         </p>
       </div>
       <div className="form">
         <div className="form-row">
           <label className="field">
-            <span>Имя</span>
+            <span>{t('Имя')}</span>
             <input className="input" value={f.first_name} autoComplete="given-name" onChange={(e) => setF({ ...f, first_name: e.target.value })} />
           </label>
           <label className="field">
-            <span>Фамилия</span>
+            <span>{t('Фамилия')}</span>
             <input className="input" value={f.last_name} autoComplete="family-name" onChange={(e) => setF({ ...f, last_name: e.target.value })} />
           </label>
         </div>
         <label className="field">
-          <span>Дата рождения</span>
+          <span>{t('Дата рождения')}</span>
           <input className="input" type="date" value={f.birth_date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setF({ ...f, birth_date: e.target.value })} />
         </label>
         <div className="form-row">
           <label className="field" style={{ maxWidth: 120 }}>
-            <span>Номер</span>
+            <span>{t('Номер')}</span>
             <input className="input" inputMode="numeric" maxLength={2} value={f.number} onChange={(e) => setF({ ...f, number: e.target.value.replace(/\D/g, '') })} />
           </label>
           <div className="field">
-            <span>Позиция</span>
-            <Segmented value={f.position} onChange={(v) => setF({ ...f, position: v })} options={[['F', 'Нап'], ['D', 'Защ'], ['G', 'Врт']]} />
+            <span>{t('Позиция')}</span>
+            <Segmented value={f.position} onChange={(v) => setF({ ...f, position: v })} options={[['F', t('Нап')], ['D', t('Защ')], ['G', t('Врт')]]} />
           </div>
         </div>
         <button
@@ -56,10 +57,10 @@ export default function Onboarding() {
             run(async () => {
               await api.patch('/api/me', { ...f, number: f.number === '' ? null : Number(f.number) });
               await refresh();
-            }, 'Профиль заполнен 🦅')
+            }, t('Профиль заполнен 🦅'))
           }
         >
-          Готово
+          {t('Готово')}
         </button>
       </div>
     </Sheet>

@@ -72,6 +72,7 @@ function rink() {
 }
 
 interface CardOpts {
+  english: boolean;
   x: number; // центр
   y: number; // центр
   w: number;
@@ -81,7 +82,7 @@ interface CardOpts {
 }
 
 /** Карточка позиции: заголовок «ЛН» и строки звеньев с цветной цифрой. */
-function card({ x, y, w, label, rows, dark }: CardOpts) {
+function card({ x, y, w, label, rows, dark, english }: CardOpts) {
   const rowH = 40;
   const headH = 34;
   const h = headH + Math.max(1, rows.length) * rowH + 8;
@@ -98,7 +99,7 @@ function card({ x, y, w, label, rows, dark }: CardOpts) {
           return `
       ${r.me ? `<rect x="${left + 6}" y="${ry + 2}" width="${w - 12}" height="${rowH - 4}" rx="10" fill="${GOLD}"/>` : ''}
       <circle cx="${left + 26}" cy="${ry + rowH / 2}" r="13" fill="${color}"/>
-      <text x="${left + 26}" y="${ry + rowH / 2 + 6}" font-family="DejaVu Sans" font-weight="bold" font-size="16" fill="#fff" text-anchor="middle">${r.line === 0 ? 'В' : r.line}</text>
+      <text x="${left + 26}" y="${ry + rowH / 2 + 6}" font-family="DejaVu Sans" font-weight="bold" font-size="16" fill="#fff" text-anchor="middle">${r.line === 0 ? (english ? 'G' : 'В') : r.line}</text>
       <text x="${left + 48}" y="${ry + rowH / 2 + 7}" font-family="DejaVu Sans Condensed" font-weight="bold" font-size="21" fill="${r.me ? '#0d1f2d' : fg}">${esc(cut(r.name, 15))}</text>
       ${r.number != null ? `<text x="${left + w - 12}" y="${ry + rowH / 2 + 6}" font-family="DejaVu Sans Condensed" font-size="16" fill="${r.me ? '#0d1f2d' : sub}" text-anchor="end">#${r.number}</text>` : ''}`;
         })
@@ -119,7 +120,8 @@ const POS_LABEL: Record<string, string> = { LW: 'ЛЕВЫЙ НАП.', C: 'ЦЕН
  * Расстановка одной команды в своей половине. side = 'left' — защищает левые ворота и атакует вправо.
  * Если смотреть сверху и команда атакует вправо, её левый фланг — сверху.
  */
-function teamSide(slots: Slot[], side: 'left' | 'right', dark: boolean, highlight?: number) {
+function teamSide(slots: Slot[], side: 'left' | 'right', dark: boolean, english: boolean, highlight?: number) {
+  const labels = english ? { LW: 'LEFT WING', C: 'CENTER', RW: 'RIGHT WING', LD: 'LEFT DEFENSE', RD: 'RIGHT DEFENSE', G: 'GOALIES' } : POS_LABEL;
   const mirror = (x: number) => (side === 'left' ? x : W - x);
   const flip = (y: number) => (side === 'left' ? y : 2 * CY - y); // у команды справа левый фланг снизу
   const rowsFor = (pos: string) =>
@@ -128,16 +130,17 @@ function teamSide(slots: Slot[], side: 'left' | 'right', dark: boolean, highligh
       .sort((a, b) => a.line - b.line || a.slot.localeCompare(b.slot))
       .map((s) => ({ line: s.line, name: s.name, number: s.number, me: s.user_id === highlight }));
   return [
-    card({ x: mirror(185), y: CY, w: 230, label: POS_LABEL.G, rows: rowsFor('G'), dark }),
-    card({ x: mirror(398), y: flip(CY - 165), w: 240, label: POS_LABEL.LD, rows: rowsFor('LD'), dark }),
-    card({ x: mirror(398), y: flip(CY + 165), w: 240, label: POS_LABEL.RD, rows: rowsFor('RD'), dark }),
-    card({ x: mirror(650), y: flip(CY - 245), w: 240, label: POS_LABEL.LW, rows: rowsFor('LW'), dark }),
-    card({ x: mirror(650), y: CY, w: 240, label: POS_LABEL.C, rows: rowsFor('C'), dark }),
-    card({ x: mirror(650), y: flip(CY + 245), w: 240, label: POS_LABEL.RW, rows: rowsFor('RW'), dark }),
+    card({ x: mirror(185), y: CY, w: 230, english, label: labels.G, rows: rowsFor('G'), dark }),
+    card({ x: mirror(398), y: flip(CY - 165), w: 240, english, label: labels.LD, rows: rowsFor('LD'), dark }),
+    card({ x: mirror(398), y: flip(CY + 165), w: 240, english, label: labels.RD, rows: rowsFor('RD'), dark }),
+    card({ x: mirror(650), y: flip(CY - 245), w: 240, english, label: labels.LW, rows: rowsFor('LW'), dark }),
+    card({ x: mirror(650), y: CY, w: 240, english, label: labels.C, rows: rowsFor('C'), dark }),
+    card({ x: mirror(650), y: flip(CY + 245), w: 240, english, label: labels.RW, rows: rowsFor('RW'), dark }),
   ].join('');
 }
 
 export interface LineupImageInput {
+  english?: boolean;
   title: string; // «ТРЕНИРОВКА · ЧТ 21 НОЯБРЯ · 21:30»
   slots: Slot[];
   highlightUserId?: number;
@@ -150,26 +153,26 @@ export function renderLineupPng(input: LineupImageInput): Buffer {
   const header = `
   <rect width="${W}" height="${H}" fill="#eef3f7"/>
   <image href="${LOGO}" x="40" y="14" width="80" height="80"/>
-  <text x="136" y="52" font-family="DejaVu Sans" font-weight="bold" font-size="34" fill="#0d1f2d">ПЯТЁРКИ</text>
+  <text x="136" y="52" font-family="DejaVu Sans" font-weight="bold" font-size="34" fill="#0d1f2d">${input.english ? 'LINEUPS' : 'ПЯТЁРКИ'}</text>
   <text x="136" y="86" font-family="DejaVu Sans" font-size="22" fill="#4a6273">${esc(input.title)}</text>
   ${
     split
       ? `<g font-family="DejaVu Sans" font-weight="bold" font-size="22">
           <rect x="${W - 520}" y="34" width="220" height="48" rx="24" fill="#0d1f2d"/>
-          <text x="${W - 410}" y="66" fill="#fff" text-anchor="middle">ТЁМНЫЕ ◀</text>
+          <text x="${W - 410}" y="66" fill="#fff" text-anchor="middle">${input.english ? 'DARK ◀' : 'ТЁМНЫЕ ◀'}</text>
           <rect x="${W - 280}" y="34" width="240" height="48" rx="24" fill="#fff" stroke="#0d1f2d" stroke-width="2"/>
-          <text x="${W - 160}" y="66" fill="#0d1f2d" text-anchor="middle">▶ СВЕТЛЫЕ</text>
+          <text x="${W - 160}" y="66" fill="#0d1f2d" text-anchor="middle">${input.english ? '▶ LIGHT' : '▶ СВЕТЛЫЕ'}</text>
         </g>`
       : ''
   }`;
   let body: string;
   if (split) {
-    body = teamSide(slots.filter((s) => s.team === 'dark'), 'left', true, highlightUserId) +
-      teamSide(slots.filter((s) => s.team === 'light'), 'right', false, highlightUserId);
+    body = teamSide(slots.filter((s) => s.team === 'dark'), 'left', true, !!input.english, highlightUserId) +
+      teamSide(slots.filter((s) => s.team === 'light'), 'right', false, !!input.english, highlightUserId);
   } else {
-    body = teamSide(slots, 'left', true, highlightUserId);
+    body = teamSide(slots, 'left', true, !!input.english, highlightUserId);
     if (input.opponent)
-      body += `<text x="${W - 420}" y="${CY - 10}" font-family="DejaVu Sans" font-size="26" fill="#6f8696" text-anchor="middle">соперник</text>
+      body += `<text x="${W - 420}" y="${CY - 10}" font-family="DejaVu Sans" font-size="26" fill="#6f8696" text-anchor="middle">${input.english ? 'opponent' : 'соперник'}</text>
         <text x="${W - 420}" y="${CY + 36}" font-family="DejaVu Sans" font-weight="bold" font-size="40" fill="#0d1f2d" text-anchor="middle">${esc(cut(input.opponent, 22))}</text>`;
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${header}${rink()}${body}</svg>`;

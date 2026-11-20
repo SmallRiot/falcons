@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useEffect, useState } from 'react';
 import { Clock, FlaskConical, ShieldX, WifiOff } from 'lucide-react';
 import { api, setDevUser, type Me, type Role } from '@shared/api';
@@ -19,11 +20,11 @@ export default function Gate({ kind, me, message, onRetry, onDev, devOpen, setDe
   const content = {
     pending: {
       icon: <Clock size={18} />,
-      title: 'Заявка отправлена',
-      text: `${me?.user.first_name ?? ''}, админ команды получил уведомление. Как только тебя пустят — придёт сообщение от бота.`,
+      title: t('Заявка отправлена'),
+      text: t('{0}, админ команды получил уведомление. Как только тебя пустят — придёт сообщение от бота.', me?.user.first_name ?? ''),
     },
-    rejected: { icon: <ShieldX size={18} />, title: 'Доступ закрыт', text: 'Если это ошибка — напиши админу команды.' },
-    error: { icon: <WifiOff size={18} />, title: 'Не получилось войти', text: message ?? 'Попробуй ещё раз' },
+    rejected: { icon: <ShieldX size={18} />, title: t('Доступ закрыт'), text: t('Если это ошибка — напиши админу команды.') },
+    error: { icon: <WifiOff size={18} />, title: t('Не получилось войти'), text: message ?? t('Попробуй ещё раз') },
   }[kind];
   return (
     <div className="gate">
@@ -31,14 +32,14 @@ export default function Gate({ kind, me, message, onRetry, onDev, devOpen, setDe
       <h1>{content.title}</h1>
       <p>{content.text}</p>
       <button className="btn secondary" onClick={onRetry}>
-        Проверить ещё раз
+        {t('Проверить ещё раз')}
       </button>
       {!inTelegram && (
         <button className="btn ghost sm" onClick={onDev}>
-          <FlaskConical size={16} /> Сменить тестового пользователя
+          <FlaskConical size={16} /> {t('Сменить тестового пользователя')}
         </button>
       )}
-      <Sheet open={devOpen} onClose={() => setDevOpen(false)} title="Войти как…">
+      <Sheet open={devOpen} onClose={() => setDevOpen(false)} title={t('Войти как…')}>
         <DevPicker embedded onPick={() => location.reload()} />
       </Sheet>
     </div>
@@ -75,7 +76,7 @@ export function DevPicker({ onPick, embedded }: { onPick: () => void; embedded?:
             <div className="title">{u.name}</div>
             <div className="meta">
               id {u.id}
-              {u.status !== 'active' ? ` · ${u.status}` : ''}
+              {u.status !== 'active' ? ` · ${u.status === 'pending' ? t('Ожидает') : t('Доступ закрыт')}` : ''}
             </div>
           </div>
           <div className="chips">
@@ -97,13 +98,13 @@ export function DevPicker({ onPick, embedded }: { onPick: () => void; embedded?:
       <img className="logo" src="/logo.png" alt="Falcons" />
       <h1>Falcons</h1>
       <p>
-        Тестовый режим в браузере. Выбери, под кем зайти — у ролей разные экраны.
+        {t('Тестовый режим в браузере. Выбери, под кем зайти — у ролей разные экраны.')}
       </p>
       {err ? (
         <div className="alert warn" style={{ textAlign: 'left' }}>
           <div className="body">
-            <b>Dev-вход выключен</b>
-            Включи <code>DEV_AUTH=1</code> в .env и запусти <code>npm run seed</code>, либо открой приложение из Telegram.
+            <b>{t('Dev-вход выключен')}</b>
+            {t('Включи')} <code>DEV_AUTH=1</code> {t('в .env и запусти')} <code>npm run seed</code>{t(', либо открой приложение из Telegram.')}
           </div>
         </div>
       ) : users ? (

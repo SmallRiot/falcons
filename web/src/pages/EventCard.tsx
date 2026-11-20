@@ -1,20 +1,21 @@
+import { locale, t } from '@shared/i18n';
 import { useNavigate } from 'react-router-dom';
 import { FeePay } from './FeePay';
 import { Check, Clock, MapPin, X } from 'lucide-react';
 import { api, type EventSummary } from '@shared/api';
-import { fmt } from '@shared/format';
+import { DEFAULT_LOCATION, fmt } from '@shared/format';
 import { haptic } from '@shared/tg';
 import { Avatar, SquadChip, toastErr, useMe } from '@shared/ui';
 import { useState } from 'react';
 
 export function typeLabel(e: { type: string; title: string | null }) {
-  return e.type === 'game' ? (e.title ? e.title : 'Игра') : e.title || 'Тренировка';
+  return e.type === 'game' ? (e.title ? e.title : t('Игра')) : e.title || t('Тренировка');
 }
 
 export function DateTile({ iso, game }: { iso: string; game?: boolean }) {
   const d = new Date(iso);
-  const day = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Tbilisi', day: 'numeric' }).format(d);
-  const mon = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Tbilisi', month: 'short' }).format(d).replace('.', '');
+  const day = new Intl.DateTimeFormat(locale, { timeZone: 'Asia/Tbilisi', day: 'numeric' }).format(d);
+  const mon = new Intl.DateTimeFormat(locale, { timeZone: 'Asia/Tbilisi', month: 'short' }).format(d).replace('.', '');
   return (
     <div className={`date-tile ${game ? 'game' : ''}`}>
       <div className="d">{day}</div>
@@ -42,16 +43,16 @@ export function SignupButtons({ ev, onChange }: { ev: EventSummary; onChange: (e
       setBusy(false);
     }
   };
-  if (ev.cancelled) return <div className="chip bad">Отменено</div>;
+  if (ev.cancelled) return <div className="chip bad">{t('Отменено')}</div>;
   if (new Date(ev.starts_at).getTime() < Date.now()) return null;
   const blocked = me.user.signup_blocked && ev.my !== 'in';
   return (
     <div className="signup-btns" onClick={(e) => e.stopPropagation()}>
       <button className={`btn sm ${ev.my === 'in' ? 'in-on' : 'secondary'}`} disabled={busy || blocked} onClick={() => set('in')}>
-        <Check size={17} /> {ev.my === 'in' ? (ev.myReserve ? 'В резерве' : 'Иду') : 'Иду'}
+        <Check size={17} /> {ev.my === 'in' ? (ev.myReserve ? t('В резерве') : t('Иду')) : t('Иду')}
       </button>
       <button className={`btn sm ${ev.my === 'out' ? 'out-on' : 'ghost'}`} disabled={busy} onClick={() => set('out')}>
-        <X size={17} /> Не иду
+        <X size={17} /> {t('Не иду')}
       </button>
       {ev.myFee && ev.my === 'in' && (
         <div style={{ flexBasis: '100%' }}>
@@ -81,11 +82,11 @@ export default function EventCard({ ev, onChange, compact }: { ev: EventSummary;
         <div className="event-info">
           <div className="t">
             {typeLabel(ev)}
-            {ev.type === 'game' && <span className="chip game">Игра</span>}
+            {ev.type === 'game' && <span className="chip game">{t('Игра')}</span>}
             {ev.squads.map((s) => (
               <SquadChip key={s.id} squad={s} />
             ))}
-            {ev.lineup_published && <span className="chip info">Пятёрки</span>}
+            {ev.lineup_published && <span className="chip info">{t('Пятёрки')}</span>}
           </div>
           <div className="m">
             <Clock size={13} /> {fmt.day(ev.starts_at)}, {fmt.time(ev.starts_at)}
@@ -93,7 +94,7 @@ export default function EventCard({ ev, onChange, compact }: { ev: EventSummary;
           </div>
           {ev.location && !compact && (
             <div className="m">
-              <MapPin size={13} /> {ev.location}
+              <MapPin size={13} /> {ev.location === DEFAULT_LOCATION ? t(DEFAULT_LOCATION) : ev.location}
             </div>
           )}
         </div>
@@ -106,7 +107,7 @@ export default function EventCard({ ev, onChange, compact }: { ev: EventSummary;
         </div>
         <span className="small num" style={{ fontWeight: 650 }}>
           {ev.going}
-          {ev.capacity ? ` / ${ev.capacity}` : ''} идут
+          {ev.capacity ? ` / ${ev.capacity}` : ''} {t('идут')}
         </span>
         {ev.capacity ? (
           <div className="progress">

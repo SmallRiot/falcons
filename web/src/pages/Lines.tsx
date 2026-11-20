@@ -1,14 +1,15 @@
+import { t } from '@shared/i18n';
 import type { LineupItem, PublicUser, Team } from '@shared/api';
 
 export const FWD = ['LW', 'C', 'RW'] as const;
 export const DEF = ['LD', 'RD'] as const;
 export const GOALIES = ['G1', 'G2'] as const;
 export const LINE_COLORS = ['#2b88cf', '#1f9d6b', '#c98612', '#a3bccc'];
-const SLOT_LABEL: Record<string, string> = { LW: 'ЛН', C: 'ЦН', RW: 'ПН', LD: 'ЛЗ', RD: 'ПЗ', G1: 'ВРТ', G2: 'ВРТ 2' };
+const SLOT_LABEL: Record<string, string> = { LW: t('ЛН'), C: t('ЦН'), RW: t('ПН'), LD: t('ЛЗ'), RD: t('ПЗ'), G1: t('ВРТ'), G2: t('ВРТ 2') };
 
-export const TEAM_LABEL: Record<string, string> = { dark: 'Тёмные', light: 'Светлые', '': '' };
-export const TEAM_GEN: Record<string, string> = { dark: 'тёмных', light: 'светлых', '': '' };
-export const ORD = ['', 'первой', 'второй', 'третьей', 'четвёртой'];
+export const TEAM_LABEL: Record<string, string> = { dark: t('Тёмные'), light: t('Светлые'), '': '' };
+export const TEAM_GEN: Record<string, string> = { dark: t('тёмных'), light: t('светлых'), '': '' };
+export const ORD = ['', t('первой'), t('второй'), t('третьей'), t('четвёртой')];
 
 type Props = {
   team?: Team;
@@ -55,7 +56,7 @@ export default function Lines({ team = '', lines, lineup, players, myId, selecte
         <div key={line} className="rink-line">
           <h3>
             <span className="bar" style={{ background: LINE_COLORS[line - 1] }} />
-            {line}-я пятёрка{team ? ` · ${TEAM_GEN[team]}` : ''}
+            {t('{0}-я пятёрка', line)}{team ? ` · ${TEAM_GEN[team]}` : ''}
           </h3>
           <div className="slots fwd">
             {FWD.map((s) => (
@@ -72,7 +73,7 @@ export default function Lines({ team = '', lines, lineup, players, myId, selecte
       <div className="rink-line">
         <h3>
           <span className="bar" style={{ background: '#0d1f2d' }} />
-          Вратари{team ? ` · ${TEAM_GEN[team]}` : ''}
+          {t('Вратари')}{team ? ` · ${TEAM_GEN[team]}` : ''}
         </h3>
         <div className="slots def" style={{ marginTop: 0 }}>
           {GOALIES.map((s) => (

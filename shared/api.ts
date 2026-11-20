@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { tg } from './tg';
 
 const DEV_KEY = 'falcons.devUser';
@@ -61,7 +62,10 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   });
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new ApiError(res.status, data?.error ?? data?.message ?? `Ошибка ${res.status}`);
+  if (!res.ok) {
+    const message = data?.error ?? data?.message;
+    throw new ApiError(res.status, typeof message === 'string' ? t(message) : t('Ошибка {0}', res.status));
+  }
   return data as T;
 }
 
@@ -76,13 +80,13 @@ export const api = {
 /** Скачать защищённый ресурс API (картинку) и вернуть blob-URL. */
 export async function fetchBlobUrl(path: string): Promise<string> {
   const res = await fetch(path, { headers: authHeaders() });
-  if (!res.ok) throw new ApiError(res.status, 'Не удалось загрузить');
+  if (!res.ok) throw new ApiError(res.status, t('Не удалось загрузить'));
   return URL.createObjectURL(await res.blob());
 }
 
 export async function fetchFileUrl(name: string): Promise<string> {
   const res = await fetch(`/api/files/${encodeURIComponent(name)}`, { headers: authHeaders() });
-  if (!res.ok) throw new ApiError(res.status, 'Не удалось загрузить файл');
+  if (!res.ok) throw new ApiError(res.status, t('Не удалось загрузить файл'));
   return URL.createObjectURL(await res.blob());
 }
 

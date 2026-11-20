@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -5,8 +6,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
  * Выбор нескольких дней в календаре — «вот эти дни, в такое-то время».
  * Даты — строки YYYY-MM-DD по Тбилиси.
  */
-const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+const WD = [t('Пн'), t('Вт'), t('Ср'), t('Чт'), t('Пт'), t('Сб'), t('Вс')];
+const MONTHS = [t('Январь'), t('Февраль'), t('Март'), t('Апрель'), t('Май'), t('Июнь'), t('Июль'), t('Август'), t('Сентябрь'), t('Октябрь'), t('Ноябрь'), t('Декабрь')];
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -53,13 +54,13 @@ export function DatesPicker({
   return (
     <div className="dp">
       <div className="dp-head">
-        <button type="button" className="icon-btn" onClick={() => shift(-1)} aria-label="Предыдущий месяц">
+        <button type="button" className="icon-btn" onClick={() => shift(-1)} aria-label={t('Предыдущий месяц')}>
           <ChevronLeft size={18} />
         </button>
         <b>
           {MONTHS[cursor.m]} {cursor.y}
         </b>
-        <button type="button" className="icon-btn" onClick={() => shift(1)} aria-label="Следующий месяц">
+        <button type="button" className="icon-btn" onClick={() => shift(1)} aria-label={t('Следующий месяц')}>
           <ChevronRight size={18} />
         </button>
       </div>
@@ -91,15 +92,15 @@ export function DatesPicker({
         <span className="small">
           {value.length ? (
             <>
-              Выбрано: <b>{value.length}</b>
+              {t('Выбрано:')} <b>{value.length}</b>
             </>
           ) : (
-            <span className="muted">Тапни по дням в календаре</span>
+            <span className="muted">{t('Тапни по дням в календаре')}</span>
           )}
         </span>
         {value.length > 0 && (
           <button type="button" className="btn ghost sm" onClick={() => onChange([])}>
-            Очистить
+            {t('Очистить')}
           </button>
         )}
       </div>

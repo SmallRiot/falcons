@@ -164,6 +164,7 @@ function addColumn(table: string, column: string, def: string) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
   if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
 }
+addColumn('users', 'language', "TEXT CHECK(language IN ('ru','en'))");
 addColumn('users', 'birth_date', 'TEXT');
 // событие из серии ждёт, когда до него останется неделя, чтобы бот запостил его в чат
 addColumn('events', 'announce_pending', 'INTEGER NOT NULL DEFAULT 0');

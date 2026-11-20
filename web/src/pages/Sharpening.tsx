@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Scissors, Sparkles } from 'lucide-react';
@@ -19,16 +20,16 @@ export interface SharpItem {
 }
 
 export const SHARP_STATUS: Record<SharpItem['status'], { label: string; tone: string; step: number }> = {
-  new: { label: 'Проверка оплаты', tone: 'info', step: 1 },
-  accepted: { label: 'В работе', tone: 'warn', step: 2 },
-  done: { label: 'Готово', tone: 'ok', step: 3 },
-  rejected: { label: 'Отклонено', tone: 'bad', step: 0 },
+  new: { label: t('Проверка оплаты'), tone: 'info', step: 1 },
+  accepted: { label: t('В работе'), tone: 'warn', step: 2 },
+  done: { label: t('Готово'), tone: 'ok', step: 3 },
+  rejected: { label: t('Отклонено'), tone: 'bad', step: 0 },
 };
 
 export const PAY_STATUS: Record<SharpItem['payment'], { label: string; tone: string }> = {
-  unpaid: { label: 'Долг', tone: 'bad' },
-  pending: { label: 'Оплата на проверке', tone: 'info' },
-  paid: { label: 'Оплачено', tone: 'ok' },
+  unpaid: { label: t('Долг'), tone: 'bad' },
+  pending: { label: t('Оплата на проверке'), tone: 'info' },
+  paid: { label: t('Оплачено'), tone: 'ok' },
 };
 
 export function Steps({ status }: { status: SharpItem['status'] }) {
@@ -60,8 +61,8 @@ export default function Sharpening() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Заточка</h1>
-          <div className="sub">Оставь коньки сервис-менеджеру — наточим к тренировке</div>
+          <h1>{t('Заточка')}</h1>
+          <div className="sub">{t('Оставь коньки сервис-менеджеру — наточим к тренировке')}</div>
         </div>
       </div>
 
@@ -70,8 +71,8 @@ export default function Sharpening() {
           <button className="row" onClick={() => nav('/service')}>
             <Scissors size={20} color="var(--falcon)" />
             <div className="grow">
-              <div className="title">Очередь заточки</div>
-              <div className="meta">Для сервис-менеджера</div>
+              <div className="title">{t('Очередь заточки')}</div>
+              <div className="meta">{t('Для сервис-менеджера')}</div>
             </div>
             {!!me.badges?.sharpenings && <span className="chip bad">{me.badges.sharpenings}</span>}
             <ChevronRight size={18} className="chev" />
@@ -83,13 +84,13 @@ export default function Sharpening() {
         <div key={d.id} className="alert bad">
           <Scissors size={20} />
           <div className="body">
-            <b>Долг за заточку — {fmt.gel(d.price)}</b>
+            <b>{t('Долг за заточку —')} {fmt.gel(d.price)}</b>
             {d.note ? `«${d.note}» · ` : ''}
             {fmt.dateShort(d.updated_at ?? d.created_at)}
             {d.comment ? ` · ${d.comment}` : ''}
             <div style={{ marginTop: 10 }}>
               <button className="btn sm bad" onClick={() => setPayDebt(d)}>
-                Оплатить долг
+                {t('Оплатить долг')}
               </button>
             </div>
           </div>
@@ -97,7 +98,7 @@ export default function Sharpening() {
       ))}
 
       <div className="hero" style={{ paddingBottom: 18 }}>
-        <div className="eyebrow">Заточка коньков</div>
+        <div className="eyebrow">{t('Заточка коньков')}</div>
         <div className="between" style={{ marginTop: 6 }}>
           <div style={{ fontSize: 34, fontWeight: 800 }} className="num">
             {fmt.gel(data.price)}
@@ -110,18 +111,18 @@ export default function Sharpening() {
           disabled={active.length >= 2}
           onClick={() => setOpen(true)}
         >
-          Заказать заточку
+          {t('Заказать заточку')}
         </button>
       </div>
 
-      <div className="section-title">Мои заявки</div>
+      <div className="section-title">{t('Мои заявки')}</div>
       {data.items.length ? (
         <div className="vstack">
           {data.items.map((s) => (
             <div key={s.id} className="card tight vstack">
               <div className="between">
                 <div>
-                  <b>Заявка #{s.id}</b>
+                  <b>{t('Заявка #')}{s.id}</b>
                   <div className="muted small">
                     {fmt.dateShort(s.created_at)} · {fmt.gel(s.price)}
                   </div>
@@ -133,7 +134,7 @@ export default function Sharpening() {
               </div>
               <Steps status={s.status} />
               {s.note && <div className="small">«{s.note}»</div>}
-              {s.comment && <div className="small muted">Сервис: {s.comment}</div>}
+              {s.comment && <div className="small muted">{t('Сервис:')} {s.comment}</div>}
               {s.status === 'new' && s.payment !== 'unpaid' && (
                 <button
                   className="btn ghost xs"
@@ -143,25 +144,25 @@ export default function Sharpening() {
                     run(async () => {
                       await api.del(`/api/sharpening/${s.id}`);
                       await reload();
-                    }, 'Заявка отменена')
+                    }, t('Заявка отменена'))
                   }
                 >
-                  Отменить
+                  {t('Отменить')}
                 </button>
               )}
             </div>
           ))}
         </div>
       ) : (
-        <Empty icon={<Scissors size={26} />} title="Заявок пока нет" />
+        <Empty icon={<Scissors size={26} />} title={t('Заявок пока нет')} />
       )}
 
       <PaySheet
         open={!!payDebt}
         onClose={() => setPayDebt(null)}
-        title="Долг за заточку"
+        title={t('Долг за заточку')}
         amount={payDebt?.price ?? null}
-        purpose={`Заточка — ${me.user.name}`}
+        purpose={t('Заточка — {0}', me.user.name)}
         accounts={accs}
         commentPlaceholder={null}
         onSubmit={async (file) => {
@@ -170,19 +171,19 @@ export default function Sharpening() {
           return run(async () => {
             await api.post(`/api/sharpening/${payDebt!.id}/proof`, fd);
             await Promise.all([reload(), refresh()]);
-          }, 'Скрин отправлен точильщику');
+          }, t('Скрин отправлен точильщику'));
         }}
       />
 
       <PaySheet
         open={open}
         onClose={() => setOpen(false)}
-        title="Заточка коньков"
+        title={t('Заточка коньков')}
         amount={data.price}
-        purpose={`Заточка — ${me.user.name}`}
+        purpose={t('Заточка — {0}', me.user.name)}
         accounts={accs}
-        submitLabel="Отправить заявку"
-        commentPlaceholder="Пожелания: радиус, когда привезёшь коньки… (необязательно)"
+        submitLabel={t('Отправить заявку')}
+        commentPlaceholder={t('Пожелания: радиус, когда привезёшь коньки… (необязательно)')}
         onSubmit={async (file, comment) => {
           const fd = new FormData();
           fd.append('note', comment);
@@ -190,7 +191,7 @@ export default function Sharpening() {
           return run(async () => {
             await api.post('/api/sharpening', fd);
             await Promise.all([reload(), refresh()]);
-          }, 'Заявка отправлена сервис-менеджеру');
+          }, t('Заявка отправлена сервис-менеджеру'));
         }}
       />
     </div>

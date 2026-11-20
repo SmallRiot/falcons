@@ -1,0 +1,28 @@
+.language-gate {
+  min-height: 100dvh;
+  padding-top: max(32px, var(--top-inset));
+  padding-bottom: max(32px, var(--safe-b));
+}
+
+.language-gate .language-options {
+  width: min(100%, 280px);
+  gap: 8px;
+}
+
+@media (max-width: 380px) {
+  .compact-back {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .compact-back span {
+    display: none;
+  }
+
+  .management-page .row .title,
+  .management-page .row .meta {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}

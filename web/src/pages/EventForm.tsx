@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, type EventDetail, type EventSummary } from '@shared/api';
@@ -98,102 +99,102 @@ export default function EventForm() {
         const r = await api.post<{ id: number; count: number; announced: number }>('/api/events', body);
         if (r.count > 1) {
           toast(
-            `Создано ${r.count} ${plural(r.count, 'событие', 'события', 'событий')}` +
-              (f.notify ? ` · в чат сейчас ${r.announced}, остальные бот запостит за неделю до` : ''),
+            t('Создано {0} {1}', r.count, plural(r.count, t('событие'), t('события'), t('событий'))) +
+              (f.notify ? t(' · в чат сейчас {0}, остальные бот запостит за неделю до', r.announced) : ''),
           );
           nav('/events', { replace: true });
         } else nav(`/events/${r.id}`, { replace: true });
       }
-    }, editing ? 'Сохранено' : f.days.length > 1 ? undefined : 'Создано');
+    }, editing ? t('Сохранено') : f.days.length > 1 ? undefined : t('Создано'));
 
   return (
     <div className="page">
       <div className="page-head">
-        <h1>{editing ? 'Редактирование' : 'Новое событие'}</h1>
+        <h1>{editing ? t('Редактирование') : t('Новое событие')}</h1>
       </div>
       <div className="card form">
         <Segmented
           value={f.type}
           onChange={(v) => set('type', v)}
           options={[
-            ['training', '🏒 Тренировка'],
-            ['game', '🥅 Игра'],
+            ['training', t('🏒 Тренировка')],
+            ['game', t('🥅 Игра')],
           ]}
         />
         {f.type === 'game' ? (
           <div className="field">
-            <span>Какой состав играет</span>
+            <span>{t('Какой состав играет')}</span>
             <SquadPicker squads={me.squads ?? []} value={f.squad_ids} onChange={(v) => set('squad_ids', v)} />
-            {!f.squad_ids.length && <span className="small" style={{ color: 'var(--warn)' }}>Не выбран — игру увидят все</span>}
+            {!f.squad_ids.length && <span className="small" style={{ color: 'var(--warn)' }}>{t('Не выбран — игру увидят все')}</span>}
           </div>
         ) : (
-          <div className="muted small">Тренировки общие — их видят все составы.</div>
+          <div className="muted small">{t('Тренировки общие — их видят все составы.')}</div>
         )}
         {editing ? (
           <label className="field">
-            <span>Дата и время (Тбилиси)</span>
+            <span>{t('Дата и время (Тбилиси)')}</span>
             <input className="input" type="datetime-local" value={f.when} onChange={(e) => set('when', e.target.value)} />
           </label>
         ) : (
           <>
             <div className="field">
-              <span>Дни · можно выбрать несколько, чтобы заложить наперёд</span>
+              <span>{t('Дни · можно выбрать несколько, чтобы заложить наперёд')}</span>
               <DatesPicker value={f.days} onChange={(v) => set('days', v)} marked={marked} />
             </div>
             <label className="field">
-              <span>Время начала (Тбилиси)</span>
+              <span>{t('Время начала (Тбилиси)')}</span>
               <input className="input" type="time" value={f.time} onChange={(e) => set('time', e.target.value)} />
             </label>
           </>
         )}
         <label className="field">
-          <span>{f.type === 'game' ? 'Соперник / турнир' : 'Название (необязательно)'}</span>
+          <span>{f.type === 'game' ? t('Соперник / турнир') : t('Название (необязательно)')}</span>
           <input
             className="input"
             value={f.title}
-            placeholder={f.type === 'game' ? 'vs Tbilisi Wolves' : 'Например: катание + броски'}
+            placeholder={f.type === 'game' ? 'vs Tbilisi Wolves' : t('Например: катание + броски')}
             onChange={(e) => set('title', e.target.value)}
           />
         </label>
         <label className="field">
-          <span>Место</span>
-          <input className="input" value={f.location} placeholder={DEFAULT_LOCATION} onChange={(e) => set('location', e.target.value)} />
+          <span>{t('Место')}</span>
+          <input className="input" value={f.location === DEFAULT_LOCATION ? t(DEFAULT_LOCATION) : f.location} placeholder={t(DEFAULT_LOCATION)} onChange={(e) => set('location', e.target.value)} />
         </label>
         <div className="form-row">
           <label className="field">
-            <span>Длительность, мин</span>
+            <span>{t('Длительность, мин')}</span>
             <input className="input" inputMode="numeric" value={f.duration_min} onChange={(e) => set('duration_min', e.target.value)} />
           </label>
           <label className="field">
-            <span>Лимит мест</span>
-            <input className="input" inputMode="numeric" value={f.capacity} placeholder="без лимита" onChange={(e) => set('capacity', e.target.value)} />
+            <span>{t('Лимит мест')}</span>
+            <input className="input" inputMode="numeric" value={f.capacity} placeholder={t('без лимита')} onChange={(e) => set('capacity', e.target.value)} />
           </label>
         </div>
         {editing && f.type === 'game' && (
           <div className="form-row">
             <label className="field">
-              <span>Забили мы</span>
+              <span>{t('Забили мы')}</span>
               <input className="input" inputMode="numeric" value={f.score_us} onChange={(e) => set('score_us', e.target.value.replace(/\D/g, ''))} />
             </label>
             <label className="field">
-              <span>Пропустили</span>
+              <span>{t('Пропустили')}</span>
               <input className="input" inputMode="numeric" value={f.score_them} onChange={(e) => set('score_them', e.target.value.replace(/\D/g, ''))} />
             </label>
           </div>
         )}
         <label className="field">
-          <span>Заметка</span>
-          <textarea className="input" value={f.notes} placeholder="Форма, что взять, сбор за 30 минут…" onChange={(e) => set('notes', e.target.value)} />
+          <span>{t('Заметка')}</span>
+          <textarea className="input" value={f.notes} placeholder={t('Форма, что взять, сбор за 30 минут…')} onChange={(e) => set('notes', e.target.value)} />
         </label>
         {!editing && (
           <label className="check">
             <input type="checkbox" checked={f.notify} onChange={(e) => set('notify', e.target.checked)} />
-            Сообщить в командный чат{f.days.length > 1 ? ' (каждое — за неделю до)' : ''}
+            {t('Сообщить в командный чат')}{f.days.length > 1 ? t(' (каждое — за неделю до)') : ''}
           </label>
         )}
       </div>
       <button className="btn block" disabled={busy || (editing ? !f.when : !f.days.length || !f.time)} onClick={submit}>
-        {editing ? 'Сохранить' : f.days.length > 1 ? `Создать ${f.days.length} ${plural(f.days.length, 'событие', 'события', 'событий')}` : 'Создать и открыть запись'}
+        {editing ? t('Сохранить') : f.days.length > 1 ? t('Создать {0} {1}', f.days.length, plural(f.days.length, t('событие'), t('события'), t('событий'))) : t('Создать и открыть запись')}
       </button>
     </div>
   );

@@ -1,3 +1,4 @@
+import { language, saveLanguage, t } from '@shared/i18n';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarCheck, ChevronRight, Coins, Flame, Landmark, Receipt, Scissors, Shield, Trophy, Users } from 'lucide-react';
@@ -37,7 +38,7 @@ export default function Profile() {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>{u.name}</h1>
           <div className="muted small">
-            {u.number != null ? `#${u.number}` : 'без номера'} · {u.position ? POS_LABEL[u.position] : 'позиция не указана'}
+            {u.number != null ? `#${u.number}` : t('без номера')} · {u.position ? POS_LABEL[u.position] : t('позиция не указана')}
             {u.birth_date ? ` · 🎂 ${birthday(u.birth_date)}` : ''}
           </div>
         </div>
@@ -58,33 +59,33 @@ export default function Profile() {
           </div>
         )}
         <button className="btn ghost sm" onClick={() => setEdit(true)}>
-          Изменить профиль
+          {t('Изменить профиль')}
         </button>
       </div>
 
-      <div className="section-title">Статистика</div>
+      <div className="section-title">{t('Статистика')}</div>
       <div className="card hstack" style={{ gap: 16 }}>
         <div className="ring" style={{ ['--p' as string]: s?.attendanceRate30 ?? 0 }}>
           <div>{s?.attendanceRate30 != null ? `${s.attendanceRate30}%` : '–'}</div>
         </div>
         <div>
-          <b>Посещаемость за 30 дней</b>
+          <b>{t('Посещаемость за 30 дней')}</b>
           <div className="muted small">
-            {s?.streak ? `Серия: ${s.streak} ${plural(s.streak, 'тренировка', 'тренировки', 'тренировок')} подряд 🔥` : 'Начни серию на ближайшей тренировке'}
+            {s?.streak ? t('Серия: {0} {1} подряд 🔥', s.streak, plural(s.streak, t('тренировка'), t('тренировки'), t('тренировок'))) : t('Начни серию на ближайшей тренировке')}
           </div>
         </div>
       </div>
       <div className="stat-grid">
-        <Stat icon={<CalendarCheck size={14} />} v={s?.trainingsTotal} sub={s ? `+${s.trainingsMonth} в мес.` : ''} l="Тренировок" />
-        <Stat icon={<Trophy size={14} />} v={s?.gamesTotal} sub={s ? `+${s.gamesMonth} в мес.` : ''} l="Игр" />
-        <Stat icon={<Flame size={14} />} v={s?.streak} l="Серия подряд" />
-        <Stat icon={<Coins size={14} />} v={s ? fmt.gel(s.paidTotal) : undefined} l="Взносов оплачено" />
-        <Stat icon={<Scissors size={14} />} v={s?.sharpenings} l="Заточек" />
-        <Stat icon={<Users size={14} />} v={s?.favouriteLine != null ? (s.favouriteLine === 0 ? 'ВРТ' : `${s.favouriteLine}-я`) : '–'} l="Чаще всего в пятёрке" />
+        <Stat icon={<CalendarCheck size={14} />} v={s?.trainingsTotal} sub={s ? t('+{0} в мес.', s.trainingsMonth) : ''} l={t('Тренировок')} />
+        <Stat icon={<Trophy size={14} />} v={s?.gamesTotal} sub={s ? t('+{0} в мес.', s.gamesMonth) : ''} l={t('Игр')} />
+        <Stat icon={<Flame size={14} />} v={s?.streak} l={t('Серия подряд')} />
+        <Stat icon={<Coins size={14} />} v={s ? fmt.gel(s.paidTotal) : undefined} l={t('Взносов оплачено')} />
+        <Stat icon={<Scissors size={14} />} v={s?.sharpenings} l={t('Заточек')} />
+        <Stat icon={<Users size={14} />} v={s?.favouriteLine != null ? (s.favouriteLine === 0 ? t('ВРТ') : t('{0}-я', s.favouriteLine)) : '–'} l={t('Чаще всего в пятёрке')} />
       </div>
       {!!s?.byMonth.length && (
         <div className="card">
-          <b className="small">Тренировки и игры по месяцам</b>
+          <b className="small">{t('Тренировки и игры по месяцам')}</b>
           <div className="bars">
             {s.byMonth.map((x) => (
               <div key={x.m} className={`b ${x.m === curMonth ? 'cur' : ''}`}>
@@ -100,9 +101,25 @@ export default function Profile() {
 
       {can(me, 'admin', 'coach', 'service') && (
         <div className="list">
-          <MenuRow icon={<Shield size={20} />} title="Перейти в управление" count={(b.pendingUsers ?? 0) + (b.proofs ?? 0) + (b.sharpenings ?? 0)} onClick={() => nav('/manage')} />
+          <MenuRow icon={<Shield size={20} />} title={t('Перейти в управление')} count={(b.pendingUsers ?? 0) + (b.proofs ?? 0) + (b.sharpenings ?? 0)} onClick={() => nav('/manage')} />
         </div>
       )}
+
+      <label className="field">
+        <span>{t('Язык приложения')}</span>
+        <select
+          className="input"
+          value={language}
+          onChange={(event) => {
+            const value = event.target.value === 'en' ? 'en' : 'ru';
+            if (saveLanguage(value)) window.location.reload();
+            else window.alert(t('Не удалось сохранить язык'));
+          }}
+        >
+          <option value="ru" lang="ru">Русский</option>
+          <option value="en" lang="en">English</option>
+        </select>
+      </label>
 
       {!inTelegram && (
         <button
@@ -112,7 +129,7 @@ export default function Profile() {
             location.href = '/';
           }}
         >
-          Сменить тестового пользователя
+          {t('Сменить тестового пользователя')}
         </button>
       )}
 
@@ -164,36 +181,36 @@ function EditSheet({ open, onClose, onSaved }: { open: boolean; onClose: () => v
       });
   }, [open, me.user]);
   return (
-    <Sheet open={open} onClose={onClose} title="Профиль">
+    <Sheet open={open} onClose={onClose} title={t('Профиль')}>
       <div className="form">
         <PhotoEdit user={me.user} endpoint="/api/me/photo" onChange={onSaved} />
         <div className="form-row">
           <label className="field">
-            <span>Имя</span>
+            <span>{t('Имя')}</span>
             <input className="input" value={f.first_name} onChange={(e) => setF({ ...f, first_name: e.target.value })} />
           </label>
           <label className="field">
-            <span>Фамилия</span>
+            <span>{t('Фамилия')}</span>
             <input className="input" value={f.last_name} onChange={(e) => setF({ ...f, last_name: e.target.value })} />
           </label>
         </div>
         <label className="field">
-          <span>Дата рождения</span>
+          <span>{t('Дата рождения')}</span>
           <input className="input" type="date" value={f.birth_date} onChange={(e) => setF({ ...f, birth_date: e.target.value })} />
         </label>
         <label className="field">
-          <span>Игровой номер</span>
+          <span>{t('Игровой номер')}</span>
           <input className="input" inputMode="numeric" maxLength={2} value={f.number} onChange={(e) => setF({ ...f, number: e.target.value.replace(/\D/g, '') })} />
         </label>
         <div className="field">
-          <span>Позиция</span>
+          <span>{t('Позиция')}</span>
           <Segmented
             value={f.position}
             onChange={(v) => setF({ ...f, position: v })}
             options={[
-              ['F', 'Нападающий'],
-              ['D', 'Защитник'],
-              ['G', 'Вратарь'],
+              ['F', t('Нападающий')],
+              ['D', t('Защитник')],
+              ['G', t('Вратарь')],
             ]}
           />
         </div>
@@ -205,10 +222,10 @@ function EditSheet({ open, onClose, onSaved }: { open: boolean; onClose: () => v
               await api.patch('/api/me', { ...f, number: f.number === '' ? null : Number(f.number) });
               await onSaved();
               onClose();
-            }, 'Сохранено')
+            }, t('Сохранено'))
           }
         >
-          Сохранить
+          {t('Сохранить')}
         </button>
       </div>
     </Sheet>

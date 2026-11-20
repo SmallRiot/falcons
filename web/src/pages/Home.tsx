@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Bell, CalendarPlus, ChevronRight, Receipt, Scissors, UserPlus } from 'lucide-react';
 import type { EventSummary, FinanceData } from '@shared/api';
@@ -7,10 +8,10 @@ import EventCard from './EventCard';
 
 function greeting() {
   const h = Number(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Tbilisi', hour: 'numeric', hour12: false }).format(new Date()));
-  if (h < 5) return 'Доброй ночи';
-  if (h < 12) return 'Доброе утро';
-  if (h < 18) return 'Добрый день';
-  return 'Добрый вечер';
+  if (h < 5) return t('Доброй ночи');
+  if (h < 12) return t('Доброе утро');
+  if (h < 18) return t('Добрый день');
+  return t('Добрый вечер');
 }
 
 export default function Home() {
@@ -41,7 +42,7 @@ export default function Home() {
               {greeting()}, {me.user.first_name}
             </h1>
           </div>
-          <button className="icon-btn" style={{ marginLeft: 'auto', position: 'relative', background: 'rgba(255,255,255,0.18)', color: '#fff' }} onClick={() => nav('/notifications')} aria-label="Уведомления">
+          <button className="icon-btn" style={{ marginLeft: 'auto', position: 'relative', background: 'rgba(255,255,255,0.18)', color: '#fff' }} onClick={() => nav('/notifications')} aria-label={t('Уведомления')}>
             <Bell size={19} />
             {!!me.badges?.unread && <span className="dot-badge">{me.badges.unread}</span>}
           </button>
@@ -49,15 +50,15 @@ export default function Home() {
         <div className="hero-stats">
           <div className="hero-stat">
             <b>{stats.data?.trainingsMonth ?? '–'}</b>
-            <span>трен. в месяце</span>
+            <span>{t('трен. в месяце')}</span>
           </div>
           <div className="hero-stat">
             <b>{stats.data?.attendanceRate30 != null ? `${stats.data.attendanceRate30}%` : '–'}</b>
-            <span>посещаемость</span>
+            <span>{t('посещаемость')}</span>
           </div>
           <div className="hero-stat">
             <b>{stats.data?.streak ?? '–'}</b>
-            <span>серия 🔥</span>
+            <span>{t('серия 🔥')}</span>
           </div>
         </div>
       </div>
@@ -66,8 +67,8 @@ export default function Home() {
         <div className="alert warn clickable" onClick={() => nav('/sharpening')} style={{ cursor: 'pointer' }}>
           <AlertTriangle size={22} />
           <div className="body">
-            <b>Долг за заточку {fmt.gel(me.sharpeningDebt.total)}</b>
-            Оплати и прикрепи скрин.
+            <b>{t('Долг за заточку')} {fmt.gel(me.sharpeningDebt.total)}</b>
+            {t('Оплати и прикрепи скрин.')}
           </div>
           <ChevronRight size={20} />
         </div>
@@ -77,8 +78,8 @@ export default function Home() {
         <div className="alert bad clickable" onClick={() => nav('/finance')} style={{ cursor: 'pointer' }}>
           <AlertTriangle size={22} />
           <div className="body">
-            <b>Долг {fmt.gel(debt)}</b>
-            {me.user.signup_blocked ? 'Запись на тренировки закрыта до оплаты.' : 'Оплати и прикрепи скрин — админ проверит.'}
+            <b>{t('Долг')} {fmt.gel(debt)}</b>
+            {me.user.signup_blocked ? t('Запись на тренировки закрыта до оплаты.') : t('Оплати и прикрепи скрин — админ проверит.')}
           </div>
           <ChevronRight size={20} />
         </div>
@@ -86,8 +87,8 @@ export default function Home() {
 
 
       <div className="section-title">
-        Ближайшие
-        <button onClick={() => nav('/events')}>Все</button>
+        {t('Ближайшие')}
+        <button onClick={() => nav('/events')}>{t('Все')}</button>
       </div>
       {events.loading ? (
         <div className="skeleton" style={{ height: 150 }} />
@@ -95,31 +96,31 @@ export default function Home() {
         next.map((e) => <EventCard key={e.id} ev={e} onChange={update} compact />)
       ) : (
         <div className="card">
-          <Empty icon={<CalendarPlus size={26} />} title="Пока ничего не запланировано">
-            Как только тренер создаст тренировку — бот напишет в чат.
+          <Empty icon={<CalendarPlus size={26} />} title={t('Пока ничего не запланировано')}>
+            {t('Как только тренер создаст тренировку — бот напишет в чат.')}
           </Empty>
         </div>
       )}
 
       {current && (
         <>
-          <div className="section-title">Взнос</div>
+          <div className="section-title">{t('Взнос')}</div>
           <div className="card clickable" onClick={() => nav('/finance')}>
             <div className="between">
               <div>
                 <div className="muted small">{fmt.month(current.period.month)}</div>
                 <div style={{ fontSize: 22, fontWeight: 800 }} className="num">
                   {current.due?.plan === 'exempt' && current.due.custom_amount == null
-                    ? 'Освобождён 🙌'
+                    ? t('Освобождён 🙌')
                     : !current.due?.plan && current.due?.custom_amount == null
-                    ? 'Выбери вариант'
+                    ? t('Выбери вариант')
                     : current.period.locked
                       ? fmt.gel(current.due?.amount)
-                      : 'Ждём всех 🧮'}
+                      : t('Ждём всех 🧮')}
                 </div>
                 <div className="muted small">
-                  {current.due?.plan ? PLAN_LABEL[current.due.plan] : 'Взнос не выбран'}
-                  {!current.period.locked && current.due?.plan && current.due.plan !== 'exempt' ? ' · сумма придёт, когда начнётся сбор' : ''}
+                  {current.due?.plan ? PLAN_LABEL[current.due.plan] : t('Взнос не выбран')}
+                  {!current.period.locked && current.due?.plan && current.due.plan !== 'exempt' ? t(' · сумма придёт, когда начнётся сбор') : ''}
                 </div>
               </div>
               {current.due && current.period.locked && current.due.plan !== 'exempt' && (

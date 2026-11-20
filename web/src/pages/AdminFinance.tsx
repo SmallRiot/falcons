@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useEffect, useState } from 'react';
 import { Ban, BellRing, Play, Plus, Receipt, Settings2, Unlock } from 'lucide-react';
 import { api, type DueStatus, type Period, type Plan, type PublicUser, type Rates } from '@shared/api';
@@ -65,15 +66,15 @@ export default function AdminFinance() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Взносы</h1>
+        <h1>{t('Взносы')}</h1>
         <button className="btn sm" onClick={() => setCreateOpen(true)}>
-          <Plus size={16} /> Месяц
+          <Plus size={16} /> {t('Месяц')}
         </button>
       </div>
 
       {!periods.data?.length ? (
-        <Empty icon={<Receipt size={26} />} title="Сборов ещё не было">
-          Создай месяц — бот позовёт всех выбрать взнос.
+        <Empty icon={<Receipt size={26} />} title={t('Сборов ещё не было')}>
+          {t('Создай месяц — бот позовёт всех выбрать взнос.')}
         </Empty>
       ) : (
         <>
@@ -93,11 +94,11 @@ export default function AdminFinance() {
           {d && (
             <div className="steps">
               <div className={`step ${d.period.locked ? 'done' : 'on'}`}>
-                <b>1</b> Опрос
+                <b>1</b> {t('Опрос')}
               </div>
               <div className="step-line" />
               <div className={`step ${d.period.locked ? 'on' : ''}`}>
-                <b>2</b> Сбор денег
+                <b>2</b> {t('Сбор денег')}
               </div>
             </div>
           )}
@@ -106,12 +107,12 @@ export default function AdminFinance() {
             <div className="card vstack" style={{ gap: 10 }}>
               <div className="between">
                 <div>
-                  <div className="muted small">Проголосовали</div>
+                  <div className="muted small">{t('Проголосовали')}</div>
                   <div style={{ fontSize: 26, fontWeight: 800 }} className="num">
-                    {dues.length - undecided} из {dues.length}
+                    {dues.length - undecided} {t('из')} {dues.length}
                   </div>
                 </div>
-                <button className="icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Настройки месяца">
+                <button className="icon-btn" onClick={() => setSettingsOpen(true)} aria-label={t('Настройки месяца')}>
                   <Settings2 size={18} />
                 </button>
               </div>
@@ -119,12 +120,12 @@ export default function AdminFinance() {
                 <div style={{ width: `${dues.length ? ((dues.length - undecided) / dues.length) * 100 : 0}%` }} />
               </div>
               <div className="small muted">
-                Бюджет {fmt.gel(d.period.budget)} (игроки его не видят). Если завершить сейчас: полный <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.full)}</b>, частичный{' '}
-                <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.partial)}</b>, донат <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.donation)}</b>.
+                {t('Бюджет')} {fmt.gel(d.period.budget)} {t('(игроки его не видят). Если завершить сейчас: полный')} <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.full)}</b>{t(', частичный')}{' '}
+                <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.partial)}</b>{t(', донат')} <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.donation)}</b>.
               </div>
               {undecided > 0 && (
                 <div className="alert warn">
-                  <div className="body">{undecided} чел. ещё не выбрали. Можно выбрать за них — тап по человеку внизу (фильтр «Все»).</div>
+                  <div className="body">{undecided} {t('чел. ещё не выбрали. Можно выбрать за них — тап по человеку внизу (фильтр «Все»).')}</div>
                 </div>
               )}
               <button
@@ -132,16 +133,16 @@ export default function AdminFinance() {
                 disabled={busy}
                 onClick={async () =>
                   await ask(
-                    `Завершить опрос и начать сбор?\n\nПолный ${d.rates.full} ₾, частичный ${d.rates.partial} ₾, донат ${d.rates.donation} ₾.\nКаждый получит в личку свою сумму, неоплата станет долгом с напоминаниями.` +
-                      (undecided ? `\n\n${undecided} чел. не выбрали — бот попросит их выбрать, сумма посчитается по тем же ставкам.` : ''),
+                    t('Завершить опрос и начать сбор?\n\nПолный {0} ₾, частичный {1} ₾, донат {2} ₾.\nКаждый получит в личку свою сумму, неоплата станет долгом с напоминаниями.', d.rates.full, d.rates.partial, d.rates.donation) +
+                      (undecided ? t('\n\n{0} чел. не выбрали — бот попросит их выбрать, сумма посчитается по тем же ставкам.', undecided) : ''),
                   ) &&
                   run(async () => {
                     await api.patch(`/api/admin/periods/${pid}`, { locked: true });
                     await reloadAll();
-                  }, 'Опрос завершён — бот разослал суммы')
+                  }, t('Опрос завершён — бот разослал суммы'))
                 }
               >
-                <Play size={16} /> Завершить опрос и начать сбор
+                <Play size={16} /> {t('Завершить опрос и начать сбор')}
               </button>
             </div>
           )}
@@ -150,12 +151,12 @@ export default function AdminFinance() {
             <div className="card vstack" style={{ gap: 12 }}>
               <div className="between">
                 <div>
-                  <div className="muted small">Собрано из {fmt.gel(expected)}</div>
+                  <div className="muted small">{t('Собрано из')} {fmt.gel(expected)}</div>
                   <div style={{ fontSize: 26, fontWeight: 800 }} className="num">
                     {fmt.gel(collected)}
                   </div>
                 </div>
-                <button className="icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Настройки месяца">
+                <button className="icon-btn" onClick={() => setSettingsOpen(true)} aria-label={t('Настройки месяца')}>
                   <Settings2 size={18} />
                 </button>
               </div>
@@ -163,38 +164,38 @@ export default function AdminFinance() {
                 <div style={{ width: `${expected ? Math.min(100, (collected / expected) * 100) : 0}%`, background: 'var(--ok)' }} />
               </div>
               <div className="hstack wrap small muted" style={{ gap: 12 }}>
-                <span>Бюджет <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.period.budget)}</b></span>
-                <span>Полный <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.full)}</b> ×{d.rates.nFull}</span>
-                <span>Частичный <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.partial)}</b> ×{d.rates.nPartial}</span>
-                <span>Донат <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.donation)}</b> ×{d.rates.nDonation}</span>
+                <span>{t('Бюджет')} <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.period.budget)}</b></span>
+                <span>{t('Полный')} <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.full)}</b> ×{d.rates.nFull}</span>
+                <span>{t('Частичный')} <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.partial)}</b> ×{d.rates.nPartial}</span>
+                <span>{t('Донат')} <b style={{ color: 'var(--ink)' }}>{fmt.gel(d.rates.donation)}</b> ×{d.rates.nDonation}</span>
               </div>
               <div className="btn-row">
                 <button
                   className="btn ghost sm"
                   disabled={busy}
                   onClick={async () =>
-                    await ask('Вернуть в опрос? Суммы снова будут считаться по голосам, при повторном старте бот разошлёт их заново.') &&
+                    await ask(t('Вернуть в опрос? Суммы снова будут считаться по голосам, при повторном старте бот разошлёт их заново.')) &&
                     run(async () => {
                       await api.patch(`/api/admin/periods/${pid}`, { locked: false });
                       await reloadAll();
-                    }, 'Вернули в опрос')
+                    }, t('Вернули в опрос'))
                   }
                 >
-                  <Unlock size={16} /> Вернуть в опрос
+                  <Unlock size={16} /> {t('Вернуть в опрос')}
                 </button>
                 <button
                   className="btn bad-soft sm"
                   disabled={busy}
                   onClick={async () =>
-                    await ask('Закрыть запись на тренировки всем, у кого есть долг?') &&
+                    await ask(t('Закрыть запись на тренировки всем, у кого есть долг?')) &&
                     run(async () => {
                       const r = await api.post<{ blocked: number }>('/api/admin/block-debtors');
                       await reloadAll();
-                      toast(`Запись закрыта: ${r.blocked} чел.`);
+                      toast(t('Запись закрыта: {0} чел.', r.blocked));
                     })
                   }
                 >
-                  <Ban size={16} /> Закрыть запись
+                  <Ban size={16} /> {t('Закрыть запись')}
                 </button>
               </div>
               {(
@@ -204,36 +205,36 @@ export default function AdminFinance() {
                   onClick={() =>
                     run(async () => {
                       const r = await api.post<{ sent: number }>('/api/admin/remind');
-                      toast(r.sent ? `Отправлено напоминаний: ${r.sent}` : 'Некому напоминать 🎉');
+                      toast(r.sent ? t('Отправлено напоминаний: {0}', r.sent) : t('Некому напоминать 🎉'));
                     })
                   }
                 >
-                  <BellRing size={16} /> Напомнить должникам сейчас
+                  <BellRing size={16} /> {t('Напомнить должникам сейчас')}
                 </button>
               )}
-              <div className="muted small">Бот сам напоминает должникам раз в ~2,5 дня (с 10 до 22).</div>
+              <div className="muted small">{t('Бот сам напоминает должникам раз в ~2,5 дня (с 10 до 22).')}</div>
             </div>
           )}
 
           <div className="muted small" style={{ padding: '0 4px' }}>
-            👋 Новичок посреди месяца, хочет просто задонатить или его надо освободить? Тапни по человеку → «Вариант и сумма». Бот сам пришлёт ему сумму.
+            {t('👋 Новичок посреди месяца, хочет просто задонатить или его надо освободить? Тапни по человеку → «Вариант и сумма». Бот сам пришлёт ему сумму.')}
           </div>
 
           <Segmented
             value={filter}
             onChange={setFilter}
             options={[
-              ['todo', `Проверить${pendingN ? ` · ${pendingN}` : ''}`],
-              ['unpaid', 'Не оплатили'],
-              ['paid', 'Оплатили'],
-              ['all', 'Все'],
+              ['todo', t('Проверить{0}', pendingN ? ` · ${pendingN}` : '')],
+              ['unpaid', t('Не оплатили')],
+              ['paid', t('Оплатили')],
+              ['all', t('Все')],
             ]}
           />
 
           {detail.loading ? (
             <Spinner />
           ) : !list.length ? (
-            <Empty icon={<Receipt size={26} />} title={filter === 'todo' ? 'Нечего проверять 🎉' : 'Пусто'} />
+            <Empty icon={<Receipt size={26} />} title={filter === 'todo' ? t('Нечего проверять 🎉') : t('Пусто')} />
           ) : (
             <div className="list">
               {list.map((x) => (
@@ -242,17 +243,17 @@ export default function AdminFinance() {
                   <div className="grow">
                     <div className="title">{x.user.name}</div>
                     <div className="meta">
-                      {x.custom_amount != null ? 'Индивидуально' : x.plan ? PLAN_LABEL[x.plan] : 'не выбрал'}
-                      {x.user.signup_blocked ? ' · ⛔︎ запись' : ''}
+                      {x.custom_amount != null ? t('Индивидуально') : x.plan ? PLAN_LABEL[x.plan] : t('не выбрал')}
+                      {x.user.signup_blocked ? t(' · ⛔︎ запись') : ''}
                     </div>
                   </div>
                   <span className="num" style={{ fontWeight: 700 }}>
                     {fmt.gel(x.amount)}
                   </span>
                   {x.plan === 'exempt' && x.custom_amount == null ? (
-                    <span className="chip ok">Освобождён</span>
+                    <span className="chip ok">{t('Освобождён')}</span>
                   ) : !d?.period.locked ? (
-                    <span className="chip info">{x.plan || x.custom_amount != null ? 'Голос' : 'Не выбрал'}</span>
+                    <span className="chip info">{x.plan || x.custom_amount != null ? t('Голос') : t('Не выбрал')}</span>
                   ) : (
                     <span className={`chip ${DUE_STATUS[x.status].tone}`}>{DUE_STATUS[x.status].label}</span>
                   )}
@@ -295,44 +296,44 @@ function DueSheet({
   return (
     <Sheet open onClose={onClose} title={item.user.name}>
       <div className="card tight">
-        <div className="kv"><span>Вариант</span><span>{item.plan ? PLAN_LABEL[item.plan] : '—'}</span></div>
-        <div className="kv"><span>Сумма</span><span>{fmt.gel(item.amount)}</span></div>
-        <div className="kv"><span>Статус</span><span><span className={`chip ${DUE_STATUS[item.status].tone}`}>{DUE_STATUS[item.status].label}</span></span></div>
-        {item.submitted_at && <div className="kv"><span>Скрин прислан</span><span>{fmt.dateShort(item.submitted_at)}, {fmt.time(item.submitted_at)}</span></div>}
-        {item.comment && <div className="kv"><span>Комментарий</span><span>{item.comment}</span></div>}
+        <div className="kv"><span>{t('Вариант')}</span><span>{item.plan ? PLAN_LABEL[item.plan] : '—'}</span></div>
+        <div className="kv"><span>{t('Сумма')}</span><span>{fmt.gel(item.amount)}</span></div>
+        <div className="kv"><span>{t('Статус')}</span><span><span className={`chip ${DUE_STATUS[item.status].tone}`}>{DUE_STATUS[item.status].label}</span></span></div>
+        {item.submitted_at && <div className="kv"><span>{t('Скрин прислан')}</span><span>{fmt.dateShort(item.submitted_at)}, {fmt.time(item.submitted_at)}</span></div>}
+        {item.comment && <div className="kv"><span>{t('Комментарий')}</span><span>{item.comment}</span></div>}
       </div>
 
       {item.proof && <ProofImage name={item.proof} />}
 
       {item.status === 'pending' && (
         <>
-          <input className="input" placeholder="Причина, если отклоняешь" value={comment} onChange={(e) => setComment(e.target.value)} />
+          <input className="input" placeholder={t('Причина, если отклоняешь')} value={comment} onChange={(e) => setComment(e.target.value)} />
           <div className="btn-row">
-            <button className="btn bad-soft" disabled={busy} onClick={() => onPatch(item, { status: 'rejected', comment }, 'Отклонено, игрок получил уведомление')}>
-              Отклонить
+            <button className="btn bad-soft" disabled={busy} onClick={() => onPatch(item, { status: 'rejected', comment }, t('Отклонено, игрок получил уведомление'))}>
+              {t('Отклонить')}
             </button>
-            <button className="btn ok" disabled={busy} onClick={() => onPatch(item, { status: 'paid' }, 'Оплата подтверждена')}>
-              Деньги пришли
+            <button className="btn ok" disabled={busy} onClick={() => onPatch(item, { status: 'paid' }, t('Оплата подтверждена'))}>
+              {t('Деньги пришли')}
             </button>
           </div>
         </>
       )}
       {(item.status === 'unpaid' || item.status === 'rejected') && (
-        <button className="btn ok-soft block" disabled={busy} onClick={() => onPatch(item, { status: 'paid' }, 'Отмечено как оплачено')}>
-          Отметить оплаченным (наличные и т.п.)
+        <button className="btn ok-soft block" disabled={busy} onClick={() => onPatch(item, { status: 'paid' }, t('Отмечено как оплачено'))}>
+          {t('Отметить оплаченным (наличные и т.п.)')}
         </button>
       )}
       {item.status === 'paid' && (
-        <button className="btn ghost block" disabled={busy} onClick={() => onPatch(item, { status: 'unpaid' }, 'Оплата снята')}>
-          Снять отметку об оплате
+        <button className="btn ghost block" disabled={busy} onClick={() => onPatch(item, { status: 'unpaid' }, t('Оплата снята'))}>
+          {t('Снять отметку об оплате')}
         </button>
       )}
 
-      <div className="section-title">Вариант и сумма</div>
+      <div className="section-title">{t('Вариант и сумма')}</div>
       <div className="muted small">
         {locked
-          ? 'Сбор уже идёт — новая сумма считается по зафиксированным ставкам, бот сразу пришлёт её человеку.'
-          : 'Идёт опрос — можно выбрать за человека. Сумма придёт ему, когда начнёшь сбор.'}
+          ? t('Сбор уже идёт — новая сумма считается по зафиксированным ставкам, бот сразу пришлёт её человеку.')
+          : t('Идёт опрос — можно выбрать за человека. Сумма придёт ему, когда начнёшь сбор.')}
       </div>
       <div className="chips">
         {(['full', 'partial', 'donation', 'exempt'] as Plan[]).map((p) => (
@@ -341,7 +342,7 @@ function DueSheet({
             className={`chip ${item.plan === p && item.custom_amount == null ? 'info' : ''}`}
             style={{ border: 0, height: 34, padding: '0 12px' }}
             disabled={busy}
-            onClick={() => onPatch(item, { plan: p, custom_amount: null }, p === 'exempt' ? 'Освобождён — бот сообщил' : 'Вариант изменён')}
+            onClick={() => onPatch(item, { plan: p, custom_amount: null }, p === 'exempt' ? t('Освобождён — бот сообщил') : t('Вариант изменён'))}
           >
             {PLAN_LABEL[p]}
             {rates && p !== 'exempt' ? ` · ${fmt.gel(p === 'full' ? rates.full : p === 'partial' ? rates.partial : rates.donation)}` : ''}
@@ -350,17 +351,17 @@ function DueSheet({
       </div>
       {rates && (
         <div className="chips">
-          <span className="muted small" style={{ alignSelf: 'center' }}>Пришёл посреди месяца:</span>
+          <span className="muted small" style={{ alignSelf: 'center' }}>{t('Пришёл посреди месяца:')}</span>
           {[
-            ['½ полного', Math.ceil(rates.full / 2 / 5) * 5],
-            ['½ частичного', Math.ceil(rates.partial / 2 / 5) * 5],
+            [t('½ полного'), Math.ceil(rates.full / 2 / 5) * 5],
+            [t('½ частичного'), Math.ceil(rates.partial / 2 / 5) * 5],
           ].map(([label, v]) => (
             <button
               key={label as string}
               className="chip"
               style={{ border: 0, height: 34, padding: '0 12px' }}
               disabled={busy}
-              onClick={() => onPatch(item, { custom_amount: v }, `Назначено ${v} ₾`)}
+              onClick={() => onPatch(item, { custom_amount: v }, t('Назначено {0} ₾', v))}
             >
               {label} · {fmt.gel(v as number)}
             </button>
@@ -368,9 +369,9 @@ function DueSheet({
         </div>
       )}
       <div className="hstack">
-        <input className="input" inputMode="numeric" placeholder="Своя сумма, ₾ (например, разовый донат)" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d.]/g, ''))} />
-        <button className="btn secondary" disabled={busy} onClick={() => onPatch(item, { custom_amount: custom === '' ? null : Number(custom) }, custom === '' ? 'Сумма по варианту' : 'Сумма назначена')}>
-          {custom === '' ? 'Сброс' : 'OK'}
+        <input className="input" inputMode="numeric" placeholder={t('Своя сумма, ₾ (например, разовый донат)')} value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d.]/g, ''))} />
+        <button className="btn secondary" disabled={busy} onClick={() => onPatch(item, { custom_amount: custom === '' ? null : Number(custom) }, custom === '' ? t('Сумма по варианту') : t('Сумма назначена'))}>
+          {custom === '' ? t('Сброс') : 'OK'}
         </button>
       </div>
     </Sheet>
@@ -383,32 +384,32 @@ function CreatePeriod({ open, onClose, onCreated }: { open: boolean; onClose: ()
   const [f, setF] = useState({ month: next.toISOString().slice(0, 7), budget: '6000', partial: '70', donation: '100', notify: true });
   const { busy, run } = useAction();
   return (
-    <Sheet open={open} onClose={onClose} title="Новый месяц">
+    <Sheet open={open} onClose={onClose} title={t('Новый месяц')}>
       <div className="form">
         <div className="form-row">
           <label className="field">
-            <span>Месяц</span>
+            <span>{t('Месяц')}</span>
             <input className="input" type="month" value={f.month} onChange={(e) => setF({ ...f, month: e.target.value })} />
           </label>
           <label className="field">
-            <span>Бюджет, ₾</span>
+            <span>{t('Бюджет, ₾')}</span>
             <input className="input" inputMode="numeric" value={f.budget} onChange={(e) => setF({ ...f, budget: e.target.value })} />
           </label>
         </div>
         <div className="form-row">
           <label className="field">
-            <span>Частичный, % от полного</span>
+            <span>{t('Частичный, % от полного')}</span>
             <input className="input" inputMode="numeric" value={f.partial} onChange={(e) => setF({ ...f, partial: e.target.value })} />
           </label>
           <label className="field">
-            <span>Донат, ₾</span>
+            <span>{t('Донат, ₾')}</span>
             <input className="input" inputMode="numeric" value={f.donation} onChange={(e) => setF({ ...f, donation: e.target.value })} />
           </label>
         </div>
-        <div className="muted small">Сначала опрос: игроки выбирают вариант, суммы не видят. Когда все выберут — жми «Начать сбор», и бот разошлёт каждому его сумму. Выбор из прошлого месяца перенесётся.</div>
+        <div className="muted small">{t('Сначала опрос: игроки выбирают вариант, суммы не видят. Когда все выберут — жми «Начать сбор», и бот разошлёт каждому его сумму. Выбор из прошлого месяца перенесётся.')}</div>
         <label className="check">
           <input type="checkbox" checked={f.notify} onChange={(e) => setF({ ...f, notify: e.target.checked })} />
-          Опрос в чат (без сумм)
+          {t('Опрос в чат (без сумм)')}
         </label>
         <button
           className="btn block"
@@ -424,10 +425,10 @@ function CreatePeriod({ open, onClose, onCreated }: { open: boolean; onClose: ()
               });
               await onCreated(p.id);
               onClose();
-            }, 'Месяц создан')
+            }, t('Месяц создан'))
           }
         >
-          Запустить опрос
+          {t('Запустить опрос')}
         </button>
       </div>
     </Sheet>
@@ -444,20 +445,20 @@ function PeriodSettings({ open, onClose, period, onSaved }: { open: boolean; onC
     <Sheet open={open} onClose={onClose} title={fmt.month(period.month)}>
       <div className="form">
         <label className="field">
-          <span>Бюджет, ₾</span>
+          <span>{t('Бюджет, ₾')}</span>
           <input className="input" inputMode="numeric" value={f.budget} onChange={(e) => setF({ ...f, budget: e.target.value })} />
         </label>
         <div className="form-row">
           <label className="field">
-            <span>Частичный, %</span>
+            <span>{t('Частичный, %')}</span>
             <input className="input" inputMode="numeric" value={f.partial} onChange={(e) => setF({ ...f, partial: e.target.value })} />
           </label>
           <label className="field">
-            <span>Донат, ₾</span>
+            <span>{t('Донат, ₾')}</span>
             <input className="input" inputMode="numeric" value={f.donation} onChange={(e) => setF({ ...f, donation: e.target.value })} />
           </label>
         </div>
-        {period.locked && <div className="muted small">Суммы зафиксированы: изменения применятся после разблокировки и повторной фиксации.</div>}
+        {period.locked && <div className="muted small">{t('Суммы зафиксированы: изменения применятся после разблокировки и повторной фиксации.')}</div>}
         <button
           className="btn block"
           disabled={busy}
@@ -470,10 +471,10 @@ function PeriodSettings({ open, onClose, period, onSaved }: { open: boolean; onC
               });
               await onSaved();
               onClose();
-            }, 'Сохранено')
+            }, t('Сохранено'))
           }
         >
-          Сохранить
+          {t('Сохранить')}
         </button>
       </div>
     </Sheet>

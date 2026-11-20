@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, Plus, Scissors, Search, X } from 'lucide-react';
@@ -9,9 +10,9 @@ import { type SharpItem } from './Sharpening';
 type Item = SharpItem & { user: PublicUser };
 export type ServiceTab = 'checks' | 'queue' | 'debts';
 const TABS: [ServiceTab, string][] = [
-  ['checks', 'Чеки'],
-  ['queue', 'Очередь'],
-  ['debts', 'Долги'],
+  ['checks', t('Чеки')],
+  ['queue', t('Очередь')],
+  ['debts', t('Долги')],
 ];
 
 /**
@@ -56,16 +57,16 @@ export default function Service() {
     run(async () => {
       for (const s of items) await api.patch(`/api/service/sharpening/${s.id}`, { payment: 'paid' });
       await Promise.all([reload(), refresh()]);
-    }, `Долг ${name} закрыт`);
+    }, t('Долг {0} закрыт', name));
 
   const count: Record<ServiceTab, number> = { checks: checks.length, queue: queue.length, debts: byUser.length };
 
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Заточка</h1>
+        <h1>{t('Заточка')}</h1>
         <button className="btn sm bad-soft" onClick={() => setDebtOpen(true)}>
-          <Plus size={16} /> Долг
+          <Plus size={16} /> {t('Долг')}
         </button>
       </div>
       <Segmented
@@ -87,7 +88,7 @@ export default function Service() {
                 .filter((x) => x.payment === 'paid')
                 .sort((a, b) => (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at));
               return !done.length ? (
-                <Empty icon={<Check size={26} />} title="Принятых оплат пока нет" />
+                <Empty icon={<Check size={26} />} title={t('Принятых оплат пока нет')} />
               ) : (
                 <div className="list">
                   {done.map((x) => (
@@ -96,13 +97,13 @@ export default function Service() {
                       <div className="grow">
                         <div className="title">{x.user.name}</div>
                         <div className="meta">
-                          принято {fmt.dateShort(x.updated_at ?? x.created_at)} · {x.proof ? 'по скрину' : 'без скрина'}
+                          {t('принято')} {fmt.dateShort(x.updated_at ?? x.created_at)} · {x.proof ? t('по скрину') : t('без скрина')}
                         </div>
                       </div>
                       <b className="num">{fmt.gel(x.price)}</b>
                       {x.proof && (
                         <button className="btn ghost xs" onClick={() => setShown((v) => (v === x.id ? null : x.id))}>
-                          {shown === x.id ? 'Скрыть' : 'Скрин'}
+                          {shown === x.id ? t('Скрыть') : t('Скрин')}
                         </button>
                       )}
                       {shown === x.id && x.proof && (
@@ -121,29 +122,29 @@ export default function Service() {
         !checks.length ? (
           <>
             <ChecksSwitch value={checksView} onChange={setChecksView} waiting={0} />
-            <Empty icon={<Check size={26} />} title="Чеков на проверку нет 👌" />
+            <Empty icon={<Check size={26} />} title={t('Чеков на проверку нет 👌')} />
           </>
         ) : (
           <div className="vstack">
             <ChecksSwitch value={checksView} onChange={setChecksView} waiting={checks.length} />
-            <div className="muted small">Сверь скрин с поступлением на свой счёт.</div>
+            <div className="muted small">{t('Сверь скрин с поступлением на свой счёт.')}</div>
             {checks.map((s) => (
               <div key={s.id} className="card vstack">
                 <Who s={s} />
                 {s.note && <div className="small">«{s.note}»</div>}
-                {s.proof ? <ProofImage name={s.proof} /> : <div className="muted small">Скрина нет</div>}
+                {s.proof ? <ProofImage name={s.proof} /> : <div className="muted small">{t('Скрина нет')}</div>}
                 <div className="btn-row">
-                  <button className="btn bad-soft" disabled={busy} onClick={() => patch(s, { payment: 'unpaid' }, 'Записан долг, игрок получил пуш')}>
-                    <X size={18} /> Не пришли
+                  <button className="btn bad-soft" disabled={busy} onClick={() => patch(s, { payment: 'unpaid' }, t('Записан долг, игрок получил пуш'))}>
+                    <X size={18} /> {t('Не пришли')}
                   </button>
                   <button
                     className="btn ok"
                     disabled={busy}
                     onClick={() =>
-                      patch(s, s.status === 'new' ? { payment: 'paid', status: 'accepted' } : { payment: 'paid' }, 'Оплата принята')
+                      patch(s, s.status === 'new' ? { payment: 'paid', status: 'accepted' } : { payment: 'paid' }, t('Оплата принята'))
                     }
                   >
-                    <Check size={18} /> Деньги пришли
+                    <Check size={18} /> {t('Деньги пришли')}
                   </button>
                 </div>
               </div>
@@ -152,7 +153,7 @@ export default function Service() {
         )
       ) : tab === 'queue' ? (
         !queue.length ? (
-          <Empty icon={<Scissors size={26} />} title="Очередь пуста" />
+          <Empty icon={<Scissors size={26} />} title={t('Очередь пуста')} />
         ) : (
           <div className="vstack">
             {queue.map((s) => (
@@ -160,12 +161,12 @@ export default function Service() {
                 <Who s={s} />
                 {s.note && <div className="small">«{s.note}»</div>}
                 {s.status === 'new' ? (
-                  <button className="btn block" disabled={busy} onClick={() => patch(s, { status: 'accepted' }, 'Взято в работу')}>
-                    Взять в работу
+                  <button className="btn block" disabled={busy} onClick={() => patch(s, { status: 'accepted' }, t('Взято в работу'))}>
+                    {t('Взять в работу')}
                   </button>
                 ) : (
-                  <button className="btn ok block" disabled={busy} onClick={() => patch(s, { status: 'done' }, 'Готово — игрок получил пуш')}>
-                    <Check size={18} /> Готово, можно забирать
+                  <button className="btn ok block" disabled={busy} onClick={() => patch(s, { status: 'done' }, t('Готово — игрок получил пуш'))}>
+                    <Check size={18} /> {t('Готово, можно забирать')}
                   </button>
                 )}
               </div>
@@ -173,19 +174,19 @@ export default function Service() {
           </div>
         )
       ) : !byUser.length ? (
-        <Empty icon={<Check size={26} />} title="Должников нет 🎉" />
+        <Empty icon={<Check size={26} />} title={t('Должников нет 🎉')} />
       ) : (
         <div className="vstack">
           <div className="card between">
             <div>
-              <div className="muted small">Должны за заточку</div>
+              <div className="muted small">{t('Должны за заточку')}</div>
               <div className="big-amount" style={{ fontSize: 28 }}>{fmt.gel(debtTotal)}</div>
             </div>
             <span className="muted small">
-              {byUser.length} {plural(byUser.length, 'человек', 'человека', 'человек')}
+              {byUser.length} {plural(byUser.length, t('человек'), t('человека'), t('человек'))}
             </span>
           </div>
-          <div className="muted small">Бот сам напоминает должникам раз в ~2,5 дня.</div>
+          <div className="muted small">{t('Бот сам напоминает должникам раз в ~2,5 дня.')}</div>
           {byUser.map((g) => (
             <div key={g.user.id} className="card vstack">
               <div className="hstack">
@@ -193,13 +194,13 @@ export default function Service() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <b>{g.user.name}</b>
                   <div className="muted small">
-                    {g.items.length} {plural(g.items.length, 'заточка', 'заточки', 'заточек')} · с {fmt.dateShort(g.items[g.items.length - 1].created_at)}
+                    {g.items.length} {plural(g.items.length, t('заточка'), t('заточки'), t('заточек'))} {t('· с')} {fmt.dateShort(g.items[g.items.length - 1].created_at)}
                   </div>
                 </div>
                 <b className="num" style={{ color: 'var(--bad)' }}>{fmt.gel(g.total)}</b>
               </div>
               <button className="btn ok-soft block" disabled={busy} onClick={() => paidAll(g.items, g.user.first_name)}>
-                <Check size={18} /> Получил {fmt.gel(g.total)}
+                <Check size={18} /> {t('Получил')} {fmt.gel(g.total)}
               </button>
             </div>
           ))}
@@ -223,8 +224,8 @@ function ChecksSwitch({ value, onChange, waiting }: { value: 'wait' | 'done'; on
     <div className="chips">
       {(
         [
-          ['wait', `Ждут проверки${waiting ? ` · ${waiting}` : ''}`],
-          ['done', 'Принятые'],
+          ['wait', t('Ждут проверки{0}', waiting ? ` · ${waiting}` : '')],
+          ['done', t('Принятые')],
         ] as const
       ).map(([k, l]) => (
         <button key={k} className={`chip ${value === k ? 'info' : ''}`} style={{ border: 0, height: 32, padding: '0 14px' }} onClick={() => onChange(k)}>
@@ -270,12 +271,12 @@ function AddDebt({ open, onClose, onDone }: { open: boolean; onClose: () => void
     onClose();
   };
   return (
-    <Sheet open={open} onClose={close} title="Записать долг за заточку">
+    <Sheet open={open} onClose={close} title={t('Записать долг за заточку')}>
       {!picked ? (
         <>
           <div style={{ position: 'relative' }}>
             <Search size={17} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--muted)' }} />
-            <input className="input" style={{ paddingLeft: 40 }} placeholder="Кому наточил?" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+            <input className="input" style={{ paddingLeft: 40 }} placeholder={t('Кому наточил?')} value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
           </div>
           <div className="list">
             {list.map((u) => (
@@ -295,18 +296,18 @@ function AddDebt({ open, onClose, onDone }: { open: boolean; onClose: () => void
             <Avatar user={picked} />
             <b style={{ flex: 1 }}>{picked.name}</b>
             <button className="btn ghost xs" onClick={() => setPicked(null)}>
-              Сменить
+              {t('Сменить')}
             </button>
           </div>
           <label className="field">
-            <span>Сумма, ₾</span>
+            <span>{t('Сумма, ₾')}</span>
             <input className="input" inputMode="numeric" placeholder={String(settings.data?.price ?? 20)} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} />
           </label>
           <label className="field">
-            <span>Комментарий</span>
-            <input className="input" placeholder="Например: заточка перед игрой 22.11" value={note} onChange={(e) => setNote(e.target.value)} />
+            <span>{t('Комментарий')}</span>
+            <input className="input" placeholder={t('Например: заточка перед игрой 22.11')} value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
-          <div className="muted small">Игрок сразу получит пуш, а дальше бот будет напоминать раз в ~2,5 дня, пока не оплатит.</div>
+          <div className="muted small">{t('Игрок сразу получит пуш, а дальше бот будет напоминать раз в ~2,5 дня, пока не оплатит.')}</div>
           <button
             className="btn bad block"
             disabled={busy}
@@ -315,10 +316,10 @@ function AddDebt({ open, onClose, onDone }: { open: boolean; onClose: () => void
                 await api.post('/api/service/sharpening/debt', { user_id: picked.id, note, price: price ? Number(price) : undefined });
                 await onDone();
                 close();
-              }, `Долг записан, ${picked.first_name} получил пуш`)
+              }, t('Долг записан, {0} получил пуш', picked.first_name))
             }
           >
-            Записать долг
+            {t('Записать долг')}
           </button>
         </div>
       )}

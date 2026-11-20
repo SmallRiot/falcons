@@ -1,9 +1,10 @@
+import { t } from './i18n';
 import type { LineupItem, PublicUser, Team } from './api';
 
 export const FWD = ['LW', 'C', 'RW'] as const;
 export const DEF = ['LD', 'RD'] as const;
 export const GOALIES = ['G1', 'G2'] as const;
-export const SLOT_LABEL: Record<string, string> = { LW: 'ЛН', C: 'ЦН', RW: 'ПН', LD: 'ЛЗ', RD: 'ПЗ', G1: 'ВРТ', G2: 'ВРТ 2' };
+export const SLOT_LABEL: Record<string, string> = { LW: t('ЛН'), C: t('ЦН'), RW: t('ПН'), LD: t('ЛЗ'), RD: t('ПЗ'), G1: t('ВРТ'), G2: t('ВРТ 2') };
 export const LINE_COLORS = ['#2b88cf', '#1f9d6b', '#c98612', '#8a4fd8'];
 
 /** Две команды: раскидываем по очереди внутри каждой позиции, чтобы составы были ровными. */

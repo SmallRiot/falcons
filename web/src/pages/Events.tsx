@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarX, Plus } from 'lucide-react';
@@ -26,15 +27,15 @@ export default function Events() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>События</h1>
+        <h1>{t('События')}</h1>
       </div>
-      <Segmented value={scope} onChange={setScope} options={[['upcoming', 'Предстоящие'], ['past', 'Прошедшие']]} />
+      <Segmented value={scope} onChange={setScope} options={[['upcoming', t('Предстоящие')], ['past', t('Прошедшие')]]} />
       <div className="chips">
         {(
           [
-            ['all', 'Все'],
-            ['training', 'Тренировки'],
-            ['game', 'Игры'],
+            ['all', t('Все')],
+            ['training', t('Тренировки')],
+            ['game', t('Игры')],
           ] as const
         ).map(([v, l]) => (
           <button key={v} className={`chip ${type === v ? 'info' : ''}`} style={{ border: 0, height: 30, padding: '0 12px' }} onClick={() => setType(v)}>
@@ -45,7 +46,7 @@ export default function Events() {
       {(squadOptions.length > 1 || staff) && (
         <div className="chips">
           <button className={`chip ${squad === 'mine' ? 'info' : ''}`} style={{ border: 0, height: 30, padding: '0 12px' }} onClick={() => setSquad('mine')}>
-            Мои
+            {t('Мои')}
           </button>
           {squadOptions.map((s) => (
             <button
@@ -59,7 +60,7 @@ export default function Events() {
           ))}
           {staff && (
             <button className={`chip ${squad === 'all' ? 'info' : ''}`} style={{ border: 0, height: 30, padding: '0 12px' }} onClick={() => setSquad('all')}>
-              Весь клуб
+              {t('Весь клуб')}
             </button>
           )}
         </div>
@@ -67,7 +68,7 @@ export default function Events() {
       {loading ? (
         <Spinner />
       ) : !list.length ? (
-        <Empty icon={<CalendarX size={26} />} title={scope === 'upcoming' ? 'Ничего не запланировано' : 'Пока пусто'} />
+        <Empty icon={<CalendarX size={26} />} title={scope === 'upcoming' ? t('Ничего не запланировано') : t('Пока пусто')} />
       ) : scope === 'upcoming' ? (
         list.map((e) => <EventCard key={e.id} ev={e} onChange={update} />)
       ) : (
@@ -83,23 +84,23 @@ export default function Events() {
                   ))}
                 </div>
                 <div className="meta">
-                  {fmt.time(e.starts_at)} · {e.going} было
+                  {fmt.time(e.starts_at)} · {e.going} {t('было')}
                   {e.score_us != null && e.score_them != null ? ` · ${e.score_us}:${e.score_them}` : ''}
                 </div>
               </div>
               {e.cancelled ? (
-                <span className="chip bad">Отменено</span>
+                <span className="chip bad">{t('Отменено')}</span>
               ) : e.my === 'in' ? (
-                <span className="chip ok">Был</span>
+                <span className="chip ok">{t('Был')}</span>
               ) : (
-                <span className="chip">Пропуск</span>
+                <span className="chip">{t('Пропуск')}</span>
               )}
             </button>
           ))}
         </div>
       )}
       {can(me, 'coach', 'admin') && (
-        <button className="fab" onClick={() => nav('/events/new')} aria-label="Новое событие">
+        <button className="fab" onClick={() => nav('/events/new')} aria-label={t('Новое событие')}>
           <Plus size={26} />
         </button>
       )}

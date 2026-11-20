@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useState } from 'react';
 import { Search, Shield } from 'lucide-react';
 import { api, type PublicUser } from '@shared/api';
@@ -32,15 +33,15 @@ export default function SquadMembers() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Игроки по составам</h1>
-          <div className="sub">Тап по метке — добавить в состав или убрать. Можно в несколько сразу.</div>
+          <h1>{t('Игроки по составам')}</h1>
+          <div className="sub">{t('Тап по метке — добавить в состав или убрать. Можно в несколько сразу.')}</div>
         </div>
       </div>
       <div className="chips" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
         {[
-          [0, 'Все'] as const,
+          [0, t('Все')] as const,
           ...squads.map((s) => [s.id, s.short] as const),
-          ['none', `Без состава${noSquad ? ` · ${noSquad}` : ''}`] as const,
+          ['none', t('Без состава{0}', noSquad ? ` · ${noSquad}` : '')] as const,
         ].map(([k, l]) => (
           <button key={String(k)} className={`chip ${filter === k ? 'info' : ''}`} style={{ border: 0, height: 32, padding: '0 14px', flex: 'none' }} onClick={() => setFilter(k)}>
             {l}
@@ -49,10 +50,10 @@ export default function SquadMembers() {
       </div>
       <div style={{ position: 'relative' }}>
         <Search size={17} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--muted)' }} />
-        <input className="input" style={{ paddingLeft: 40 }} placeholder="Поиск" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input" style={{ paddingLeft: 40 }} placeholder={t('Поиск')} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       {!rows.length ? (
-        <Empty icon={<Shield size={26} />} title="Никого" />
+        <Empty icon={<Shield size={26} />} title={t('Никого')} />
       ) : (
         <div className="list">
           {rows.map((u) => (
@@ -62,7 +63,7 @@ export default function SquadMembers() {
                 <div className="title">{u.name}</div>
                 <div className="meta">
                   {u.number != null ? `#${u.number} · ` : ''}
-                  {u.position ? POS_SHORT[u.position] : 'позиция не указана'}
+                  {u.position ? POS_SHORT[u.position] : t('позиция не указана')}
                 </div>
               </div>
               <div className="hstack" style={{ gap: 4 }}>

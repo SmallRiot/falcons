@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useState } from 'react';
 import { Copy, ClipboardList, CreditCard } from 'lucide-react';
 import { openLink } from '@shared/tg';
@@ -9,7 +10,7 @@ import { copyText, CopyRow, FilePick, Sheet } from '@shared/ui';
 const BANK_LOGO: Record<string, string> = { TBC: '/banks/tbc.svg', BOG: '/banks/bog.svg' };
 
 export function BankCard({ acc, amount }: { acc: Account; amount?: number | null }) {
-  const all = [`IBAN: ${acc.iban}`, `Получатель: ${acc.holder}`, amount ? `Сумма: ${amount} GEL` : '']
+  const all = [`IBAN: ${acc.iban}`, t('Получатель: {0}', acc.holder), amount ? t('Сумма: {0} GEL', amount) : '']
     .filter(Boolean)
     .join('\n');
   const bank = bankFromIban(acc.iban);
@@ -25,14 +26,14 @@ export function BankCard({ acc, amount }: { acc: Account; amount?: number | null
       <div className="ib">{fmt.iban(acc.iban)}</div>
       <div className="hd">{acc.holder}</div>
       <div className="actions">
-        <button onClick={() => copyText(acc.iban, 'IBAN скопирован')}>
+        <button onClick={() => copyText(acc.iban, t('IBAN скопирован'))}>
           <Copy size={14} /> IBAN
         </button>
-        <button onClick={() => copyText(acc.holder, 'ФИО скопировано')}>
-          <Copy size={14} /> ФИО
+        <button onClick={() => copyText(acc.holder, t('ФИО скопировано'))}>
+          <Copy size={14} /> {t('ФИО')}
         </button>
-        <button onClick={() => copyText(all, 'Реквизиты скопированы')}>
-          <ClipboardList size={14} /> Всё
+        <button onClick={() => copyText(all, t('Реквизиты скопированы'))}>
+          <ClipboardList size={14} /> {t('Всё')}
         </button>
       </div>
     </div>
@@ -74,45 +75,45 @@ export default function PaySheet({ open, onClose, title, amount, purpose, accoun
   return (
     <Sheet open={open} onClose={onClose} title={title}>
       <div className="card center" style={{ padding: '18px 16px' }}>
-        <div className="muted small">К переводу</div>
+        <div className="muted small">{t('К переводу')}</div>
         <div className="big-amount">{fmt.gel(amount)}</div>
       </div>
 
-      <div className="section-title">1 · Переведи на любой счёт</div>
+      <div className="section-title">{t('1 · Переведи на любой счёт')}</div>
       {accounts.length ? (
         accounts.map((a) => <BankCard key={a.id} acc={a} amount={amount} />)
       ) : (
         <div className="alert warn">
-          <div className="body">Админ ещё не добавил счета.</div>
+          <div className="body">{t('Админ ещё не добавил счета.')}</div>
         </div>
       )}
       <div className="vstack">
-        {amount != null && <CopyRow label="Сумма" value={`${amount} GEL`} copy={String(amount)} />}
+        {amount != null && <CopyRow label={t('Сумма')} value={`${amount} GEL`} copy={String(amount)} />}
       </div>
       {cardUrl && (
         <button className="btn secondary block" onClick={() => openLink(cardUrl)}>
-          <CreditCard size={18} /> Оплатить картой по ссылке
+          <CreditCard size={18} /> {t('Оплатить картой по ссылке')}
         </button>
       )}
 
-      <div className="section-title">2 · Прикрепи скрин перевода{allowNoProof ? ' (админу — необязательно)' : ''}</div>
+      <div className="section-title">{t('2 · Прикрепи скрин перевода')}{allowNoProof ? t(' (админу — необязательно)') : ''}</div>
       {extra}
       <FilePick file={file} onChange={setFile} />
       {commentPlaceholder !== null && (
         <textarea
           className="input"
           rows={2}
-          placeholder={commentPlaceholder ?? 'Комментарий (необязательно)'}
+          placeholder={commentPlaceholder ?? t('Комментарий (необязательно)')}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
         />
       )}
       <button className="btn block" disabled={!file || busy} onClick={() => submit(file)}>
-        {busy ? 'Отправляю…' : (submitLabel ?? 'Отправить на проверку')}
+        {busy ? t('Отправляю…') : (submitLabel ?? t('Отправить на проверку'))}
       </button>
       {allowNoProof && (
         <button className="btn ghost block" disabled={busy} onClick={() => submit(null)}>
-          Я админ — отметить оплаченным без скрина
+          {t('Я админ — отметить оплаченным без скрина')}
         </button>
       )}
     </Sheet>

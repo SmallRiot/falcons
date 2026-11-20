@@ -69,5 +69,5 @@ export const guestDebts = (userId: number) =>
     .all(userId) as { id: number; event_id: number; amount: number; status: string; starts_at: string; type: string; title: string | null }[];
 
 export function goingCount(eventId: number) {
-  return (db.prepare(`SELECT COUNT(*) c FROM signups WHERE event_id=? AND status='in'`).get(eventId) as { c: number }).c;
+  return (db.prepare(`SELECT COUNT(*) c FROM signups s JOIN users u ON u.id = s.user_id WHERE s.event_id=? AND s.status='in' AND u.position IS NOT 'G'`).get(eventId) as { c: number }).c;
 }

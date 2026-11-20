@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, useState } from 'react';
 import { api, type PublicUser } from './api';
 import { PhotoEdit } from './PhotoEdit';
@@ -31,45 +32,45 @@ export function PlayerEdit({ user, onSaved }: { user: PublicUser; onSaved: () =>
         birth_date: f.birth_date || null,
       });
       await onSaved();
-    }, 'Профиль игрока сохранён');
+    }, t('Профиль игрока сохранён'));
 
   return (
     <div className="form">
       <PhotoEdit user={user} endpoint={`/api/admin/users/${user.id}/photo`} onChange={onSaved} />
       <div className="form-row">
         <label className="field">
-          <span>Имя</span>
+          <span>{t('Имя')}</span>
           <input className="input" value={f.first_name} onChange={(e) => set('first_name', e.target.value)} />
         </label>
         <label className="field">
-          <span>Фамилия</span>
+          <span>{t('Фамилия')}</span>
           <input className="input" value={f.last_name} onChange={(e) => set('last_name', e.target.value)} />
         </label>
       </div>
       <div className="form-row">
         <label className="field" style={{ maxWidth: 110 }}>
-          <span>Номер</span>
+          <span>{t('Номер')}</span>
           <input className="input" inputMode="numeric" value={f.number} onChange={(e) => set('number', e.target.value.replace(/\D/g, '').slice(0, 2))} />
         </label>
         <label className="field">
-          <span>Дата рождения</span>
+          <span>{t('Дата рождения')}</span>
           <input className="input" type="date" value={f.birth_date} onChange={(e) => set('birth_date', e.target.value)} />
         </label>
       </div>
       <div className="field">
-        <span>Позиция</span>
+        <span>{t('Позиция')}</span>
         <Segmented
           value={f.position}
           onChange={(v) => set('position', v)}
           options={[
-            ['F', 'Нападающий'],
-            ['D', 'Защитник'],
-            ['G', 'Вратарь'],
+            ['F', t('Нападающий')],
+            ['D', t('Защитник')],
+            ['G', t('Вратарь')],
           ]}
         />
       </div>
       <button className="btn block" disabled={busy || !dirty || !f.first_name.trim()} onClick={save}>
-        Сохранить профиль
+        {t('Сохранить профиль')}
       </button>
     </div>
   );

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { language, t } from '@shared/i18n';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Home as HomeIcon, Scissors, User, Wallet, AlertTriangle, FlaskConical, ShieldCheck, Receipt, Users, LayoutGrid, ArrowLeftRight, ChevronLeft } from 'lucide-react';
 import { api, ApiError, getDevUser, type Me } from '@shared/api';
@@ -75,8 +76,13 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loc.pathname]);
 
+  const languageSynced = useRef(false);
   const refresh = useCallback(async () => {
     try {
+      if (!languageSynced.current) {
+        await api.put('/api/me/language', { language });
+        languageSynced.current = true;
+      }
       setMe(await api.get<Me>('/api/me'));
       setErr(null);
     } catch (e) {
@@ -134,7 +140,7 @@ export default function App() {
   const staffBadge = (me.badges?.pendingUsers ?? 0) + (me.badges?.proofs ?? 0) + (me.badges?.fees ?? 0) + (me.badges?.sharpenings ?? 0);
   const isStaff = can(me, 'admin', 'coach', 'service');
   const staffMode = isStaff && (mode ?? 'staff') === 'staff';
-  const staffLabel = can(me, 'admin') ? 'Админка' : can(me, 'coach') ? 'Тренер' : 'Заточка';
+  const staffLabel = can(me, 'admin') ? t('Админка') : can(me, 'coach') ? t('Тренер') : t('Заточка');
   // точильщик без других ролей: своя простая панель — чеки, очередь, долги
   const serviceOnly = can(me, 'service') && !can(me, 'admin', 'coach');
   const staffHome = serviceOnly ? '/service' : '/manage';
@@ -180,44 +186,44 @@ export default function App() {
             <>
               {serviceOnly ? (
                 <>
-                  <Tab to="/service" end icon={<Receipt size={22} />} label="Чеки" dot={me.badges?.sharpChecks || undefined} />
-                  <Tab to="/service/queue" icon={<Scissors size={22} />} label="Очередь" dot={me.badges?.sharpQueue || undefined} />
-                  <Tab to="/service/debts" icon={<Wallet size={22} />} label="Долги" />
+                  <Tab to="/service" end icon={<Receipt size={22} />} label={t('Чеки')} dot={me.badges?.sharpChecks || undefined} />
+                  <Tab to="/service/queue" icon={<Scissors size={22} />} label={t('Очередь')} dot={me.badges?.sharpQueue || undefined} />
+                  <Tab to="/service/debts" icon={<Wallet size={22} />} label={t('Долги')} />
                 </>
               ) : (
-              <Tab to="/manage" icon={<LayoutGrid size={22} />} label="Обзор" />
+              <Tab to="/manage" icon={<LayoutGrid size={22} />} label={t('Обзор')} />
               )}
-              {can(me, 'admin', 'coach') && <Tab to="/events" icon={<CalendarDays size={22} />} label="События" />}
-              {can(me, 'admin') && <Tab to="/admin/users" icon={<Users size={22} />} label="Люди" dot={me.badges?.pendingUsers || undefined} />}
-              {can(me, 'admin') && <Tab to="/admin/finance" icon={<Receipt size={22} />} label="Взносы" dot={me.badges?.proofs || undefined} />}
-              {!serviceOnly && can(me, 'admin', 'service') && <Tab to="/service" icon={<Scissors size={22} />} label="Заточка" dot={me.badges?.sharpenings || undefined} />}
+              {can(me, 'admin', 'coach') && <Tab to="/events" icon={<CalendarDays size={22} />} label={t('События')} />}
+              {can(me, 'admin') && <Tab to="/admin/users" icon={<Users size={22} />} label={t('Люди')} dot={me.badges?.pendingUsers || undefined} />}
+              {can(me, 'admin') && <Tab to="/admin/finance" icon={<Receipt size={22} />} label={t('Взносы')} dot={me.badges?.proofs || undefined} />}
+              {!serviceOnly && can(me, 'admin', 'service') && <Tab to="/service" icon={<Scissors size={22} />} label={t('Заточка')} dot={me.badges?.sharpenings || undefined} />}
             </>
           ) : (
             <>
-              <Tab to="/" icon={<HomeIcon size={22} />} label="Главная" end />
-              <Tab to="/events" icon={<CalendarDays size={22} />} label="События" />
+              <Tab to="/" icon={<HomeIcon size={22} />} label={t('Главная')} end />
+              <Tab to="/events" icon={<CalendarDays size={22} />} label={t('События')} />
               {/* гость платит за выходы, взносов у него нет (если не остался старый долг) */}
               {(me.guest_price == null || !!me.debts?.length) && (
-                <Tab to="/finance" icon={<Wallet size={22} />} label="Взносы" dot={me.debts?.length ? '!' : undefined} />
+                <Tab to="/finance" icon={<Wallet size={22} />} label={t('Взносы')} dot={me.debts?.length ? '!' : undefined} />
               )}
-              <Tab to="/sharpening" icon={<Scissors size={22} />} label="Заточка" dot={me.sharpeningDebt ? '!' : undefined} />
-              <Tab to="/profile" icon={<User size={22} />} label="Профиль" />
+              <Tab to="/sharpening" icon={<Scissors size={22} />} label={t('Заточка')} dot={me.sharpeningDebt ? '!' : undefined} />
+              <Tab to="/profile" icon={<User size={22} />} label={t('Профиль')} />
             </>
           )}
         </div>
       </nav>
 
       {!inTelegram && !isRoot && (
-        <button className="dev-back" onClick={goBack}>
-          <ChevronLeft size={18} /> Назад
+        <button className={isStaff ? 'dev-back compact-back' : 'dev-back'} onClick={goBack} aria-label={t('Назад')}>
+          <ChevronLeft size={18} /> <span>{t('Назад')}</span>
         </button>
       )}
       {(isStaff || !inTelegram) && (
         <div className="top-right">
           {isStaff && (
-            <div className="mode-toggle" role="tablist" aria-label="Режим">
+            <div className="mode-toggle" role="tablist" aria-label={t('Режим')}>
               <button className={staffMode ? '' : 'on'} onClick={() => !staffMode || switchTo('player')}>
-                <User size={13} /> Игрок
+                <User size={13} /> {t('Игрок')}
               </button>
               <button className={staffMode ? 'on' : ''} onClick={() => staffMode || switchTo('staff')}>
                 <ShieldCheck size={13} /> {staffLabel}
@@ -232,7 +238,7 @@ export default function App() {
           )}
         </div>
       )}
-      <Sheet open={devOpen} onClose={() => setDevOpen(false)} title="Войти как…">
+      <Sheet open={devOpen} onClose={() => setDevOpen(false)} title={t('Войти как…')}>
         <DevPicker embedded onPick={() => location.reload()} />
       </Sheet>
 
@@ -242,17 +248,17 @@ export default function App() {
           <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--bad-soft)', color: 'var(--bad)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AlertTriangle size={30} />
           </div>
-          <h2 style={{ fontSize: 22 }}>У вас долг {fmt.gel(debtTotal)}</h2>
+          <h2 style={{ fontSize: 22 }}>{t('У вас долг')} {fmt.gel(debtTotal)}</h2>
           <p className="muted" style={{ margin: 0 }}>
             {[
-              ...(me.debts ?? []).map((d) => `Взнос за ${fmt.month(d.month).toLowerCase()} — ${fmt.gel(d.amount)}${d.status === 'rejected' ? ' (скрин отклонён)' : ''}`),
-              ...(me.sharpeningDebt ? [`Заточка — ${fmt.gel(me.sharpeningDebt.total)}`] : []),
-              ...(me.guestDebt ? [`Выходы на лёд (${me.guestDebt.count}) — ${fmt.gel(me.guestDebt.total)}`] : []),
+              ...(me.debts ?? []).map((d) => t('Взнос за {0} — {1}{2}', fmt.month(d.month).toLowerCase(), fmt.gel(d.amount), d.status === 'rejected' ? t(' (скрин отклонён)') : '')),
+              ...(me.sharpeningDebt ? [t('Заточка — {0}', fmt.gel(me.sharpeningDebt.total))] : []),
+              ...(me.guestDebt ? [t('Выходы на лёд ({0}) — {1}', me.guestDebt.count, fmt.gel(me.guestDebt.total))] : []),
             ].join(' · ')}
           </p>
           {me.user.signup_blocked && (
             <div className="alert bad" style={{ textAlign: 'left', width: '100%' }}>
-              <div className="body">Запись на тренировки закрыта, пока долг не оплачен.</div>
+              <div className="body">{t('Запись на тренировки закрыта, пока долг не оплачен.')}</div>
             </div>
           )}
           <button
@@ -262,10 +268,10 @@ export default function App() {
               nav(duesDebt > 0 ? '/finance' : me.sharpeningDebt ? '/sharpening' : me.guestDebt ? `/events/${me.guestDebt.items[0].event_id}` : '/');
             }}
           >
-            Оплатить
+            {t('Оплатить')}
           </button>
           <button className="btn ghost block" onClick={() => setDebtOpen(false)}>
-            Позже
+            {t('Позже')}
           </button>
         </div>
       </Sheet>

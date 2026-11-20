@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, ImagePlus, X } from 'lucide-react';
@@ -56,7 +57,7 @@ type AskT = { text: string; okText: string; danger?: boolean; input?: { value: s
 let pushAsk: (a: AskT) => void = () => {};
 /** await ask('Удалить?') → true/false */
 export const ask = (text: string, opts: { okText?: string; danger?: boolean } = {}) =>
-  new Promise<boolean>((done) => pushAsk({ text, okText: opts.okText ?? 'Да', danger: opts.danger, done: (v) => done(v !== null) }));
+  new Promise<boolean>((done) => pushAsk({ text, okText: opts.okText ?? t('Да'), danger: opts.danger, done: (v) => done(v !== null) }));
 /** await askText('Сумма?', '100') → строка или null */
 export const askText = (text: string, value = '', placeholder?: string) =>
   new Promise<string | null>((done) => pushAsk({ text, okText: 'OK', input: { value, placeholder }, done }));
@@ -92,7 +93,7 @@ function AskHost() {
         )}
         <div className="btn-row">
           <button className="btn ghost" onClick={() => close(null)}>
-            Отмена
+            {t('Отмена')}
           </button>
           <button className={`btn ${a.danger ? 'bad' : ''}`} autoFocus={!a.input} onClick={() => close(a.input ? v : '')}>
             {a.okText}
@@ -221,7 +222,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         {title && (
           <div className="sheet-head">
             <h2>{title}</h2>
-            <button className="icon-btn" onClick={onClose} aria-label="Закрыть">
+            <button className="icon-btn" onClick={onClose} aria-label={t('Закрыть')}>
               <X size={18} />
             </button>
           </div>
@@ -233,7 +234,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   );
 }
 
-export async function copyText(text: string, label = 'Скопировано') {
+export async function copyText(text: string, label = t('Скопировано')) {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -253,7 +254,7 @@ export function CopyRow({ label, value, copy }: { label: string; value: ReactNod
     <button
       className="copy-row"
       onClick={() => {
-        void copyText(copy, `${label}: скопировано`);
+        void copyText(copy, t('{0}: скопировано', label));
         setDone(true);
         setTimeout(() => setDone(false), 1500);
       }}
@@ -268,7 +269,7 @@ export function CopyRow({ label, value, copy }: { label: string; value: ReactNod
 }
 
 /** Выбор скрина оплаты с превью. */
-export function FilePick({ file, onChange, label = 'Прикрепить скрин оплаты' }: { file: File | null; onChange: (f: File | null) => void; label?: string }) {
+export function FilePick({ file, onChange, label = t('Прикрепить скрин оплаты') }: { file: File | null; onChange: (f: File | null) => void; label?: string }) {
   const ref = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   useEffect(() => {
@@ -288,7 +289,7 @@ export function FilePick({ file, onChange, label = 'Прикрепить скр�
       />
       {file ? (
         preview ? (
-          <img src={preview} alt="Скрин" />
+          <img src={preview} alt={t('Скрин')} />
         ) : (
           <div style={{ padding: 12 }}>📄 {file.name}</div>
         )
@@ -296,7 +297,7 @@ export function FilePick({ file, onChange, label = 'Прикрепить скр�
         <>
           <ImagePlus size={28} color="var(--falcon)" />
           <b style={{ color: 'var(--ink)' }}>{label}</b>
-          <span className="small">Скриншот перевода из банка</span>
+          <span className="small">{t('Скриншот перевода из банка')}</span>
         </>
       )}
     </div>
@@ -316,17 +317,17 @@ export function ProofImage({ name }: { name: string }) {
       if (u) URL.revokeObjectURL(u);
     };
   }, [name]);
-  if (err) return <div className="muted small">Не удалось загрузить скрин</div>;
+  if (err) return <div className="muted small">{t('Не удалось загрузить скрин')}</div>;
   if (!url) return <div className="proof-img skeleton" />;
   if (name.endsWith('.pdf'))
     return (
       <a className="btn secondary block" href={url} target="_blank" rel="noreferrer">
-        Открыть PDF
+        {t('Открыть PDF')}
       </a>
     );
   return (
     <a href={url} target="_blank" rel="noreferrer">
-      <img className="proof-img" src={url} alt="Скрин оплаты" />
+      <img className="proof-img" src={url} alt={t('Скрин оплаты')} />
     </a>
   );
 }
@@ -354,7 +355,7 @@ export function SquadPicker({ squads, value, onChange }: { squads: Squad[]; valu
             onClick={() => onChange(on ? value.filter((x) => x !== s.id) : [...value, s.id])}
           >
             {s.name}
-            {s.division ? ` · ${s.division} див.` : ''}
+            {s.division ? t(' · {0} див.', s.division) : ''}
           </button>
         );
       })}

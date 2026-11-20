@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useRef, useState } from 'react';
 import { Camera, Trash2 } from 'lucide-react';
 import { api } from './api';
@@ -10,14 +11,14 @@ async function squareJpeg(file: File, size = 512): Promise<Blob> {
     const img = await new Promise<HTMLImageElement>((ok, fail) => {
       const i = new Image();
       i.onload = () => ok(i);
-      i.onerror = () => fail(new Error('Не получилось открыть картинку — попробуй jpg или png'));
+      i.onerror = () => fail(new Error(t('Не получилось открыть картинку — попробуй jpg или png')));
       i.src = url;
     });
     const s = Math.min(img.naturalWidth, img.naturalHeight);
     const c = document.createElement('canvas');
     c.width = c.height = size;
     c.getContext('2d')!.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
-    return await new Promise<Blob>((ok, fail) => c.toBlob((b) => (b ? ok(b) : fail(new Error('Не удалось сжать фото'))), 'image/jpeg', 0.86));
+    return await new Promise<Blob>((ok, fail) => c.toBlob((b) => (b ? ok(b) : fail(new Error(t('Не удалось сжать фото')))), 'image/jpeg', 0.86));
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -48,7 +49,7 @@ export function PhotoEdit({
       fd.append('file', await squareJpeg(file), 'photo.jpg');
       await api.post(endpoint, fd);
       await onChange();
-      toast('Фото обновлено');
+      toast(t('Фото обновлено'));
     } catch (e) {
       toastErr(e);
     } finally {
@@ -61,7 +62,7 @@ export function PhotoEdit({
     try {
       await api.del(endpoint);
       await onChange();
-      toast('Фото убрано');
+      toast(t('Фото убрано'));
     } catch (e) {
       toastErr(e);
     } finally {
@@ -71,7 +72,7 @@ export function PhotoEdit({
 
   return (
     <div className="photo-edit">
-      <button type="button" className="photo-edit-av" onClick={() => input.current?.click()} disabled={busy} aria-label="Сменить фото">
+      <button type="button" className="photo-edit-av" onClick={() => input.current?.click()} disabled={busy} aria-label={t('Сменить фото')}>
         <Avatar user={user} size="lg" />
         <span className="photo-edit-cam">
           <Camera size={14} />
@@ -79,11 +80,11 @@ export function PhotoEdit({
       </button>
       <div className="vstack" style={{ gap: 6, alignItems: 'flex-start' }}>
         <button type="button" className="btn secondary sm" disabled={busy} onClick={() => input.current?.click()}>
-          <Camera size={16} /> {busy ? 'Загружаем…' : user.photo_url ? 'Сменить фото' : 'Поставить фото'}
+          <Camera size={16} /> {busy ? t('Загружаем…') : user.photo_url ? t('Сменить фото') : t('Поставить фото')}
         </button>
         {custom && (
           <button type="button" className="btn ghost sm" disabled={busy} onClick={remove}>
-            <Trash2 size={16} /> Убрать
+            <Trash2 size={16} /> {t('Убрать')}
           </button>
         )}
       </div>

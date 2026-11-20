@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eraser, Send, Sparkles } from 'lucide-react';
@@ -85,7 +86,7 @@ export default function LineupEditor() {
         items: lineup.filter((i) => i.line <= nLines),
         publish,
       });
-      toast(publish ? `Опубликовано · бот написал ${r.notified} игрокам` : 'Черновик сохранён');
+      toast(publish ? t('Опубликовано · бот написал {0} игрокам', r.notified) : t('Черновик сохранён'));
       nav(`/events/${ev.id}`, { replace: true });
     } catch (e) {
       toastErr(e);
@@ -96,7 +97,7 @@ export default function LineupEditor() {
 
   const changeSplit = async (v: boolean) => {
     if (v === split) return;
-    if (lineup.length && !await ask('Сбросить текущую расстановку?')) return;
+    if (lineup.length && !await ask(t('Сбросить текущую расстановку?'))) return;
     setLineup([]);
     setSplit(v);
   };
@@ -107,9 +108,9 @@ export default function LineupEditor() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Пятёрки</h1>
+          <h1>{t('Пятёрки')}</h1>
           <div className="sub">
-            {ev.type === 'game' ? 'Игра' : 'Тренировка'} · {fmt.day(ev.starts_at)}, {fmt.time(ev.starts_at)}
+            {ev.type === 'game' ? t('Игра') : t('Тренировка')} · {fmt.day(ev.starts_at)}, {fmt.time(ev.starts_at)}
           </div>
         </div>
       </div>
@@ -123,15 +124,15 @@ export default function LineupEditor() {
               if (v === '3') setLineup((l) => l.filter((i) => i.line <= 3));
             }}
             options={[
-              ['3', '3 звена'],
-              ['4', '4 звена'],
+              ['3', t('3 звена')],
+              ['4', t('4 звена')],
             ]}
           />
         </div>
         <button className="btn secondary sm" onClick={() => setLineup(split ? autoFillSplit(ev.players, nLines) : autoFill(ev.players, nLines))}>
-          <Sparkles size={16} /> Авто
+          <Sparkles size={16} /> {t('Авто')}
         </button>
-        <button className="icon-btn" onClick={() => setLineup([])} aria-label="Очистить">
+        <button className="icon-btn" onClick={() => setLineup([])} aria-label={t('Очистить')}>
           <Eraser size={18} />
         </button>
       </div>
@@ -140,15 +141,15 @@ export default function LineupEditor() {
         value={split ? 'split' : 'one'}
         onChange={(v) => changeSplit(v === 'split')}
         options={[
-          ['split', 'Тёмные / Светлые'],
-          ['one', 'Одна команда'],
+          ['split', t('Тёмные / Светлые')],
+          ['one', t('Одна команда')],
         ]}
       />
 
       <div className="card tight">
         <div className="between" style={{ marginBottom: 10 }}>
           <b className="small">
-            Без места · {unplacedCount} из {ev.players.length}
+            {t('Без места ·')} {unplacedCount} {t('из')} {ev.players.length}
           </b>
           <div className="chips">
             {(['all', 'F', 'D', 'G'] as const).map((f) => (
@@ -158,7 +159,7 @@ export default function LineupEditor() {
                 style={{ border: 0 }}
                 onClick={() => setFilter(f)}
               >
-                {f === 'all' ? 'Все' : POS_SHORT[f]}
+                {f === 'all' ? t('Все') : POS_SHORT[f]}
               </button>
             ))}
           </div>
@@ -178,14 +179,14 @@ export default function LineupEditor() {
             ))}
           </div>
         ) : (
-          <div className="muted small">{ev.players.length ? 'Все расставлены 👌' : 'Никто ещё не записался'}</div>
+          <div className="muted small">{ev.players.length ? t('Все расставлены 👌') : t('Никто ещё не записался')}</div>
         )}
         <div className="muted small" style={{ marginTop: 10 }}>
           {sel?.kind === 'pool'
-            ? 'Тапни на место в пятёрке'
+            ? t('Тапни на место в пятёрке')
             : sel?.kind === 'slot'
-              ? 'Тапни другое место, чтобы поменять, или это же — чтобы убрать'
-              : 'Тапни игрока, потом место. Тап по игроку в пятёрке — поменять местами.'}
+              ? t('Тапни другое место, чтобы поменять, или это же — чтобы убрать')
+              : t('Тапни игрока, потом место. Тап по игроку в пятёрке — поменять местами.')}
         </div>
       </div>
 
@@ -211,10 +212,10 @@ export default function LineupEditor() {
 
       <div className="sticky-bar btn-row">
         <button className="btn ghost" disabled={busy} onClick={() => save(false)}>
-          Черновик
+          {t('Черновик')}
         </button>
         <button className="btn" disabled={busy || !lineup.length} onClick={() => save(true)}>
-          <Send size={17} /> Опубликовать
+          <Send size={17} /> {t('Опубликовать')}
         </button>
       </div>
     </div>

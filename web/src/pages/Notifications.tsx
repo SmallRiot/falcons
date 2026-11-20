@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, ChevronRight } from 'lucide-react';
@@ -18,14 +19,14 @@ export default function Notifications() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Уведомления</h1>
-          <div className="sub">То же, что бот пишет в личку</div>
+          <h1>{t('Уведомления')}</h1>
+          <div className="sub">{t('То же, что бот пишет в личку')}</div>
         </div>
       </div>
       {loading ? (
         <Spinner />
       ) : !data?.length ? (
-        <Empty icon={<Bell size={26} />} title="Пока тихо" />
+        <Empty icon={<Bell size={26} />} title={t('Пока тихо')} />
       ) : (
         <div className="list">
           {data.map((n) => {

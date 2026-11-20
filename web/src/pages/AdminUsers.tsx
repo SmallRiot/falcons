@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n';
 import { useEffect, useState } from 'react';
 import { PlayerEdit } from '@shared/PlayerEdit';
 import { Search, Users } from 'lucide-react';
@@ -22,12 +23,12 @@ export default function AdminUsers() {
 
   /** спросить цену выхода и сделать гостем (при впускании или из карточки) */
   const makeGuest = async (u: AdminUser, admit: boolean) => {
-    const v = await askText(`Цена за выход на лёд для ${u.first_name}, ₾\nГость платит при каждой записи. 0 — бесплатно.`, String(u.guest_price ?? 30), 'например 30');
+    const v = await askText(t('Цена за выход на лёд для {0}, ₾\nГость платит при каждой записи. 0 — бесплатно.', u.first_name), String(u.guest_price ?? 30), t('например 30'));
     if (v === null || !(Number(v) >= 0)) return;
     await patch(
       u,
       { ...(admit ? { status: 'active' as const } : {}), roles: [...u.roles.filter((r) => r !== 'guest'), 'guest'], guest_price: Number(v) },
-      admit ? `${u.first_name} пущен гостем · ${Number(v)} ₾ за выход` : `Гость · ${Number(v)} ₾ за выход`,
+      admit ? t('{0} пущен гостем · {1} ₾ за выход', u.first_name, Number(v)) : t('Гость · {0} ₾ за выход', Number(v)),
     );
   };
 
@@ -48,25 +49,25 @@ export default function AdminUsers() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Люди</h1>
+        <h1>{t('Люди')}</h1>
       </div>
       <Segmented
         value={tab}
         onChange={setTab}
         options={[
-          ['active', `В команде · ${all.filter((u) => u.status === 'active').length}`],
-          ['pending', `Заявки${pending ? ` · ${pending}` : ''}`],
-          ['rejected', 'Закрыт'],
+          ['active', t('В команде · {0}', all.filter((u) => u.status === 'active').length)],
+          ['pending', t('Заявки{0}', pending ? ` · ${pending}` : '')],
+          ['rejected', t('Закрыт')],
         ]}
       />
       <div style={{ position: 'relative' }}>
         <Search size={17} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--muted)' }} />
-        <input className="input" style={{ paddingLeft: 40 }} placeholder="Поиск" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input" style={{ paddingLeft: 40 }} placeholder={t('Поиск')} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       {loading ? (
         <Spinner />
       ) : !list.length ? (
-        <Empty icon={<Users size={26} />} title={tab === 'pending' ? 'Новых заявок нет' : 'Никого'} />
+        <Empty icon={<Users size={26} />} title={tab === 'pending' ? t('Новых заявок нет') : t('Никого')} />
       ) : (
         <div className="list">
           {list.map((u) => (
@@ -87,17 +88,17 @@ export default function AdminUsers() {
                   </span>
                 ))}
                 {u.debt > 0 && <span className="chip bad">−{fmt.gel(u.debt)}</span>}
-                {u.signup_blocked && <span className="chip bad">⛔︎ запись</span>}
+                {u.signup_blocked && <span className="chip bad">{t('⛔︎ запись')}</span>}
               </div>
               {tab === 'pending' ? (
                 <span
                   className="btn ok xs"
                   onClick={(e) => {
                     e.stopPropagation();
-                    void patch(u, { status: 'active' }, `${u.first_name} в команде`);
+                    void patch(u, { status: 'active' }, t('{0} в команде', u.first_name));
                   }}
                 >
-                  Пустить
+                  {t('Пустить')}
                 </span>
               ) : (
                 <Jersey n={u.number} />
@@ -122,14 +123,14 @@ export default function AdminUsers() {
               <div className="vstack" style={{ gap: 2 }}>
                 <div className="muted small">{open.username ? `@${open.username}` : `Telegram id ${open.id}`}</div>
                 <div className="small">
-                  {open.number != null ? `#${open.number}` : 'без номера'} · {open.position ? POS_SHORT[open.position] : '—'}
+                  {open.number != null ? `#${open.number}` : t('без номера')} · {open.position ? POS_SHORT[open.position] : '—'}
                   {open.birth_date ? ` · 🎂 ${birthday(open.birth_date)}` : ''}
                 </div>
-                {open.debt > 0 && <span className="chip bad">Долг {fmt.gel(open.debt)}</span>}
+                {open.debt > 0 && <span className="chip bad">{t('Долг')} {fmt.gel(open.debt)}</span>}
               </div>
             </div>
             <button className="btn secondary block" onClick={() => setEditOpen((x) => !x)}>
-              {editOpen ? 'Скрыть' : 'Изменить профиль и фото'}
+              {editOpen ? t('Скрыть') : t('Изменить профиль и фото')}
             </button>
             {editOpen && (
               <div className="card">
@@ -141,23 +142,23 @@ export default function AdminUsers() {
               <>
               <div className="btn-row">
                 {open.status === 'pending' && (
-                  <button className="btn bad-soft" disabled={busy} onClick={() => patch(open, { status: 'rejected' }, 'Отклонено')}>
-                    Отклонить
+                  <button className="btn bad-soft" disabled={busy} onClick={() => patch(open, { status: 'rejected' }, t('Отклонено'))}>
+                    {t('Отклонить')}
                   </button>
                 )}
-                <button className="btn ok" disabled={busy} onClick={() => patch(open, { status: 'active' }, 'Доступ открыт')}>
-                  Пустить в команду
+                <button className="btn ok" disabled={busy} onClick={() => patch(open, { status: 'active' }, t('Доступ открыт'))}>
+                  {t('Пустить в команду')}
                 </button>
               </div>
               <button className="btn secondary block" disabled={busy} onClick={() => makeGuest(open, true)}>
-                Пустить гостем — с оплатой за каждый выход
+                {t('Пустить гостем — с оплатой за каждый выход')}
               </button>
               </>
             ) : (
               <>
-                <div className="section-title">Составы на игры</div>
-                <SquadPicker squads={me.squads ?? []} value={open.squads} onChange={(v) => patch(open, { squads: v }, 'Составы обновлены')} />
-                <div className="section-title">Роли</div>
+                <div className="section-title">{t('Составы на игры')}</div>
+                <SquadPicker squads={me.squads ?? []} value={open.squads} onChange={(v) => patch(open, { squads: v }, t('Составы обновлены'))} />
+                <div className="section-title">{t('Роли')}</div>
                 <div className="list">
                   {(['admin', 'coach', 'service', 'guest'] as Role[]).map((r) => (
                     <label key={r} className="row check" style={{ cursor: 'pointer' }}>
@@ -165,14 +166,14 @@ export default function AdminUsers() {
                         <div className="title">{ROLE_LABEL[r]}</div>
                         <div className="meta">
                           {r === 'admin'
-                            ? 'Люди, взносы, счета'
+                            ? t('Люди, взносы, счета')
                             : r === 'coach'
-                              ? 'События и пятёрки'
+                              ? t('События и пятёрки')
                               : r === 'service'
-                                ? 'Заявки на заточку'
+                                ? t('Заявки на заточку')
                                 : open.roles.includes('guest')
-                                  ? `Платит за каждый выход: ${fmt.gel(open.guest_price ?? 0)} · без взносов`
-                                  : 'Платит за каждый выход, без взносов'}
+                                  ? t('Платит за каждый выход: {0} · без взносов', fmt.gel(open.guest_price ?? 0))
+                                  : t('Платит за каждый выход, без взносов')}
                         </div>
                       </div>
                       <input
@@ -185,7 +186,7 @@ export default function AdminUsers() {
                             : patch(
                                 open,
                                 { roles: e.target.checked ? [...open.roles, r] : open.roles.filter((x) => x !== r) },
-                                'Роли обновлены',
+                                t('Роли обновлены'),
                               )
                         }
                       />
@@ -194,22 +195,22 @@ export default function AdminUsers() {
                 </div>
                 {open.roles.includes('guest') && (
                   <button className="btn ghost block" disabled={busy} onClick={() => makeGuest(open, false)}>
-                    Изменить цену выхода ({fmt.gel(open.guest_price ?? 0)})
+                    {t('Изменить цену выхода (')}{fmt.gel(open.guest_price ?? 0)})
                   </button>
                 )}
-                <div className="section-title">Запись на тренировки</div>
+                <div className="section-title">{t('Запись на тренировки')}</div>
                 <div className="list">
                   <label className="row check" style={{ cursor: 'pointer' }}>
                     <div className="grow">
-                      <div className="title">Закрыть запись</div>
-                      <div className="meta">Например, пока не оплачен взнос</div>
+                      <div className="title">{t('Закрыть запись')}</div>
+                      <div className="meta">{t('Например, пока не оплачен взнос')}</div>
                     </div>
                     <input
                       type="checkbox"
                       disabled={busy}
                       checked={open.signup_blocked}
                       onChange={(e) =>
-                        patch(open, { signup_blocked: e.target.checked }, e.target.checked ? 'Запись закрыта' : 'Запись открыта')
+                        patch(open, { signup_blocked: e.target.checked }, e.target.checked ? t('Запись закрыта') : t('Запись открыта'))
                       }
                     />
                   </label>
@@ -218,9 +219,9 @@ export default function AdminUsers() {
                   <button
                     className="btn bad-soft block"
                     disabled={busy}
-                    onClick={async () => await ask(`Убрать ${open.name} из команды?`) && patch(open, { status: 'rejected' }, 'Доступ закрыт')}
+                    onClick={async () => await ask(t('Убрать {0} из команды?', open.name)) && patch(open, { status: 'rejected' }, t('Доступ закрыт'))}
                   >
-                    Убрать из команды
+                    {t('Убрать из команды')}
                   </button>
                 )}
               </>

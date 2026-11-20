@@ -14,12 +14,6 @@ interface DevUser {
   status: string;
 }
 
-declare global {
-  interface Window {
-    onTelegramAuth?: (user: Record<string, string | number>) => void;
-  }
-}
-
 /** Вход в консоль: официальный виджет «Войти через Telegram» (+ тестовые пользователи при DEV_AUTH=1). */
 export default function Login({ onDone }: { onDone: () => void }) {
   const [cfg, setCfg] = useState<Cfg | null>(null);
@@ -33,17 +27,32 @@ export default function Login({ onDone }: { onDone: () => void }) {
     if (cfg?.devAuth) api.get<DevUser[]>('/api/dev/users').then((u) => setDev(u.filter((x) => x.roles.some((r) => r === 'admin' || r === 'coach'))));
   }, [cfg]);
 
+  // Вход перенаправлением: Telegram возвращает на консоль с данными в адресе (?id=…&hash=…).
+  // Режим со всплывающим окном в Chrome часто не работает (сторонние cookie) — окно просто закрывается.
+  const [checking, setChecking] = useState(() => new URLSearchParams(location.search).has('hash'));
   useEffect(() => {
-    if (!cfg?.botUsername || !box.current) return;
-    window.onTelegramAuth = async (user) => {
-      try {
-        const r = await api.post<{ token: string }>('/api/auth/telegram', user);
+    const q = new URLSearchParams(location.search);
+    if (!q.has('hash') || !q.has('id')) return;
+    const data: Record<string, string> = {};
+    for (const k of ['id', 'first_name', 'last_name', 'username', 'photo_url', 'auth_date', 'hash']) {
+      const v = q.get(k);
+      if (v) data[k] = v;
+    }
+    history.replaceState(null, '', location.pathname); // не оставляем подпись в адресной строке
+    api
+      .post<{ token: string }>('/api/auth/telegram', data)
+      .then((r) => {
         setSession(r.token);
         onDone();
-      } catch (e) {
+      })
+      .catch((e) => {
         toastErr(e);
-      }
-    };
+        setChecking(false);
+      });
+  }, [onDone]);
+
+  useEffect(() => {
+    if (!cfg?.botUsername || !box.current || checking) return;
     const s = document.createElement('script');
     s.src = 'https://telegram.org/js/telegram-widget.js?22';
     s.async = true;
@@ -51,12 +60,12 @@ export default function Login({ onDone }: { onDone: () => void }) {
     s.setAttribute('data-size', 'large');
     s.setAttribute('data-radius', '14');
     s.setAttribute('data-request-access', 'write');
-    s.setAttribute('data-onauth', 'onTelegramAuth(user)');
+    s.setAttribute('data-auth-url', location.origin + location.pathname);
     box.current.innerHTML = '';
     box.current.appendChild(s);
-  }, [cfg, onDone]);
+  }, [cfg, checking]);
 
-  if (!cfg) return <Spinner />;
+  if (!cfg || checking) return <Spinner />;
   return (
     <div className="login">
       <div className="login-art">

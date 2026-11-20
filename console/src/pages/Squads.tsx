@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api, type Squad } from '@shared/api';
-import { Spinner, useAction, useApi, useMe } from '@shared/ui';
+import { ask, Spinner, useAction, useApi, useMe } from '@shared/ui';
 import Drawer from '../Drawer';
 
 const COLORS = ['#2b88cf', '#1f9d6b', '#c98612', '#8a4fd8', '#d64545', '#0d1f2d'];
@@ -80,8 +80,8 @@ export default function Squads() {
               <button
                 className="btn bad-soft block"
                 disabled={busy}
-                onClick={() =>
-                  confirm('Удалить состав? Игры останутся без метки состава.') &&
+                onClick={async () =>
+                  await ask('Удалить состав? Игры останутся без метки состава.') &&
                   run(async () => {
                     await api.del(`/api/admin/squads/${edit.id}`);
                     await Promise.all([reload(), refresh()]);

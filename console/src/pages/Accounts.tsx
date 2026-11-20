@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Copy, ExternalLink, Plus } from 'lucide-react';
 import { api, type Account, type FinanceData } from '@shared/api';
 import { fmt } from '@shared/format';
-import { copyText, Segmented, Spinner, useAction, useApi } from '@shared/ui';
+import { ask, copyText, Segmented, Spinner, useAction, useApi } from '@shared/ui';
 import Drawer from '../Drawer';
 
 const EMPTY = { bank: 'TBC', holder: '', iban: '', purpose: 'dues' as Account['purpose'], pay_url: '', note: '', sort: 0 };
@@ -119,8 +119,8 @@ export default function Accounts() {
               <button
                 className="btn bad-soft block"
                 disabled={busy}
-                onClick={() =>
-                  confirm('Удалить счёт?') &&
+                onClick={async () =>
+                  await ask('Удалить счёт?') &&
                   run(async () => {
                     await api.del(`/api/admin/accounts/${edit.id}`);
                     await reload();

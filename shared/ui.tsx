@@ -48,7 +48,71 @@ export const toastErr = (e: unknown) => {
   pushToast({ text: e instanceof Error ? e.message : String(e), err: true });
 };
 
+/* ---------- подтверждение ----------
+ * Свои окна вместо window.confirm/prompt: в Telegram и встроенных браузерах системные
+ * диалоги часто сразу возвращают «нет», и кнопка «ничего не делает».
+ */
+type AskT = { text: string; okText: string; danger?: boolean; input?: { value: string; placeholder?: string }; done: (v: string | null) => void };
+let pushAsk: (a: AskT) => void = () => {};
+/** await ask('Удалить?') → true/false */
+export const ask = (text: string, opts: { okText?: string; danger?: boolean } = {}) =>
+  new Promise<boolean>((done) => pushAsk({ text, okText: opts.okText ?? 'Да', danger: opts.danger, done: (v) => done(v !== null) }));
+/** await askText('Сумма?', '100') → строка или null */
+export const askText = (text: string, value = '', placeholder?: string) =>
+  new Promise<string | null>((done) => pushAsk({ text, okText: 'OK', input: { value, placeholder }, done }));
+
+function AskHost() {
+  const [a, setA] = useState<AskT | null>(null);
+  const [v, setV] = useState('');
+  useEffect(() => {
+    pushAsk = (x) => {
+      setV(x.input?.value ?? '');
+      setA(x);
+    };
+  }, []);
+  if (!a) return null;
+  const close = (res: string | null) => {
+    setA(null);
+    a.done(res);
+  };
+  return (
+    <div className="ask-backdrop" onClick={() => close(null)}>
+      <div className="ask" role="dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="ask-text">{a.text}</div>
+        {a.input && (
+          <input
+            className="input"
+            autoFocus
+            inputMode="decimal"
+            value={v}
+            placeholder={a.input.placeholder}
+            onChange={(e) => setV(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && close(v)}
+          />
+        )}
+        <div className="btn-row">
+          <button className="btn ghost" onClick={() => close(null)}>
+            Отмена
+          </button>
+          <button className={`btn ${a.danger ? 'bad' : ''}`} autoFocus={!a.input} onClick={() => close(a.input ? v : '')}>
+            {a.okText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Toaster() {
+  return (
+    <>
+      <ToastHost />
+      <AskHost />
+    </>
+  );
+}
+
+function ToastHost() {
   const [t, setT] = useState<ToastT | null>(null);
   useEffect(() => {
     pushToast = (x) => setT({ ...x, id: Date.now() });

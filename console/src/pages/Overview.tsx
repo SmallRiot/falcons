@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LayoutGrid } from 'lucide-react';
 import { api, type EventSummary, type PublicUser, type Rates, type Period, type Role } from '@shared/api';
 import { birthday, fmt, plural } from '@shared/format';
-import { Avatar, can, SquadChip, useAction, useApi, useMe } from '@shared/ui';
+import { ask, Avatar, can, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 
 type Player = PublicUser & { status: string; roles: Role[]; debt: number; trainings30: number; squads: number[] };
 type PeriodRow = Period & { rates: Rates; counts: Record<string, number> };
@@ -133,7 +133,7 @@ export default function Overview() {
                 {admin && b.in_days === 0 && (
                   <button
                     className="btn secondary xs"
-                    onClick={() => confirm(`Ещё раз поздравить ${b.name} в чате?`) && run(() => api.post('/api/console/birthdays/congratulate', { user_id: b.id }), 'Поздравление отправлено 🎂')}
+                    onClick={async () => await ask(`Ещё раз поздравить ${b.name} в чате?`) && run(() => api.post('/api/console/birthdays/congratulate', { user_id: b.id }), 'Поздравление отправлено 🎂')}
                   >
                     Поздравить ещё раз
                   </button>

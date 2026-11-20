@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Ban, Clock, LayoutGrid, MapPin, Pencil, StickyNote, Users } from 'lucide-react';
 import { api, type EventDetail as ED, type PublicUser, type Team } from '@shared/api';
 import { fmt, POS_SHORT } from '@shared/format';
-import { Avatar, Empty, Jersey, Segmented, Spinner, SquadChip, useAction, useApi, useMe } from '@shared/ui';
+import { ask, Avatar, Empty, Jersey, Segmented, Spinner, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 import { SignupButtons, typeLabel } from './EventCard';
 import Lines, { ORD, TEAM_GEN } from './Lines';
 
@@ -173,8 +173,8 @@ export default function EventDetail() {
         <button
           className="btn bad-soft block"
           disabled={busy}
-          onClick={() =>
-            confirm('Отменить событие?') &&
+          onClick={async () =>
+            await ask('Отменить событие?') &&
             run(async () => {
               await api.patch(`/api/events/${ev.id}`, { cancelled: 1 });
               await reload();

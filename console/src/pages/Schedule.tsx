@@ -4,7 +4,7 @@ import { Ban, LayoutGrid, Pencil, Plus } from 'lucide-react';
 import { api, type EventSummary } from '@shared/api';
 import { DEFAULT_LOCATION, fmt, fromLocalInput, plural, toLocalInput } from '@shared/format';
 import { DatesPicker } from '@shared/DatesPicker';
-import { Segmented, Spinner, SquadChip, SquadPicker, toast, useAction, useApi, useMe } from '@shared/ui';
+import { ask, Segmented, Spinner, SquadChip, SquadPicker, toast, useAction, useApi, useMe } from '@shared/ui';
 import Drawer from '../Drawer';
 
 type Scope = 'upcoming' | 'past';
@@ -115,8 +115,8 @@ export default function Schedule() {
                         <button
                           className="btn bad-soft xs"
                           disabled={busy}
-                          onClick={() =>
-                            confirm('Отменить событие? Пост в чате обновится.') &&
+                          onClick={async () =>
+                            await ask('Отменить событие? Пост в чате обновится.') &&
                             run(async () => {
                               await api.patch(`/api/events/${e.id}`, { cancelled: 1 });
                               await reload();

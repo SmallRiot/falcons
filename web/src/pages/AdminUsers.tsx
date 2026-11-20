@@ -3,7 +3,7 @@ import { PlayerEdit } from '@shared/PlayerEdit';
 import { Search, Users } from 'lucide-react';
 import { api, type PublicUser, type Role } from '@shared/api';
 import { birthday, fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
-import { Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
+import { ask, Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
 
 type AdminUser = PublicUser & { squads: number[]; roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; debt: number; created_at: string };
 
@@ -187,7 +187,7 @@ export default function AdminUsers() {
                   <button
                     className="btn bad-soft block"
                     disabled={busy}
-                    onClick={() => confirm(`Убрать ${open.name} из команды?`) && patch(open, { status: 'rejected' }, 'Доступ закрыт')}
+                    onClick={async () => await ask(`Убрать ${open.name} из команды?`) && patch(open, { status: 'rejected' }, 'Доступ закрыт')}
                   >
                     Убрать из команды
                   </button>

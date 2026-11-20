@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Eraser, Send, Sparkles } from 'lucide-react';
 import { api, type EventDetail, type LineupItem, type PublicUser, type Team } from '@shared/api';
 import { haptic } from '@shared/tg';
-import { Segmented, Spinner, toast, toastErr, useApi } from '@shared/ui';
+import { ask, Segmented, Spinner, toast, toastErr, useApi } from '@shared/ui';
 import { fmt, POS_SHORT } from '@shared/format';
 import Lines, { TEAM_LABEL } from './Lines';
 import { autoFill, autoFillSplit } from '@shared/lineup';
@@ -94,9 +94,9 @@ export default function LineupEditor() {
     }
   };
 
-  const changeSplit = (v: boolean) => {
+  const changeSplit = async (v: boolean) => {
     if (v === split) return;
-    if (lineup.length && !confirm('Сбросить текущую расстановку?')) return;
+    if (lineup.length && !await ask('Сбросить текущую расстановку?')) return;
     setLineup([]);
     setSplit(v);
   };

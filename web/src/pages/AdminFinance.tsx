@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Ban, BellRing, Play, Plus, Receipt, Settings2, Unlock } from 'lucide-react';
 import { api, type DueStatus, type Period, type Plan, type PublicUser, type Rates } from '@shared/api';
 import { DUE_STATUS, fmt, PLAN_LABEL } from '@shared/format';
-import { Avatar, Empty, ProofImage, Segmented, Sheet, Spinner, toast, useAction, useApi, useMe } from '@shared/ui';
+import { ask, Avatar, Empty, ProofImage, Segmented, Sheet, Spinner, toast, useAction, useApi, useMe } from '@shared/ui';
 
 type PeriodRow = Period & { rates: Rates; counts: Partial<Record<DueStatus, number>> };
 interface DueItem {
@@ -130,8 +130,8 @@ export default function AdminFinance() {
               <button
                 className="btn block"
                 disabled={busy}
-                onClick={() =>
-                  confirm(
+                onClick={async () =>
+                  await ask(
                     `Завершить опрос и начать сбор?\n\nПолный ${d.rates.full} ₾, частичный ${d.rates.partial} ₾, донат ${d.rates.donation} ₾.\nКаждый получит в личку свою сумму, неоплата станет долгом с напоминаниями.` +
                       (undecided ? `\n\n${undecided} чел. не выбрали — бот попросит их выбрать, сумма посчитается по тем же ставкам.` : ''),
                   ) &&
@@ -172,8 +172,8 @@ export default function AdminFinance() {
                 <button
                   className="btn ghost sm"
                   disabled={busy}
-                  onClick={() =>
-                    confirm('Вернуть в опрос? Суммы снова будут считаться по голосам, при повторном старте бот разошлёт их заново.') &&
+                  onClick={async () =>
+                    await ask('Вернуть в опрос? Суммы снова будут считаться по голосам, при повторном старте бот разошлёт их заново.') &&
                     run(async () => {
                       await api.patch(`/api/admin/periods/${pid}`, { locked: false });
                       await reloadAll();
@@ -185,8 +185,8 @@ export default function AdminFinance() {
                 <button
                   className="btn bad-soft sm"
                   disabled={busy}
-                  onClick={() =>
-                    confirm('Закрыть запись на тренировки всем, у кого есть долг?') &&
+                  onClick={async () =>
+                    await ask('Закрыть запись на тренировки всем, у кого есть долг?') &&
                     run(async () => {
                       const r = await api.post<{ blocked: number }>('/api/admin/block-debtors');
                       await reloadAll();

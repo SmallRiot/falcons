@@ -419,3 +419,9 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .step.done { color: var(--ok); }
 .step.done b { background: var(--ok); color: #fff; }
 .step-line { flex: 1; height: 2px; background: var(--line); border-radius: 1px; min-width: 20px; }
+
+/* окно подтверждения (вместо window.confirm) */
+.ask-backdrop { position: fixed; inset: 0; z-index: 90; background: rgba(5, 12, 18, 0.5); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fade 0.15s ease; }
+.ask { width: 100%; max-width: 400px; background: var(--surface); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
+.ask-text { font-size: 16px; line-height: 1.45; white-space: pre-line; color: var(--ink); }
+.ask .btn-row .btn { flex: 1; }

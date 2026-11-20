@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, Shield } from 'lucide-react';
 import { api, type Squad } from '@shared/api';
-import { Empty, Sheet, Spinner, useAction, useApi, useMe } from '@shared/ui';
+import { ask, Empty, Sheet, Spinner, useAction, useApi, useMe } from '@shared/ui';
 
 const COLORS = ['#2b88cf', '#1f9d6b', '#c98612', '#8a4fd8', '#d64545', '#0d1f2d'];
 const EMPTY = { name: '', short: '', color: COLORS[0], division: '', sort: 0 };
@@ -96,8 +96,8 @@ export default function AdminSquads() {
               <button
                 className="btn bad-soft block"
                 disabled={busy}
-                onClick={() =>
-                  confirm('Удалить состав? Игры останутся, но без метки состава.') &&
+                onClick={async () =>
+                  await ask('Удалить состав? Игры останутся, но без метки состава.') &&
                   run(async () => {
                     await api.del(`/api/admin/squads/${edit.id}`);
                     await Promise.all([reload(), refresh()]);

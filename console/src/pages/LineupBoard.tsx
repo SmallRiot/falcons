@@ -4,7 +4,7 @@ import { ArrowLeft, Eraser, Image, Send, Sparkles } from 'lucide-react';
 import { api, fetchBlobUrl, type EventDetail, type LineupItem, type PublicUser, type Team } from '@shared/api';
 import { fmt, POS_SHORT } from '@shared/format';
 import { autoFill, autoFillSplit, DEF, FWD, GOALIES, LINE_COLORS, SLOT_LABEL } from '@shared/lineup';
-import { Segmented, Spinner, toast, toastErr, useApi } from '@shared/ui';
+import { ask, Segmented, Spinner, toast, toastErr, useApi } from '@shared/ui';
 import Drawer from '../Drawer';
 
 type Pos = { team: Team; line: number; slot: string };
@@ -166,9 +166,9 @@ export default function LineupBoard() {
         <div style={{ width: 300 }}>
           <Segmented
             value={split ? 'split' : 'one'}
-            onChange={(v) => {
+            onChange={async (v) => {
               if ((v === 'split') === split) return;
-              if (lineup.length && !confirm('Сбросить текущую расстановку?')) return;
+              if (lineup.length && !await ask('Сбросить текущую расстановку?')) return;
               setLineup([]);
               setSplit(v === 'split');
             }}

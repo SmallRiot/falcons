@@ -3,7 +3,7 @@ import { Ban, BellRing, ClipboardList, Eye, Lock, Play, Plus, Settings2, Unlock 
 import Drawer from '../Drawer';
 import { api, type DueStatus, type Period, type Plan, type PublicUser, type Rates } from '@shared/api';
 import { DUE_STATUS, fmt, PLAN_LABEL } from '@shared/format';
-import { copyText, ProofImage, Sheet, Spinner, SquadChip, toast, useAction, useApi, useMe } from '@shared/ui';
+import { ask, askText, copyText, ProofImage, Sheet, Spinner, SquadChip, toast, useAction, useApi, useMe } from '@shared/ui';
 
 type PeriodRow = Period & { rates: Rates; counts: Partial<Record<DueStatus, number>> };
 interface DueItem {
@@ -129,8 +129,8 @@ export default function ConsoleFinance() {
           <button
             className="btn bad-soft sm"
             disabled={busy || !d?.period.locked}
-            onClick={() =>
-              confirm('Закрыть запись на тренировки всем должникам?') &&
+            onClick={async () =>
+              await ask('Закрыть запись на тренировки всем должникам?') &&
               run(async () => {
                 const r = await api.post<{ blocked: number }>('/api/admin/block-debtors');
                 await reloadAll();
@@ -160,8 +160,8 @@ export default function ConsoleFinance() {
               <button
                 className="btn ghost sm"
                 disabled={busy}
-                onClick={() =>
-                  confirm('Вернуть в опрос? Суммы снова будут считаться по голосам, при повторном старте бот разошлёт их заново.') &&
+                onClick={async () =>
+                  await ask('Вернуть в опрос? Суммы снова будут считаться по голосам, при повторном старте бот разошлёт их заново.') &&
                   run(async () => {
                     await api.patch(`/api/admin/periods/${pid}`, { locked: false });
                     await reloadAll();
@@ -179,8 +179,8 @@ export default function ConsoleFinance() {
               <button
                 className="btn sm"
                 disabled={busy}
-                onClick={() =>
-                  confirm(
+                onClick={async () =>
+                  await ask(
                     `Завершить опрос и начать сбор?\n\nПолный ${d.rates.full} ₾, частичный ${d.rates.partial} ₾, донат ${d.rates.donation} ₾. Каждый получит свою сумму в личку.` +
                       (dues.some((x) => !chosen(x)) ? `\n\nНе выбрали: ${dues.filter((x) => !chosen(x)).length} — бот попросит их выбрать.` : ''),
                   ) &&
@@ -277,9 +277,9 @@ export default function ConsoleFinance() {
                       className="input"
                       style={{ height: 32, width: 140, padding: '0 8px' }}
                       value={x.custom_amount != null ? 'custom' : (x.plan ?? '')}
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         if (e.target.value !== 'custom') return patchDue(x, { plan: e.target.value || null, custom_amount: null }, 'Вариант изменён');
-                        const v = prompt(`Своя сумма для ${x.user.name}, ₾ (новичок посреди месяца, разовый донат…)`, x.custom_amount != null ? String(x.custom_amount) : '');
+                        const v = await askText(`Своя сумма для ${x.user.name}, ₾\nНовичок посреди месяца, разовый донат…`, x.custom_amount != null ? String(x.custom_amount) : '', 'например 150');
                         if (v && Number(v) >= 0) void patchDue(x, { custom_amount: Number(v) }, `Назначено ${Number(v)} ₾`);
                       }}
                     >

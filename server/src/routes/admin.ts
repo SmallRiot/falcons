@@ -81,6 +81,20 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  /** Тренер (и админ) раскидывает игроков по составам — больше ничего у человека не меняет. */
+  app.put<{ Params: { id: string }; Body: { squads: number[] } }>(
+    '/api/users/:id/squads',
+    { preHandler: requireRole('coach', 'admin') },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      const u = db.prepare(`SELECT 1 FROM users WHERE id = ? AND status = 'active'`).get(id);
+      if (!u) return reply.code(404).send({ error: 'Игрок не найден' });
+      if (!Array.isArray(req.body?.squads)) return reply.code(400).send({ error: 'Нужен список составов' });
+      setUserSquads(id, req.body.squads.map(Number));
+      return { ok: true };
+    },
+  );
+
   /** Отдаём скрины только админу, владельцу и (для заточки) сервис-менеджеру. */
   app.get<{ Params: { name: string } }>('/api/files/:name', { preHandler: requireActive }, async (req, reply) => {
     const name = path.basename(req.params.name);

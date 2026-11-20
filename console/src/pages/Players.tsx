@@ -26,6 +26,7 @@ export default function ConsolePlayers() {
   const { run } = useAction();
   const [editId, setEditId] = useState<number | null>(null);
   const admin = can(me, 'admin');
+  const coach = can(me, 'admin', 'coach');
   if (!data) return <Spinner />;
   const squads = me.squads ?? [];
 
@@ -35,6 +36,12 @@ export default function ConsolePlayers() {
       await api.patch(`/api/admin/users/${u.id}`, body);
       if (body.status) await Promise.all([reload(), refresh()]);
     }, ok);
+  };
+
+  // составы может менять и тренер — отдельным запросом, без остальных админских полей
+  const setSquads = (u: Row, squads: number[]) => {
+    setData((d) => d?.map((x) => (x.id === u.id ? { ...x, squads } : x)) ?? null);
+    return run(() => api.put(`/api/users/${u.id}/squads`, { squads }));
   };
 
   const rows = data
@@ -111,10 +118,10 @@ export default function ConsolePlayers() {
                         <button
                           key={s.id}
                           className="sq-toggle"
-                          disabled={!admin}
+                          disabled={!coach || u.status !== 'active'}
                           style={{ background: on ? s.color : 'var(--surface-2)', color: on ? '#fff' : 'var(--muted)' }}
                           title={on ? `Убрать из «${s.name}»` : `Добавить в «${s.name}»`}
-                          onClick={() => patch(u, { squads: on ? u.squads.filter((x) => x !== s.id) : [...u.squads, s.id] })}
+                          onClick={() => setSquads(u, on ? u.squads.filter((x) => x !== s.id) : [...u.squads, s.id])}
                         >
                           {s.short}
                         </button>

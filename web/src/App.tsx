@@ -24,6 +24,7 @@ import AdminSquads from './pages/AdminSquads';
 import Onboarding from './pages/Onboarding';
 import Manage from './pages/Manage';
 import AdminFees from './pages/AdminFees';
+import SquadMembers from './pages/SquadMembers';
 
 
 const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile', '/manage', '/admin/users', '/admin/finance', '/service', '/service/queue', '/service/debts'];
@@ -161,6 +162,7 @@ export default function App() {
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/admin/squads" element={<AdminSquads />} />
       <Route path="/admin/fees" element={<AdminFees />} />
+      <Route path="/manage/squads" element={<SquadMembers />} />
       <Route path="/manage" element={isStaff ? <Manage /> : <Home />} />
       <Route path="*" element={staffMode ? <Manage /> : <Home />} />
     </Routes>

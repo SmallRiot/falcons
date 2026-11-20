@@ -1,12 +1,12 @@
 import { language, saveLanguage, t } from '@shared/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarCheck, ChevronRight, Coins, Flame, Landmark, Receipt, Scissors, Shield, Trophy, Users } from 'lucide-react';
 import { api, setDevUser } from '@shared/api';
-import { inTelegram } from '@shared/tg';
+import { haptic, inTelegram } from '@shared/tg';
 import { PhotoEdit } from '@shared/PhotoEdit';
 import { birthday, fmt, plural, POS_LABEL, ROLE_LABEL } from '@shared/format';
-import { Avatar, can, Segmented, Sheet, SquadChip, useAction, useApi, useMe } from '@shared/ui';
+import { Nick, Avatar, can, Segmented, Sheet, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 
 interface Stats {
   trainingsTotal: number;
@@ -33,10 +33,11 @@ export default function Profile() {
 
   return (
     <div className="page">
-      <div className="card center vstack" style={{ alignItems: 'center', gap: 10, paddingTop: 22 }}>
+      <div className={`card center vstack ${u.cover_url ? 'has-cover' : ''}`} style={{ alignItems: 'center', gap: 10, paddingTop: u.cover_url ? 0 : 22 }}>
+        {u.cover_url && <div className="profile-cover" style={{ backgroundImage: `url(${u.cover_url})` }} />}
         <Avatar user={u} size="lg" />
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>{u.name}</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800 }}><Nick user={u} text={u.name} /></h1>
           <div className="muted small">
             {u.number != null ? `#${u.number}` : t('без номера')} · {u.position ? POS_LABEL[u.position] : t('позиция не указана')}
             {u.birth_date ? ` · 🎂 ${birthday(u.birth_date)}` : ''}
@@ -99,6 +100,11 @@ export default function Profile() {
         </div>
       )}
 
+      <div className="list">
+        <MenuRow icon={<Trophy size={20} />} title={t('Магазин ачивок')} onClick={() => nav('/shop')} />
+      </div>
+      <MyPrizes />
+
       {can(me, 'admin', 'coach', 'service') && (
         <div className="list">
           <MenuRow icon={<Shield size={20} />} title={t('Перейти в управление')} count={(b.pendingUsers ?? 0) + (b.proofs ?? 0) + (b.sharpenings ?? 0)} onClick={() => nav('/manage')} />
@@ -150,6 +156,58 @@ function Stat({ icon, v, l, sub }: { icon: React.ReactNode; v: React.ReactNode; 
         {l}
       </div>
     </div>
+  );
+}
+
+type Prize = { id: number; item: string; title: string; kind: string; price: number; option: string | null; status: string; created_at: string; expires_at: string | null; done_at: string | null };
+const PRIZE_ICON: Record<string, string> = {
+  'nick-grad': '🌈', 'frame-month': '🖼', 'frame-season': '🖼', 'frame-forever': '💎',
+  'hockey-stick-150': '🏒', 'skate-sharpening': '⛸', 'hockey-tape': '🎗', 'nick-fire': '🔥', 'nick-color': '🎨', 'avatar-frame': '🏅', 'shout-out': '📣', 'nick-emoji': '😎',
+};
+
+/** Призы из магазина игры: что действует, что можно потратить, что ждёт выдачи. */
+function MyPrizes() {
+  const nav = useNavigate();
+  const { data } = useApi<Prize[]>('/api/me/prizes');
+  if (!data?.length) return null;
+  const now = Date.now();
+  const live = data.filter((p) =>
+    p.status === 'awaiting' || (p.kind === 'cosmetic' ? p.status === 'active' && p.expires_at && Date.parse(p.expires_at) > now : p.status === 'active' || p.status === 'new'),
+  );
+  const past = data.filter((p) => !live.includes(p)).slice(0, 6);
+  const line = (p: Prize) => {
+    if (p.status === 'awaiting') return t('ждёт проверки оплаты');
+    if (p.kind === 'cosmetic') return p.expires_at?.startsWith('9999') ? t('навсегда') : t('до') + ' ' + fmt.dateShort(p.expires_at!);
+    if (p.kind === 'voucher') return p.status === 'active' ? t('можно потратить') : t('потрачен');
+    if (p.kind === 'physical') return p.status === 'new' ? t('админ уже знает — ждёт выдачи') : t('выдан');
+    return t('бот поздравил в чате');
+  };
+  const row = (p: Prize, dim: boolean) => (
+    <div key={p.id} className="row" style={dim ? { opacity: 0.6 } : undefined}>
+      <span style={{ fontSize: 22, width: 28, textAlign: 'center' }}>{PRIZE_ICON[p.item] ?? '🎁'}</span>
+      <div className="grow">
+        <div className="title">
+          {p.title}
+          {p.item === 'nick-color' && p.option ? <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 6, background: p.option, marginLeft: 8, verticalAlign: 'middle' }} /> : null}
+          {p.item === 'nick-emoji' && p.option ? ` ${p.option}` : ''}
+        </div>
+        <div className="meta">{line(p)}</div>
+      </div>
+      {p.kind === 'voucher' && p.status === 'active' && (
+        <button className="btn xs" onClick={() => nav('/sharpening')}>
+          {t('Потратить')}
+        </button>
+      )}
+    </div>
+  );
+  return (
+    <>
+      <div className="section-title">{t('Мои призы')}</div>
+      <div className="list">
+        {live.map((p) => row(p, false))}
+        {past.map((p) => row(p, true))}
+      </div>
+    </>
   );
 }
 

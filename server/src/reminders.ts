@@ -200,6 +200,7 @@ export function startReminders() {
     runReminders().catch((e) => console.warn('[reminders] failed', e));
     runBirthdays().catch((e) => console.warn('[birthdays] failed', e));
     runAnnouncements().catch((e) => console.warn('[announce] failed', e));
+    import('./aiBuddy.ts').then((m) => m.runDailyVkid()).catch((e) => console.warn('[ai] daily failed', e));
   };
   setTimeout(tick, 10_000);
   setInterval(tick, 15 * 60_000);

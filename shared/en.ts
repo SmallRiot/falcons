@@ -1,4 +1,5 @@
 export const en: Readonly<Record<string, string>> = {
+  "Ледовый дроп": "Ice Drop",
   "\n\n{0} чел. не выбрали — бот попросит их выбрать, сумма посчитается по тем же ставкам.": "\n\n{0} haven’t chosen. The bot will ask them to choose and use the same rates.",
   " · {0} див.": " · Div. {0}",
   " · ⛔︎ запись": " · ⛔︎ sign-up",

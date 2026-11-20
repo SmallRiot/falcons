@@ -1,0 +1,201 @@
+import type { FastifyInstance } from 'fastify';
+import { requireActive, requireOwner } from '../auth.ts';
+import { db, nowIso, publicUser, resetStyleCache, type UserRow } from '../db.ts';
+import { arcadePlayers, buyPrize, catalog, FOREVER, FRAME_DESIGNS, setShopOverride, withStore, type PrizeOrder, type ShopOverride } from '../prizes.ts';
+import { readUpload } from '../uploads.ts';
+
+const FOREVER_PRICE = 50; // ₾
+import { notifyOwnerForeverFrame, notifyPrizeStatus } from '../telegram.ts';
+import { aiStats, runDailyVkid } from '../aiBuddy.ts';
+
+export default async function arcadeRoutes(app: FastifyInstance) {
+  const player = { preHandler: requireActive };
+
+  // витрина: каталог с правками владельца (цены, скрытые цены, снятое с продажи)
+  const withCatalog = <T,>(st: T) => ({ ...(st as object), items: catalog() }) as T;
+  app.get('/api/arcade/state', player, (req) => withCatalog(withStore(req.user.id, (store) => store.state())));
+
+  app.post('/api/arcade/welcome', player, (req) =>
+    withStore(req.user.id, (store) => {
+      store.activate();
+      return { state: store.state() };
+    }),
+  );
+  app.post('/api/arcade/collect', player, (req, reply) =>
+    withStore(req.user.id, (store) => {
+      try {
+        store.collect();
+        return { state: store.state() };
+      } catch (err) {
+        return reply.code(400).send({ error: (err as Error).message });
+      }
+    }),
+  );
+
+  app.post<{ Body: { commitment: string; nonce: string; stake: number; source?: string; rows: number } }>(
+    '/api/arcade/drop',
+    {
+      ...player,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['commitment', 'nonce', 'stake', 'rows'],
+          properties: {
+            commitment: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+            nonce: { type: 'string', pattern: '^[a-f0-9]{32}$' },
+            stake: { type: 'integer', minimum: 1, maximum: 100 },
+            source: { type: 'string', enum: ['wallet', 'bonus'] },
+            rows: { type: 'integer', const: 16 },
+          },
+        },
+      },
+    },
+    (req, reply) =>
+      withStore(req.user.id, (store) => {
+        const { commitment, nonce, stake } = req.body;
+        try {
+          const receipt = store.drop(commitment, nonce, stake, req.body.source);
+          return { state: withCatalog(store.state()), receipt };
+        } catch (err) {
+          return reply.code(400).send({ error: (err as Error).message });
+        }
+      }),
+  );
+
+  /** Покупка: заказ попадает в базу клуба, админу приходит уведомление, приз — в профиль игрока. */
+  app.post<{ Body: { id: string; option?: string } }>(
+    '/api/arcade/buy',
+    {
+      ...player,
+      schema: { body: { type: 'object', required: ['id'], properties: { id: { type: 'string', maxLength: 32 }, option: { type: 'string', maxLength: 16 } } } },
+    },
+    (req, reply) => {
+      try {
+        const order = buyPrize(req.user, req.body.id, req.body.option ?? null);
+        return { state: withCatalog(withStore(req.user.id, (s) => s.state())), order };
+      } catch (err) {
+        return reply.code(400).send({ error: (err as Error).message });
+      }
+    },
+  );
+
+  /** Особая рамка навсегда — за 50 ₾ переводом: скрин → владелец подтверждает → рамка включается навсегда. */
+  app.post('/api/frames/forever', player, async (req, reply) => {
+    const { file, fields } = await readUpload(req);
+    const design = fields.design;
+    if (!FRAME_DESIGNS.includes(design)) return reply.code(400).send({ error: 'Выбери рамку' });
+    if (!file) return reply.code(400).send({ error: 'Прикрепи скрин перевода' });
+    const r = db
+      .prepare(
+        `INSERT INTO prize_orders(user_id, item, title, kind, price, option, status, proof, currency) VALUES(?, 'frame-forever', 'Особая рамка навсегда', 'cosmetic', ?, ?, 'awaiting', ?, 'gel')`,
+      )
+      .run(req.user.id, FOREVER_PRICE, design, file);
+    void notifyOwnerForeverFrame(req.user, design);
+    return { ok: true, id: Number(r.lastInsertRowid) };
+  });
+  app.get('/api/frames/forever', player, () => ({ price: FOREVER_PRICE, designs: FRAME_DESIGNS }));
+
+  /* ---------- призы игрока ---------- */
+
+  app.get('/api/me/prizes', player, (req) =>
+    db.prepare(`SELECT * FROM prize_orders WHERE user_id = ? AND status != 'cancelled' ORDER BY id DESC LIMIT 100`).all(req.user.id),
+  );
+
+  /* ---------- админ: аналитика и выдача ---------- */
+
+  // игрой и магазином управляет только владелец (первый админ)
+  const admin = { preHandler: requireOwner };
+
+  app.get('/api/admin/arcade', admin, () => {
+    const users = new Map((db.prepare('SELECT * FROM users').all() as unknown as UserRow[]).map((u) => [u.id, u]));
+    const players = arcadePlayers().map((id) => {
+      const st = withStore(id, (s) => s.stats());
+      const u = users.get(id);
+      return { user: u ? publicUser(u) : { id, name: `id ${id}` }, ...st, purchases: st.purchases.length, spent: st.purchases.reduce((a, p) => a + p.price, 0) };
+    });
+    const orders = (db.prepare('SELECT * FROM prize_orders ORDER BY id DESC LIMIT 300').all() as unknown as PrizeOrder[]).map((o) => {
+      const u = users.get(o.user_id);
+      return { ...o, user: u ? publicUser(u) : { id: o.user_id, name: `id ${o.user_id}` } };
+    });
+    const sum = (f: (p: (typeof players)[number]) => number) => players.reduce((a, p) => a + f(p), 0);
+    const byItem: Record<string, { title: string; count: number; points: number }> = {};
+    for (const o of orders) {
+      if (o.status === 'cancelled') continue;
+      byItem[o.item] ??= { title: o.title, count: 0, points: 0 };
+      byItem[o.item].count++;
+      byItem[o.item].points += o.price;
+    }
+    const wagered = sum((p) => p.wagered);
+    const won = sum((p) => p.won);
+    return {
+      totals: {
+        players: players.length,
+        active7: players.filter((p) => p.lastPlayed && Date.now() - Date.parse(p.lastPlayed) < 7 * 864e5).length,
+        goals: sum((p) => p.goals),
+        balances: sum((p) => p.balance),
+        drops: sum((p) => p.drops),
+        wagered,
+        won,
+        rtp: wagered ? won / wagered : null,
+        bonusActivated: players.filter((p) => p.bonus.status !== 'available').length,
+        bonusCollected: players.filter((p) => p.bonus.collected).length,
+        bonusWagered: sum((p) => p.bonusWagered),
+        spent: sum((p) => p.spent),
+        orders: orders.filter((o) => o.status !== 'cancelled').length,
+        toIssue: orders.filter((o) => o.kind === 'physical' && o.status === 'new').length,
+        bigWins: players.flatMap((p) => p.bigWins.map((w) => ({ ...w, user: p.user }))).sort((a, b) => b.multiplier - a.multiplier).slice(0, 10),
+      },
+      byItem: Object.entries(byItem).map(([item, v]) => ({ item, ...v })).sort((a, b) => b.points - a.points),
+      players: players.sort((a, b) => b.balance - a.balance),
+      orders,
+      ai: aiStats(),
+    };
+  });
+
+  /** Владелец: каталог магазина с правками и смена цены / скрытой цены / «в продаже». */
+  app.get('/api/admin/shop', admin, () => catalog(true));
+  app.put<{ Params: { id: string }; Body: ShopOverride }>('/api/admin/shop/:id', admin, (req, reply) => {
+    try {
+      const b = req.body ?? {};
+      setShopOverride(req.params.id, {
+        ...(b.price !== undefined ? { price: Number(b.price) } : {}),
+        ...(b.hidden !== undefined ? { hidden: !!b.hidden } : {}),
+        ...(b.off !== undefined ? { off: !!b.off } : {}),
+      });
+      return catalog(true);
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
+  });
+
+  /** Админ: вечерний вкид прямо сейчас (проверить, как пишет нейронка). */
+  app.post('/api/admin/ai/vkid', admin, async () => {
+    await runDailyVkid(true);
+    return { ok: true };
+  });
+
+  /** Админ: физический приз выдан / отменить заказ (очки возвращаются в игру). */
+  app.patch<{ Params: { id: string }; Body: { status: 'issued' | 'cancelled' | 'approved' } }>('/api/admin/prizes/:id', admin, (req, reply) => {
+    const o = db.prepare('SELECT * FROM prize_orders WHERE id = ?').get(Number(req.params.id)) as PrizeOrder | undefined;
+    if (!o) return reply.code(404).send({ error: 'Заказ не найден' });
+    const st = req.body?.status;
+    if (st === 'approved') {
+      if (o.status !== 'awaiting') return reply.code(400).send({ error: 'Этот заказ не ждёт подтверждения' });
+      db.prepare(`UPDATE prize_orders SET status = 'active', expires_at = ?, done_at = ? WHERE id = ?`).run(FOREVER, nowIso(), o.id);
+      resetStyleCache();
+      void notifyPrizeStatus(o.user_id, o.title, 'issued');
+    } else if (st === 'issued') {
+      if (o.kind !== 'physical' || o.status !== 'new') return reply.code(400).send({ error: 'Этот заказ не ждёт выдачи' });
+      db.prepare(`UPDATE prize_orders SET status = 'issued', done_at = ? WHERE id = ?`).run(nowIso(), o.id);
+      void notifyPrizeStatus(o.user_id, o.title, 'issued');
+    } else if (st === 'cancelled') {
+      if (['cancelled', 'used', 'issued', 'done'].includes(o.status)) return reply.code(400).send({ error: 'Этот заказ уже нельзя отменить' });
+      db.prepare(`UPDATE prize_orders SET status = 'cancelled', done_at = ? WHERE id = ?`).run(nowIso(), o.id);
+      // очки возвращаем в игру; деньги за рамку навсегда возвращаются вручную
+      if ((o as PrizeOrder & { currency?: string }).currency !== 'gel') withStore(o.user_id, (s) => s.refund(o.price));
+      resetStyleCache();
+      void notifyPrizeStatus(o.user_id, o.title, 'cancelled', (o as PrizeOrder & { currency?: string }).currency === 'gel' ? undefined : o.price);
+    } else return reply.code(400).send({ error: 'Неизвестный статус' });
+    return { ok: true };
+  });
+}

@@ -8,6 +8,7 @@ import { can, MeCtx, Sheet, Spinner, Toaster } from '@shared/ui';
 import { fmt } from '@shared/format';
 import { startRoute } from '@shared/nav';
 import Gate, { DevPicker } from './pages/Gate';
+import Rink from './pages/Rink';
 import Home from './pages/Home';
 import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';
@@ -25,6 +26,9 @@ import AdminSquads from './pages/AdminSquads';
 import Onboarding from './pages/Onboarding';
 import Manage from './pages/Manage';
 import AdminFees from './pages/AdminFees';
+import AdminArcade from './pages/AdminArcade';
+import FrameForever from './pages/FrameForever';
+import Shop from './pages/Shop';
 import SquadMembers from './pages/SquadMembers';
 
 
@@ -137,7 +141,7 @@ export default function App() {
 
   const duesDebt = (me.debts ?? []).reduce((s, d) => s + d.amount, 0);
   const debtTotal = duesDebt + (me.sharpeningDebt?.total ?? 0) + (me.guestDebt?.total ?? 0);
-  const staffBadge = (me.badges?.pendingUsers ?? 0) + (me.badges?.proofs ?? 0) + (me.badges?.fees ?? 0) + (me.badges?.sharpenings ?? 0);
+  const staffBadge = (me.badges?.pendingUsers ?? 0) + (me.badges?.proofs ?? 0) + (me.badges?.fees ?? 0) + (me.badges?.prizes ?? 0) + (me.badges?.sharpenings ?? 0);
   const isStaff = can(me, 'admin', 'coach', 'service');
   const staffMode = isStaff && (mode ?? 'staff') === 'staff';
   const staffLabel = can(me, 'admin') ? t('Админка') : can(me, 'coach') ? t('Тренер') : t('Заточка');
@@ -152,6 +156,7 @@ export default function App() {
   const routes = (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/rink" element={<Rink />} />
       <Route path="/events" element={<Events />} />
       <Route path="/events/new" element={<EventForm />} />
       <Route path="/events/:id" element={<EventDetail />} />
@@ -168,6 +173,9 @@ export default function App() {
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/admin/squads" element={<AdminSquads />} />
       <Route path="/admin/fees" element={<AdminFees />} />
+      <Route path="/admin/arcade" element={<AdminArcade />} />
+      <Route path="/frame-forever" element={<FrameForever />} />
+      <Route path="/shop" element={<Shop />} />
       <Route path="/manage/squads" element={<SquadMembers />} />
       <Route path="/manage" element={isStaff ? <Manage /> : <Home />} />
       <Route path="*" element={staffMode ? <Manage /> : <Home />} />

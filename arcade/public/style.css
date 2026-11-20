@@ -1,0 +1,185 @@
+/* ===== Ледовый дроп: арена в стиле магазина (тёмный лёд, мята, золото) ===== */
+:root{--bg:#08141b;--panel:#0f2029;--line:#22394a;--ink:#f2f8fa;--mute:#8fa9b3;--ice:#9df3ca;--gold:#e9c57e;--gold-2:#b98a3a;
+  --display:Unbounded,system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);font:16px/1.5 system-ui,-apple-system,sans-serif;
+  background:radial-gradient(120% 50% at 50% -8%,#1d3a48 0%,transparent 62%),var(--bg);min-height:100vh}
+main{max-width:650px;margin:auto;padding:18px max(16px,env(safe-area-inset-right,0px)) 56px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+header span{color:var(--gold);letter-spacing:.22em;font-size:.72rem;font-weight:750}
+header b{font:800 1rem/1 var(--display);color:var(--ice);font-variant-numeric:tabular-nums;padding:9px 14px;border-radius:999px;
+  background:linear-gradient(135deg,#132a35,#0c1c24);border:1px solid var(--line)}
+h1{margin:6px 0 0;font:800 clamp(34px,10vw,58px)/1 var(--display);letter-spacing:-.03em;text-wrap:balance}
+h1 span{color:var(--gold)}
+p{color:var(--mute);margin:0}
+#pilot-intro{font-size:.92rem}
+details{border:1px solid var(--line);border-radius:16px;padding:12px 16px;background:#0b1a22}
+summary{cursor:pointer;font-weight:700;color:var(--ink)}
+details p{font-size:.88rem;margin-top:10px}
+/* бонус */
+#welcome{position:relative;display:flex;flex-direction:column;gap:8px;padding:16px 18px;border-radius:20px;overflow:hidden;
+  border:1px solid #6b5428;background:linear-gradient(160deg,#2a2716 0%,#14211f 60%)}
+#welcome::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(60% 60% at 100% 0%,#e9c57e2e,transparent 70%)}
+#welcome .w-tag{align-self:flex-start;padding:3px 10px;border-radius:999px;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#2a1d05;background:linear-gradient(90deg,var(--gold),var(--gold-2))}
+#welcome strong{font:800 1.15rem/1.2 var(--display)}
+#welcome p{font-size:.88rem}
+.w-bar{height:6px;border-radius:3px;background:#1b3140;overflow:hidden}
+.w-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--ice),var(--gold))}
+#bonus-action{align-self:flex-start;background:linear-gradient(90deg,var(--gold),var(--gold-2));color:#2a1d05}
+/* поле */
+.board{border-radius:24px;padding:8px 8px 10px;background:linear-gradient(180deg,#16303b,#0d1d25);border:1px solid var(--line);
+  box-shadow:0 24px 60px #0008,inset 0 1px 0 #ffffff10}
+canvas{width:100%;height:auto;display:block;border-radius:16px}
+#slots{display:grid;grid-template-columns:repeat(17,minmax(0,1fr));gap:2px;margin-top:6px}
+#slots b{border-radius:6px;text-align:center;padding:5px 0 4px;font-size:clamp(8px,2.4vw,13px);line-height:1.05;font-weight:800;font-variant-numeric:tabular-nums;
+  color:#cfe0e6;background:#16303b;border:1px solid #22394a}
+#slots b::after{content:'×';display:block;font-size:.8em;opacity:.75}
+#slots b[data-factor="2"]{background:#1d4250;color:#e6f6fb}
+#slots b[data-factor="4"]{background:#1f5a55;color:#dffcf0}
+#slots b[data-factor="10"]{background:#3e3f86;color:#ecebff;border-color:#5a5bb0}
+#slots b[data-factor="20"]{background:#6a3f7e;color:#fbeaff;border-color:#8d5aa6}
+#slots b[data-factor="100"]{background:#8e4434;color:#ffece5;border-color:#b45b47}
+#slots b[data-factor="1000"]{background:linear-gradient(180deg,var(--gold),var(--gold-2));color:#2a1d05;border-color:#f6dc9c}
+#slots b.hit{outline:2px solid #fff;outline-offset:1px;box-shadow:0 0 14px #ffffff80}
+@media(max-width:440px){.board{padding:5px 4px 8px}#slots{gap:1px}#slots b[data-factor="1000"]{letter-spacing:-.8px;font-size:7.5px}}
+/* управление */
+.controls{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:20px;border:1px solid var(--line);background:var(--panel)}
+#source-label{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--mute);font-size:.88rem}
+#source{font:inherit;color:var(--ink);background:#132a35;border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+.stake{display:flex;flex-direction:column;gap:10px}
+.stake>span{color:var(--mute);font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;font-weight:650}
+.stepper{display:flex;align-items:stretch;gap:8px}
+.stepper button{width:52px;padding:0;font-size:1.4rem;background:#132a35;border:1px solid var(--line)}
+.stepper input{flex:1;min-width:0;text-align:center;font:800 1.5rem/1 var(--display);color:var(--ink);background:#0b1a22;border:1px solid var(--line);border-radius:12px;padding:10px;
+  font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+.stepper input::-webkit-inner-spin-button,.stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.quick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.quick button{padding:9px 0;background:#132a35;border:1px solid var(--line);color:var(--ice);font-weight:750}
+.actions{display:flex;flex-direction:column;gap:10px;margin:2px 0 0}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;background:#1a3240;color:var(--ink);padding:11px 16px;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+#drop{flex:1;padding:15px 16px;font:800 1rem/1.1 var(--display);letter-spacing:.01em;background:var(--ice);color:#06231a;box-shadow:0 10px 30px #9df3ca33}
+#shop{padding:13px 16px;background:transparent;border:1px solid var(--gold);color:var(--gold)}
+#status{min-height:1.5em;text-align:center;color:var(--ice);font-weight:650}
+code,pre{display:block;white-space:pre-wrap;overflow-wrap:anywhere;color:#ace4cb;font-size:.78rem}
+#odds{font-size:.85rem;color:var(--mute);margin-top:8px}
+/* вкладка магазина сбоку */
+#tab{position:fixed;top:32%;right:0;border-radius:14px 0 0 14px;padding:10px 9px;color:#2a1d05;background:linear-gradient(180deg,var(--gold),var(--gold-2));
+  box-shadow:0 8px 24px #0008;transform:translateX(45%);animation:peek 14s infinite}
+#tab:hover,#tab:focus{animation:none;transform:none}
+@keyframes peek{0%,65%,100%{transform:translateX(45%)}75%,90%{transform:translateX(0)}}
+@media(prefers-reduced-motion:reduce){#tab{animation:none}}
+dialog{background:#152a32;color:#fff;border:1px solid #486267;border-radius:18px;width:min(420px,92vw);padding:24px}
+dialog::backdrop{background:#0009}
+
+/* ===== Магазин призов: витрина ===== */
+dialog.shop{--sh-bg:#08141b;--sh-panel:#0f2029;--sh-line:#22394a;--sh-ink:#f2f8fa;--sh-mute:#8fa9b3;--sh-ice:#9df3ca;--sh-gold:#e9c57e;--sh-gold-2:#b98a3a;
+  width:min(560px,100vw);max-width:100vw;height:min(100dvh,900px);max-height:100dvh;margin:auto;padding:0;border:0;border-radius:0;background:var(--sh-bg);color:var(--sh-ink);overflow:hidden}
+@media(min-width:600px){dialog.shop{height:auto;max-height:92dvh;border-radius:26px;border:1px solid var(--sh-line);box-shadow:0 40px 120px #000a}}
+dialog.shop::backdrop{background:#02080cd9;backdrop-filter:blur(6px)}
+dialog.shop form{float:none}
+.shop-in{height:100%;max-height:inherit;overflow-y:auto;padding:22px 18px 28px;display:flex;flex-direction:column;gap:16px;
+  background:radial-gradient(120% 60% at 50% -10%,#1d3a48 0%,transparent 60%),var(--sh-bg)}
+.shop-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.shop-top small{display:block;color:var(--sh-gold);letter-spacing:.22em;font-size:.7rem;font-weight:700}
+.shop-top h2{margin:6px 0 0;font:800 clamp(26px,7vw,34px)/1.05 Unbounded,system-ui,sans-serif;letter-spacing:-.02em}
+.shop-x{width:40px;height:40px;padding:0;border-radius:12px;background:#ffffff12;color:var(--sh-ink);font-size:24px;line-height:1}
+.shop-wallet{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:18px;border:1px solid var(--sh-line);
+  background:linear-gradient(135deg,#132a35,#0c1c24)}
+.shop-wallet>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.shop-wallet span{color:var(--sh-mute);font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;font-weight:650}
+.shop-wallet b{font:800 clamp(22px,6vw,28px)/1 Unbounded,system-ui,sans-serif;color:var(--sh-ice);font-variant-numeric:tabular-nums}
+.shop-wallet .shop-hint{text-transform:none;letter-spacing:0;font-weight:500;font-size:.85rem;color:var(--sh-mute)}
+#items{display:flex;flex-direction:column;gap:14px}
+.prize{position:relative;display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:var(--sh-panel);border:1px solid var(--sh-line)}
+.prize .art{display:flex;align-items:center;justify-content:center;aspect-ratio:16/10;max-width:100%;
+  background:radial-gradient(80% 90% at 50% 100%,#1e4252 0%,#0f2029 70%);border-bottom:1px solid var(--sh-line)}
+.prize .art svg{width:86%;height:auto;max-height:100%}
+.prize .glyph{font-size:54px}
+.prize .meta{display:flex;flex-direction:column;gap:6px;padding:14px 16px 16px}
+.prize h3{margin:0;font:700 1.12rem/1.2 Unbounded,system-ui,sans-serif;letter-spacing:-.01em;color:var(--sh-ink)}
+.prize .sub{margin:0;color:var(--sh-mute);font-size:.88rem;line-height:1.35}
+.prize .price{margin-top:4px;font:800 1.15rem/1 Unbounded,system-ui,sans-serif;color:var(--sh-ink);font-variant-numeric:tabular-nums}
+.prize .bar{height:6px;border-radius:3px;background:#1b3140;overflow:hidden;margin-top:6px}
+.prize .bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--sh-ice),var(--sh-gold))}
+.prize .left{color:var(--sh-mute);font-size:.8rem;letter-spacing:0}
+.prize .buy{margin-top:8px;width:100%;padding:13px 14px;border-radius:14px;font-weight:750;background:var(--sh-ice);color:#06231a}
+.prize .buy:disabled{opacity:1;background:#18303c;color:var(--sh-mute)}
+.prize.owned .buy:disabled{background:transparent;border:1px solid var(--sh-gold);color:var(--sh-gold)}
+.prize.ready{border-color:#3f8f72}
+/* главный приз */
+.prize.hero{border-color:#6b5428;background:linear-gradient(180deg,#1a2a2c 0%,var(--sh-panel) 55%)}
+.prize.hero::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:radial-gradient(70% 45% at 50% 0%,#e9c57e33,transparent 70%)}
+.prize.hero .art{aspect-ratio:16/9;background:radial-gradient(70% 90% at 50% 100%,#3a3420 0%,#14211f 70%)}
+.prize.hero h3{font-size:1.45rem}
+.prize.hero .price{color:var(--sh-gold);font-size:1.4rem}
+.prize .tag{align-self:flex-start;padding:4px 10px;border-radius:999px;font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:#2a1d05;background:linear-gradient(90deg,var(--sh-gold),var(--sh-gold-2))}
+#items .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:340px){#items .grid{grid-template-columns:1fr}}
+#items .grid .prize .meta{padding:12px 12px 14px}
+#items .grid .prize h3{font-size:.95rem}
+#items .grid .prize .sub{font-size:.8rem}
+#items .grid .prize .price{font-size:1rem}
+#shopmsg{margin:0;min-height:1.2em;color:var(--sh-ice);font-weight:650;text-align:center}
+.shop-terms{border:1px solid var(--sh-line);border-radius:16px;padding:12px 16px;background:#0b1a22}
+.shop-terms summary{color:var(--sh-ink)}
+.shop-terms p{font-size:.85rem;color:var(--sh-mute);margin:10px 0 0}
+@media(prefers-reduced-motion:no-preference){.prize.ready .buy{animation:shop-glow 2.4s ease-in-out infinite}}
+@keyframes shop-glow{0%,100%{box-shadow:0 0 0 0 #9df3ca00}50%{box-shadow:0 0 0 6px #9df3ca22}}
+/* разделы витрины и оформление */
+.shop-sec{margin:6px 2px -2px;color:var(--sh-gold);font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
+.nick-art{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.nick-art.fire{font:800 clamp(26px,8vw,40px)/1 Unbounded,system-ui,sans-serif;letter-spacing:.02em;
+  background:linear-gradient(90deg,#ff3d00,#ff9100,#ffd54f,#ff9100,#ff3d00);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 10px #ff6d0080);animation:nick-fire 2.4s linear infinite}
+@keyframes nick-fire{to{background-position:200% 0}}
+.nick-art.palette{gap:6px}.nick-art.palette i{width:18%;max-width:34px;aspect-ratio:1;border-radius:50%;box-shadow:0 0 0 2px #0f2029,0 6px 14px #0008}
+.nick-art.frame span{display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:#2b88cf;color:#fff;font:800 26px/1 Unbounded,system-ui;
+  box-shadow:0 0 0 3px #0f2029,0 0 0 6px #e0b25a,0 0 22px #e9c57eaa}
+.nick-art.emoji,.nick-art.shout{font-size:46px;filter:drop-shadow(0 8px 14px #0009)}
+.prize .preview{margin-top:2px;padding:8px 10px;border-radius:10px;background:#0b1a22;border:1px solid var(--sh-line);font-weight:800;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prize .preview.fire{background-image:linear-gradient(90deg,#ff3d00,#ff9100,#ffd54f,#ff9100,#ff3d00);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:nick-fire 2.4s linear infinite;background-color:transparent}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{width:30px;height:30px;padding:0;border-radius:50%;border:2px solid transparent;background:#132a35;font-size:16px;line-height:1}
+.opts.emojis .opt{border-radius:9px}
+.opt.on{border-color:#fff;box-shadow:0 0 0 2px var(--sh-gold)}
+.prize.k-cosmetic .art,.prize.k-shout .art{aspect-ratio:16/9}
+@media(prefers-reduced-motion:reduce){.nick-art.fire,.prize .preview.fire{animation:none}}
+/* ачивки: градиенты, рамки, скрытая цена */
+.shop-note{margin:-2px 2px 2px;font-size:.82rem;color:var(--sh-mute)}
+.nick-art.grad{font:800 clamp(26px,8vw,40px)/1 Unbounded,system-ui,sans-serif;background:linear-gradient(90deg,#ff4fd8,#7b61ff,#2ec4ff,#3ddc84,#ff4fd8);background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:nick-fire 4s linear infinite}
+.nick-art.frames{gap:14px}
+.fr{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:#2b88cf;color:#fff;font:800 18px/1 Unbounded,system-ui;flex:none}
+.fr.big{width:34px;height:34px;font-size:14px;margin-right:6px}
+.fr.frame-gold{box-shadow:0 0 0 2px #0f2029,0 0 0 4px #e0b25a,0 0 12px #e9c57e88}
+.fr.frame-ice{box-shadow:0 0 0 2px #0f2029,0 0 0 4px #2ec4ff,0 0 0 6px #9df3ca,0 0 14px #2ec4ff88}
+.fr.frame-neon{box-shadow:0 0 0 2px #0f2029,0 0 0 4px #ff4fd8,0 0 0 6px #7b61ff,0 0 16px #ff4fd899}
+.fr.frame-fire{box-shadow:0 0 0 2px #0f2029,0 0 0 4px #ff6d00,0 0 0 6px #ffd54f,0 0 16px #ff6d0099}
+.fr.frame-falcons{box-shadow:0 0 0 2px #fff,0 0 0 5px #2b88cf,0 0 0 7px #0d1f2d}
+.fr.frame-rainbow{box-shadow:0 0 0 2px #0f2029,0 0 0 4px #ff5a5f,0 0 0 6px #ffd23f,0 0 0 8px #3ddc84,0 0 0 10px #2ec4ff}
+.opts.frames .opt{width:40px;height:40px;border-radius:50%;background:transparent;display:flex;align-items:center;justify-content:center}
+.opts.frames .opt .fr{width:26px;height:26px;font-size:11px}
+.opt.g-sunset{background:linear-gradient(135deg,#ff6b6b,#ffa94d,#ff6bcb)}
+.opt.g-gold{background:linear-gradient(135deg,#b8862b,#f6dc9c,#c8963e)}
+.opt.g-neon{background:linear-gradient(135deg,#ff4fd8,#7b61ff,#2ec4ff)}
+.opt.g-aurora{background:linear-gradient(135deg,#3ddc84,#2ec4ff,#7b61ff)}
+.opt.g-blood{background:linear-gradient(135deg,#8b0000,#ff3b3b,#ff8a80)}
+.preview.g-text{-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;background-color:transparent}
+.preview.g-sunset{background-image:linear-gradient(90deg,#ff6b6b,#ffa94d,#ff6bcb)}
+.preview.g-gold{background-image:linear-gradient(90deg,#b8862b,#f6dc9c,#c8963e)}
+.preview.g-neon{background-image:linear-gradient(90deg,#ff4fd8,#7b61ff,#2ec4ff)}
+.preview.g-aurora{background-image:linear-gradient(90deg,#3ddc84,#2ec4ff,#7b61ff)}
+.preview.g-blood{background-image:linear-gradient(90deg,#8b0000,#ff3b3b,#ff8a80)}
+.reveal{display:flex;flex-direction:column;gap:8px;margin-top:8px;padding:12px;border-radius:14px;border:1px dashed var(--sh-gold);background:#1a2a2c;color:var(--sh-ink);font-size:.9rem}
+.reveal b{color:var(--sh-gold)}
+.reveal-row{display:flex;gap:8px}.reveal-row .buy{margin-top:0}
+.prize .buy.ghost{background:transparent;border:1px solid var(--sh-line);color:var(--sh-mute)}
+.prize.forever{border-color:#6b5428}
+.prize.forever .price{color:var(--sh-gold)}
+.reveal p{margin:0;color:var(--sh-ink)}
+.fr.frame-torch{box-shadow:0 0 0 2px #0f2029,0 0 0 4px #ff2d00,0 0 0 6px #ffb300,0 -6px 18px #ff6d00cc,0 0 22px #ff2d0099}

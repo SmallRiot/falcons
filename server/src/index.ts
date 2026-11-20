@@ -7,6 +7,7 @@ import { config } from './config.ts';
 import { authenticate } from './auth.ts';
 import { resolveBotUsername, startPolling } from './telegram.ts';
 import { startReminders } from './reminders.ts';
+import arcadeRoutes from './routes/arcade.ts';
 import meRoutes from './routes/me.ts';
 import eventRoutes from './routes/events.ts';
 import financeRoutes from './routes/finance.ts';
@@ -29,9 +30,15 @@ async function buildServer(staticDir: string | null) {
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
   if (config.devAuth) await app.register(devRoutes);
   await app.register(authRoutes);
+  await app.register(fastifyStatic, {
+    root: path.resolve(import.meta.dirname, '../../arcade/public'),
+    prefix: '/api/rink/assets/',
+    decorateReply: false,
+  });
   await app.register(async (api) => {
     api.addHook('preHandler', authenticate);
     await api.register(meRoutes);
+    await api.register(arcadeRoutes);
     await api.register(eventRoutes);
     await api.register(financeRoutes);
     await api.register(sharpeningRoutes);

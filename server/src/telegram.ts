@@ -657,6 +657,73 @@ export function reminderDues(userId: number, name: string, debts: { month: strin
   );
 }
 
+/* ---------- магазин «Ледового дропа» ---------- */
+
+const PRIZE_WHAT: Record<string, string> = {
+  physical: 'выдай приз и отметь в «Управление → Игра и магазин»',
+  voucher: 'это ваучер: игрок сам применит его в приложении',
+  cosmetic: 'оформление включилось само',
+  shout: 'бот уже поздравил в чате',
+};
+/** Админам: кто что заказал в магазине. */
+export function notifyAdminsPrize(u: UserRow, o: { title: string; price: number; kind: string; option: string | null }) {
+  const opt = o.option ? ` (${esc(o.option)})` : '';
+  const text = `🛍 <b>${esc(displayName(u))}</b> взял(а) в магазине: <b>${esc(o.title)}</b>${opt} — ${o.price.toLocaleString('ru-RU')} очк.\n<i>${PRIZE_WHAT[o.kind] ?? ''}</i>`;
+  // заказы магазина видит только владелец — он же управляет игрой
+  return config.ownerId ? dm(config.ownerId, text, 'admin-arcade') : Promise.resolve(null);
+}
+/** Владельцу: игрок оплатил рамку навсегда — проверь скрин. */
+export function notifyOwnerForeverFrame(u: UserRow, design: string) {
+  if (!config.ownerId) return Promise.resolve(null);
+  return dm(config.ownerId, `🖼 <b>${esc(displayName(u))}</b> оплатил(а) особую рамку навсегда (${esc(design)}) — 50 ₾. Проверь скрин и подтверди в «Игра и магазин».`, 'admin-arcade');
+}
+
+/** Игроку: физический приз выдан / заказ отменён. */
+export function notifyPrizeStatus(userId: number, title: string, status: 'issued' | 'cancelled', refund?: number) {
+  return dm(
+    userId,
+    status === 'issued'
+      ? `🎁 Приз «${esc(title)}» выдан. Носи с удовольствием!`
+      : `↩️ Заказ «${esc(title)}» отменён${refund ? ` — ${refund.toLocaleString('ru-RU')} очк. вернулись на баланс` : ''}.`,
+    'profile',
+  );
+}
+export const teamChatIdNow = () => teamChatId();
+
+const AI_SIGN: Record<string, string> = {
+  gigachat: '🇷🇺 <i>Поздравляет отечественный производитель — GigaChat</i>',
+  claude: '🤖 <i>Пишет Claude</i>',
+};
+/** Кнопки оценки шутки нейронки: 🔥 смешно / 🙂 норм / 🥶 мимо (с числом голосов). */
+export function aiPostButtons(postId: number, c: Record<number, number>): Button[][] {
+  const lbl = (e: string, n: number) => (n ? `${e} ${n}` : e);
+  return [
+    [
+      { text: lbl('🔥 Смешно', c[3] ?? 0), callback_data: `rate:${postId}:3` },
+      { text: lbl('🙂 Норм', c[2] ?? 0), callback_data: `rate:${postId}:2` },
+      { text: lbl('🥶 Мимо', c[1] ?? 0), callback_data: `rate:${postId}:1` },
+    ],
+  ];
+}
+/** Пост нейронки в общий топик: заголовок, текст, честная подпись производителя, кнопки оценки. */
+export function postAiToChat(header: string, text: string, provider: string, buttons: Button[][]) {
+  return sendMessage(TEAM, `${header}\n\n${esc(text)}${AI_SIGN[provider] ? `\n\n${AI_SIGN[provider]}` : ''}`, buttons);
+}
+
+/** «Респект в чате» — разовый пост в общий топик: комплимент от Claude, без него — шаблон. */
+export function postShoutOut(u: UserRow, compliment: string | null) {
+  const name = esc(displayName(u));
+  if (compliment) return sendMessage(TEAM, `📣 <b>Респект ${name}!</b>\n\n${esc(compliment)}`);
+  return sendMessage(
+    TEAM,
+    pick([
+      `📣 <b>Респект ${name}!</b> 🦅\nКоманда, поддержим — в чат летят 👏👏👏`,
+      `🔥 <b>${name}</b> сегодня в огне! Выкупил(а) респект в магазине Falcons — поаплодируем 👏`,
+      `🏒 Минутка славы для <b>${name}</b>! Кто за — ставим 🔥 под этим сообщением`,
+    ]),
+  );
+}
+
 /* ---------- гости: оплата за выход ---------- */
 
 const evName = (e: { type: string; title: string | null; starts_at: string }) =>
@@ -788,6 +855,11 @@ export async function handleUpdate(u: Update) {
     return;
   }
   const m = u.message;
+  // переписка командной группы → короткий журнал для нейронки (только текст)
+  if (m?.text && m.from && !m.from.is_bot && String(m.chat.id) === String(teamChatId()) && !m.text.startsWith('/')) {
+    const { logChatMessage } = await import('./aiBuddy.ts');
+    logChatMessage({ chatId: m.chat.id, threadId: m.message_thread_id, userId: m.from.id, name: m.from.first_name || 'Игрок', text: m.text });
+  }
   if (m?.text) {
     const cmd = m.text.split(/[\s@]/)[0];
     // админ команды пишет в нужном топике группы: бот запоминает, куда что постить
@@ -852,6 +924,15 @@ export async function handleUpdate(u: Update) {
   const actor = db.prepare('SELECT * FROM users WHERE id = ?').get(cq.from.id) as UserRow | undefined;
 
   const en = english(cq.from.id);
+  if (action === 'rate') {
+    const { ratePost } = await import('./aiBuddy.ts');
+    const r = ratePost(Number(a), cq.from.id, Number(b));
+    if (!r) return answer(cq.id, 'Пост не найден');
+    if (r.post.message_id && cq.message)
+      void api('editMessageReplyMarkup', { chat_id: cq.message.chat.id, message_id: cq.message.message_id, reply_markup: { inline_keyboard: aiPostButtons(r.post.id, r.counts) } });
+    return answer(cq.id, Number(b) === 3 ? 'Засчитано: смешно 🔥' : Number(b) === 2 ? 'Засчитано: норм 🙂' : 'Засчитано: мимо 🥶 — нейронка подумает над собой');
+  }
+
   if (action === 'rsvp') {
     const e = getEvent(Number(a));
     if (!e) return answer(cq.id, en ? 'Event not found' : 'Событие не найдено');

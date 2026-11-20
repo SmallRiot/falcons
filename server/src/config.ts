@@ -33,6 +33,8 @@ export const config = {
   trainingsThreadId: Number(process.env.TEAM_THREAD_TRAININGS) || 0,
   gamesThreadId: Number(process.env.TEAM_THREAD_GAMES) || 0,
   adminIds: list(process.env.ADMIN_IDS).map(Number),
+  /** владелец: управляет игрой и магазином, носит значок разработчика. По умолчанию — первый из ADMIN_IDS */
+  ownerId: Number(process.env.OWNER_ID) || list(process.env.ADMIN_IDS).map(Number)[0] || 0,
   botPolling: process.env.BOT_POLLING === '1',
   /** Тестовый режим: все сообщения бота уходят на этот chat id. */
   testChatId: process.env.TEST_CHAT_ID ?? '',

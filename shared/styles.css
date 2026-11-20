@@ -433,3 +433,136 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 
 .event-roster-group > .section-title { margin-bottom: 8px; }
 .event-declines > summary { display: list-item; cursor: pointer; margin: 0; padding: 10px 4px; }
+
+/* ===== оформление из магазина игры ===== */
+.avatar.framed { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px #e0b25a, 0 0 12px #e9c57e88; }
+.nick { font-weight: inherit; }
+.nick-fire {
+  background: linear-gradient(90deg, #ff3d00, #ff9100, #ffd54f, #ff9100, #ff3d00);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: nick-fire 2.4s linear infinite;
+  filter: drop-shadow(0 0 6px #ff6d0055);
+}
+@keyframes nick-fire { to { background-position: 200% 0; } }
+@media (prefers-reduced-motion: reduce) { .nick-fire { animation: none; } }
+.nick-emoji { -webkit-text-fill-color: initial; }
+/* владелец — разработчик: «</> DEV» у ника и неоновая рамка-кольцо у аватарки */
+.dev-badge {
+  display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 6px; border-radius: 6px; vertical-align: 2px;
+  font: 800 10px/1.5 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: .04em; color: #062018;
+  background: linear-gradient(90deg, #9df3ca, #2ec4ff); -webkit-text-fill-color: #062018;
+}
+
+/* градиентные ники (ачивки) и твой DEV-ник — тот же мятно-голубой, что плашка DEV */
+.nick-grad { -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; background-size: 200% 100%; animation: nick-shine 4s linear infinite; }
+.nick-grad-dev { background-image: linear-gradient(90deg, #2bd9a0, #2ec4ff, #2bd9a0); }
+.nick-grad-sunset { background-image: linear-gradient(90deg, #ff6b6b, #ffa94d, #ff6bcb, #ff6b6b); }
+.nick-grad-gold { background-image: linear-gradient(90deg, #b8862b, #f6dc9c, #c8963e, #b8862b); }
+.nick-grad-neon { background-image: linear-gradient(90deg, #ff4fd8, #7b61ff, #2ec4ff, #ff4fd8); }
+.nick-grad-aurora { background-image: linear-gradient(90deg, #3ddc84, #2ec4ff, #7b61ff, #3ddc84); }
+.nick-grad-blood { background-image: linear-gradient(90deg, #8b0000, #ff3b3b, #ff8a80, #8b0000); }
+@keyframes nick-shine { to { background-position: 200% 0; } }
+@media (prefers-reduced-motion: reduce) { .nick-grad { animation: none; } }
+
+/* особые рамки аватарки */
+
+/* ===== Магазин ачивок (в приложении) ===== */
+.shop-hero { position: relative; overflow: hidden; border-radius: 24px; padding: 20px 20px 22px; color: #f2f8fa;
+  background: radial-gradient(120% 80% at 100% 0%, #1d3a48 0%, transparent 60%), linear-gradient(160deg, #0f2029, #08141b); box-shadow: 0 16px 40px #08141b40; }
+.shop-hero h1 { margin: 4px 0 8px; font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+.shop-eyebrow { color: #e9c57e; font-size: .7rem; font-weight: 800; letter-spacing: .22em; }
+.shop-bal { color: #8fa9b3; font-size: .9rem; }
+.shop-bal b { color: #9df3ca; font-size: 1.15rem; }
+.shop-sub { color: #8fa9b3; font-size: .82rem; margin-top: 8px; max-width: 30em; }
+/* шайба: тёмная, почти сливается с фоном в углу — заметят только внимательные */
+.secret-puck { position: absolute; right: 18px; bottom: 14px; width: 26px; height: 14px; padding: 0; border: 0; border-radius: 50%;
+  background: #050c11; box-shadow: inset 0 2px 0 #1b3140, 0 3px 0 #02070a; opacity: .75; cursor: default; }
+.secret-puck:active { transform: scale(.92); }
+.ach-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 340px) { .ach-grid { grid-template-columns: 1fr; } }
+.card.ach { display: flex; flex-direction: column; gap: 6px; padding: 14px; }
+.ach-preview { display: flex; align-items: center; justify-content: center; min-height: 54px; border-radius: 12px; background: #0f2029; color: #f2f8fa;
+  font-size: 1.05rem; font-weight: 800; padding: 8px; text-align: center; overflow: hidden; }
+.ach-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.ach-opt { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid transparent; background: var(--surface-2); font-size: 14px; line-height: 1; cursor: pointer; }
+.ach-opt.sw-grad { -webkit-text-fill-color: initial; background-clip: border-box; -webkit-background-clip: border-box; animation: none; background-size: 100% 100%; }
+.ach-opt.on { border-color: var(--surface); box-shadow: 0 0 0 2px var(--falcon); }
+.ach-price { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); letter-spacing: .1em; }
+.ach-reveal { margin-top: 6px; padding: 10px; border-radius: 12px; border: 1px dashed #c8963e; background: #fbf6ea; font-size: .88rem; display: flex; flex-direction: column; gap: 8px; color: #2a1d05; }
+.ach-reveal b { color: #9a6b1f; }
+.frame-card { display: flex; flex-direction: column; gap: 12px; }
+.frame-demo { display: flex; align-items: center; gap: 22px; padding: 22px 8px 10px 16px; }
+.frame-demo .avatar.lg { width: 84px; height: 84px; flex: none; }
+.frame-opt { border: 0; background: none; padding: 6px; border-radius: 50%; cursor: pointer; }
+.frame-opt.on { background: var(--falcon-soft); }
+.frame-buy { display: grid; gap: 8px; }
+.btn.frame-forever { background: linear-gradient(90deg, #e9c57e, #b98a3a); color: #2a1d05; }
+.home-shop { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; border-radius: 18px; border: 1px solid #e9c57e66; cursor: pointer; font: inherit; color: var(--ink);
+  background: linear-gradient(120deg, #fff8e8, var(--surface) 60%); text-align: left; }
+.home-shop-ic { font-size: 26px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .home-shop { background: linear-gradient(120deg, #2a2716, var(--surface) 60%); } }
+:root[data-theme="dark"] .home-shop { background: linear-gradient(120deg, #2a2716, var(--surface) 60%); }
+
+/* ===== Рамки аватарки: толстое вращающееся кольцо, сильное свечение, искры ===== */
+.avatar-ring { position: relative; display: inline-flex; flex: none; border-radius: 50%; isolation: isolate; --ring: 4px; --gap: 3px; }
+.avatar-ring.lg { --ring: 7px; --gap: 4px; }
+.avatar-ring.sm { --ring: 2.5px; --gap: 2px; }
+.avatar-ring > .avatar { position: relative; z-index: 1; box-shadow: 0 0 0 1.5px #ffffffcc, 0 2px 10px #0006; }
+.avatar-ring::before, .avatar-ring::after { content: ''; position: absolute; inset: calc(-1 * (var(--ring) + var(--gap))); border-radius: 50%; pointer-events: none; }
+.avatar-ring::before {
+  z-index: 2; background: var(--ring-bg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--ring) - 0.5px), #000 calc(100% - var(--ring)));
+          mask: radial-gradient(farthest-side, transparent calc(100% - var(--ring) - 0.5px), #000 calc(100% - var(--ring)));
+  animation: ring-spin var(--spin, 5s) linear infinite;
+  filter: saturate(1.3) brightness(1.08);
+}
+.avatar-ring::after { z-index: 0; inset: calc(-1 * (var(--ring) + var(--gap) + 5px)); background: var(--ring-bg); filter: blur(12px) saturate(1.4); opacity: .8; animation: ring-spin var(--spin, 5s) linear infinite, var(--glow-anim, ring-breathe 2.6s ease-in-out infinite); }
+.avatar-ring.lg::after { inset: calc(-1 * (var(--ring) + var(--gap) + 9px)); filter: blur(18px) saturate(1.5); }
+.avatar-ring.sm::after { inset: calc(-1 * (var(--ring) + var(--gap) + 2px)); filter: blur(5px); opacity: .6; }
+@keyframes ring-spin { to { transform: rotate(360deg); } }
+@keyframes ring-breathe { 0%, 100% { opacity: .6; } 50% { opacity: .95; } }
+@keyframes ring-flicker { 0%, 100% { opacity: .7; } 30% { opacity: 1; } 55% { opacity: .5; } 80% { opacity: .95; } }
+@keyframes ring-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+/* искры по орбите */
+.ring-orbit { position: absolute; inset: calc(-1 * (var(--ring) + var(--gap) + 3px)); z-index: 3; pointer-events: none; animation: ring-spin calc(var(--spin, 5s) * .7) linear infinite reverse; }
+.ring-orbit i { position: absolute; inset: 0; }
+.ring-orbit i:nth-child(2) { transform: rotate(120deg); }
+.ring-orbit i:nth-child(3) { transform: rotate(240deg); }
+.ring-orbit i::before { content: ''; position: absolute; top: -2px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%;
+  background: #fff; box-shadow: 0 0 6px 2px var(--spark, #fff), 0 0 14px 4px var(--spark, #fff8); animation: spark-twinkle 1.4s ease-in-out infinite; }
+.ring-orbit i:nth-child(2)::before { animation-delay: -.45s; }
+.ring-orbit i:nth-child(3)::before { animation-delay: -.9s; }
+.avatar-ring.lg .ring-orbit i::before { width: 8px; height: 8px; margin-left: -4px; top: -3px; }
+@keyframes spark-twinkle { 0%, 100% { transform: scale(.5); opacity: .5; } 50% { transform: scale(1.2); opacity: 1; } }
+.ring-gold    { --ring-bg: conic-gradient(#8a5a12, #fff3c4, #c8963e, #ffe08a, #b8862b, #fff3c4, #8a5a12); --spin: 6s; --spark: #ffd54f; }
+.ring-ice     { --ring-bg: conic-gradient(#e8fbff, #2ec4ff, #9df3ca, #ffffff, #5fb7ff, #9df3ca, #e8fbff); --spin: 8s; --spark: #9df3ca; }
+.ring-neon    { --ring-bg: conic-gradient(#ff4fd8, #7b61ff, #2ec4ff, #ff4fd8, #7b61ff, #2ec4ff, #ff4fd8); --spin: 2.6s; --glow-anim: ring-pulse 1.2s ease-in-out infinite; --spark: #ff4fd8; }
+.ring-fire    { --ring-bg: conic-gradient(#ff2d00, #ff9100, #ffd54f, #ff3d00, #ffb300, #ff6d00, #ff2d00); --spin: 2s; --glow-anim: ring-flicker .7s steps(4) infinite; --spark: #ffb300; }
+.ring-falcons { --ring-bg: conic-gradient(#2b88cf, #ffffff, #0d1f2d, #2b88cf, #e9c57e, #0d1f2d, #2b88cf); --spin: 7s; --spark: #e9c57e; }
+.ring-rainbow { --ring-bg: conic-gradient(#ff5a5f, #ffd23f, #3ddc84, #2ec4ff, #7b61ff, #ff4fd8, #ff5a5f); --spin: 3.5s; --spark: #fff; }
+.ring-dev     { --ring-bg: conic-gradient(#2bd9a0, #2ec4ff, #062018, #2bd9a0, #2ec4ff, #062018, #2bd9a0); --spin: 5s; --spark: #9df3ca; }
+/* «Грозный факел»: тёмно-красное кольцо + живое пламя над аватаркой */
+.ring-torch   { --ring-bg: conic-gradient(#3a0400, #ff2d00, #ffb300, #fff3a0, #ff6d00, #7a0b00, #3a0400); --spin: 1.8s; --glow-anim: ring-flicker .5s steps(3) infinite; --spark: #ff6d00; }
+.ring-flames { position: absolute; inset: calc(-1 * (var(--ring) + var(--gap) + 2px)); z-index: 3; pointer-events: none; --fh: 16px; --fw: 9px; }
+.avatar-ring.lg .ring-flames { --fh: 30px; --fw: 16px; }
+.avatar-ring.sm .ring-flames { --fh: 9px; --fw: 5px; }
+.ring-flames i { position: absolute; inset: 0; transform: rotate(calc((var(--k) - 5) * 17deg)); }
+.ring-flames i::before { content: ''; position: absolute; left: 50%; top: calc(-1 * var(--fh) * .72); width: var(--fw); height: var(--fh); margin-left: calc(var(--fw) / -2);
+  border-radius: 50% 50% 45% 45% / 70% 70% 30% 30%; transform-origin: 50% 100%;
+  background: radial-gradient(ellipse at 50% 80%, #fffbe0 0%, #ffd54f 22%, #ff9100 50%, #ff2d00 75%, transparent 78%);
+  filter: drop-shadow(0 0 4px #ff6d00) drop-shadow(0 0 8px #ff2d0099);
+  animation: flame 0.55s ease-in-out infinite alternate; animation-delay: calc(var(--k) * -0.11s); }
+.ring-flames i:nth-child(odd)::before { height: calc(var(--fh) * .78); top: calc(-1 * var(--fh) * .55); }
+@keyframes flame { 0% { transform: scaleY(.75) scaleX(1.05) skewX(-4deg); opacity: .85; } 100% { transform: scaleY(1.18) scaleX(.9) skewX(5deg); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .avatar-ring::before, .avatar-ring::after, .ring-orbit, .ring-orbit i::before, .ring-flames i::before { animation: none; } }
+.shop-admin { display: flex; flex-direction: column; gap: 10px; }
+.shop-admin-row.off { opacity: .6; }
+/* обложка профиля (ачивка): картинка сверху карточки, аватарка поверх */
+.card.has-cover { overflow: visible; }
+.profile-cover { align-self: stretch; height: 132px; margin: 0 -16px -54px; border-radius: var(--r-lg) var(--r-lg) 0 0; background: center / cover no-repeat #0f2029;
+  -webkit-mask: linear-gradient(#000 70%, transparent); mask: linear-gradient(#000 70%, transparent); }
+.card.has-cover > .avatar-ring, .card.has-cover > .avatar { position: relative; z-index: 2; }
+.card.has-cover > .avatar { box-shadow: 0 0 0 4px var(--surface); }
+.cover-demo { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0 16px 14px; border-radius: 16px; background: var(--surface-2); overflow: hidden; }
+.cover-demo .profile-cover { margin: 0 -16px -54px; border-radius: 0; height: 120px; }

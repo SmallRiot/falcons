@@ -23,7 +23,33 @@ export default async function sharpeningRoutes(app: FastifyInstance) {
   app.get('/api/sharpening', { preHandler: requireActive }, async (req) => ({
     price: price(),
     items: db.prepare('SELECT * FROM sharpenings WHERE user_id = ? ORDER BY id DESC LIMIT 30').all(req.user.id),
+    /** призы «Заточка коньков» из магазина игры, которые ещё не потрачены */
+    vouchers: (db.prepare(`SELECT COUNT(*) c FROM prize_orders WHERE user_id = ? AND item = 'skate-sharpening' AND status = 'active'`).get(req.user.id) as { c: number }).c,
   }));
+
+  /** Заточка по призу из магазина: без оплаты, ваучер тратится. */
+  app.post<{ Body: { note?: string } }>('/api/sharpening/voucher', { preHandler: requireActive }, async (req, reply) => {
+    const open = db
+      .prepare(`SELECT COUNT(*) c FROM sharpenings WHERE user_id=? AND status IN ('new','accepted')`)
+      .get(req.user.id) as { c: number };
+    if (open.c >= 2) return reply.code(400).send({ error: 'У вас уже есть активные заявки' });
+    const v = db
+      .prepare(`SELECT id FROM prize_orders WHERE user_id = ? AND item = 'skate-sharpening' AND status = 'active' ORDER BY id LIMIT 1`)
+      .get(req.user.id) as { id: number } | undefined;
+    if (!v) return reply.code(400).send({ error: 'Приза «Заточка» нет — его можно взять в магазине игры' });
+    const note = [`🎁 По призу из магазина`, req.body?.note?.trim().slice(0, 300)].filter(Boolean).join(' · ');
+    db.exec('BEGIN');
+    try {
+      db.prepare(`INSERT INTO sharpenings(user_id, note, price, payment) VALUES(?,?,0,'paid')`).run(req.user.id, note);
+      db.prepare(`UPDATE prize_orders SET status = 'used', done_at = ? WHERE id = ?`).run(new Date().toISOString(), v.id);
+      db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
+    void notifyServiceSharpening(req.user, note);
+    return { ok: true };
+  });
 
   /** Новая заявка: сразу со скрином оплаты. */
   app.post('/api/sharpening', { preHandler: requireActive }, async (req, reply) => {

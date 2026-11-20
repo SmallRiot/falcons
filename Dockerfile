@@ -19,6 +19,8 @@ COPY server/package.json server/
 COPY web/package.json web/
 COPY console/package.json console/
 RUN npm ci --omit=dev --workspace server && npm cache clean --force
+COPY arcade/store.mjs arcade/server.mjs arcade/
+COPY arcade/public arcade/public
 COPY server server
 COPY shared shared
 COPY --from=build /app/web/dist web/dist

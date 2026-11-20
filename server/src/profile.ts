@@ -73,3 +73,21 @@ export function removeAvatar(userId: number) {
   db.prepare('UPDATE users SET photo_url = NULL WHERE id = ?').run(userId);
   dropOldAvatar(old?.photo_url ?? null);
 }
+
+/** Обложка профиля (ачивка): широкая картинка, клиент уже ужал до 1200×400. */
+export async function saveCover(req: FastifyRequest, userId: number) {
+  const part = await req.file();
+  if (!part) throw Object.assign(new Error('Нет файла'), { statusCode: 400 });
+  const ext = AVATAR_TYPES[part.mimetype];
+  if (!ext) {
+    part.file.resume();
+    throw Object.assign(new Error('Нужна картинка: jpg, png или webp'), { statusCode: 400 });
+  }
+  const buf = await part.toBuffer();
+  const name = `cover-${randomUUID()}${ext}`;
+  writeFileSync(path.join(avatarsDir, name), buf);
+  const old = db.prepare('SELECT cover_url FROM users WHERE id = ?').get(userId) as { cover_url: string | null };
+  db.prepare('UPDATE users SET cover_url = ? WHERE id = ?').run(AVATAR_PREFIX + name, userId);
+  dropOldAvatar(old?.cover_url ?? null);
+  return AVATAR_PREFIX + name;
+}

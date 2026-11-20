@@ -1,3 +1,4 @@
+import ArcadeAdmin from './pages/ArcadeAdmin';
 import GuestFees from './pages/GuestFees';
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="/trainings" element={<TrainingStats />} />
           {admin && <Route path="/finance" element={<Finance />} />}
           {admin && <Route path="/guest-fees" element={<GuestFees />} />}
+          {me.user.owner && <Route path="/arcade" element={<ArcadeAdmin />} />}
           <Route path="/sharpening" element={<SharpeningQueue />} />
           {admin && <Route path="/squads" element={<Squads />} />}
           {admin && <Route path="/accounts" element={<Accounts />} />}

@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
+import { config } from '../config.ts';
 import { requireActive } from '../auth.ts';
-import { removeAvatar, saveAvatar, updateProfile, type ProfileBody } from '../profile.ts';
+import { removeAvatar, saveAvatar, saveCover, updateProfile, type ProfileBody } from '../profile.ts';
 import { guestDebts } from '../signup.ts';
-import { db, hasRole, profileComplete, publicUser, rolesOf, validBirthDate } from '../db.ts';
+import { db, hasRole, profileComplete, publicUser, rolesOf, styleOf, validBirthDate } from '../db.ts';
 import { debtsOf } from '../finance.ts';
 import { sharpeningDebts } from '../reminders.ts';
 import { allSquads, squadIdsOf } from '../squads.ts';
@@ -23,6 +24,8 @@ export default async function meRoutes(app: FastifyInstance) {
     const base = {
       user: {
         ...publicUser(u),
+        /** владелец: только ему доступно управление игрой и магазином */
+        owner: u.id === config.ownerId,
         roles: rolesOf(u),
         status: u.status,
         signup_blocked: !!u.signup_blocked,
@@ -50,6 +53,8 @@ export default async function meRoutes(app: FastifyInstance) {
       ).c;
     }
     badges.unread = (db.prepare('SELECT COUNT(*) c FROM notifications WHERE user_id=? AND read=0').get(u.id) as { c: number }).c;
+    if (u.id === config.ownerId)
+      badges.prizes = (db.prepare(`SELECT COUNT(*) c FROM prize_orders WHERE kind='physical' AND status='new'`).get() as { c: number }).c;
     if (hasRole(u, 'admin'))
       badges.fees = (db.prepare(`SELECT COUNT(*) c FROM guest_fees WHERE status='pending'`).get() as { c: number }).c;
     const gd = guestDebts(u.id);
@@ -75,6 +80,12 @@ export default async function meRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/me/photo', { preHandler: requireActive }, async (req) => ({ photo_url: await saveAvatar(req, req.user.id) }));
+  /** Обложка профиля — только пока действует ачивка «Обложка профиля». */
+  app.post('/api/me/cover', { preHandler: requireActive }, async (req, reply) => {
+    if (!styleOf(req.user.id)?.cover) return reply.code(400).send({ error: 'Сначала возьми «Обложку профиля» в магазине ачивок' });
+    return { cover_url: await saveCover(req, req.user.id) };
+  });
+
   app.delete('/api/me/photo', { preHandler: requireActive }, async (req) => {
     removeAvatar(req.user.id);
     return { ok: true };

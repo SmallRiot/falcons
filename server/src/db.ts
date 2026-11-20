@@ -166,6 +166,7 @@ function addColumn(table: string, column: string, def: string) {
 }
 addColumn('users', 'language', "TEXT CHECK(language IN ('ru','en'))");
 addColumn('users', 'birth_date', 'TEXT');
+addColumn('users', 'cover_url', 'TEXT'); // обложка профиля (ачивка)
 // событие из серии ждёт, когда до него останется неделя, чтобы бот запостил его в чат
 addColumn('events', 'announce_pending', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('periods', 'tg_message_id', 'INTEGER');
@@ -177,6 +178,56 @@ addColumn('events', 'score_them', 'INTEGER');
 addColumn('signups', 'attended', 'INTEGER');
 addColumn('sharpenings', 'payment', "TEXT NOT NULL DEFAULT 'pending'");
 addColumn('lineups', 'team', "TEXT NOT NULL DEFAULT ''");
+// нейронка в группе: короткий журнал сообщений группы (только текст, 3 дня),
+// её посты и оценки «смешно / норм / мимо» — для статистики нейронок
+db.exec(`
+CREATE TABLE IF NOT EXISTS chat_log (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id    TEXT NOT NULL,
+  thread_id  INTEGER,
+  user_id    INTEGER,
+  name       TEXT NOT NULL,
+  text       TEXT NOT NULL,
+  at         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS chat_log_at ON chat_log(at);
+CREATE TABLE IF NOT EXISTS ai_posts (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider    TEXT NOT NULL,                       -- gigachat | claude | template
+  model       TEXT,
+  kind        TEXT NOT NULL,                       -- shout | daily
+  user_id     INTEGER,
+  text        TEXT NOT NULL,
+  context_n   INTEGER NOT NULL DEFAULT 0,          -- сколько сообщений чата видела модель
+  chat_id     TEXT,
+  message_id  INTEGER,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE TABLE IF NOT EXISTS ai_ratings (
+  post_id  INTEGER NOT NULL REFERENCES ai_posts(id) ON DELETE CASCADE,
+  user_id  INTEGER NOT NULL,
+  score    INTEGER NOT NULL,                        -- 3 огонь, 2 норм, 1 мимо
+  at       TEXT NOT NULL,
+  PRIMARY KEY (post_id, user_id)
+);`);
+// заказы из магазина «Ледового дропа»: физические призы выдаёт админ, заточка — ваучер,
+// оформление ника/аватарки действует до expires_at, «респект» — разовый пост бота
+db.exec(`
+CREATE TABLE IF NOT EXISTS prize_orders (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item        TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  kind        TEXT NOT NULL,                       -- physical | voucher | cosmetic | shout
+  price       REAL NOT NULL,
+  option      TEXT,
+  status      TEXT NOT NULL,                       -- new | issued | active | used | done | cancelled
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  expires_at  TEXT,
+  done_at     TEXT
+);`);
+addColumn('prize_orders', 'proof', 'TEXT');
+addColumn('prize_orders', 'currency', "TEXT NOT NULL DEFAULT 'pts'");
 // роль «гость»: цена за выход на лёд и оплаты за каждое событие
 addColumn('users', 'guest_price', 'REAL');
 db.exec(`
@@ -217,6 +268,7 @@ export interface UserRow {
   roles: string;
   status: 'pending' | 'active' | 'rejected' | 'guest';
   guest_price?: number | null;
+  cover_url?: string | null;
   signup_blocked: number;
   created_at: string;
 }
@@ -226,8 +278,42 @@ export const hasRole = (u: Pick<UserRow, 'roles'>, ...r: Role[]) => rolesOf(u).s
 export const displayName = (u: Pick<UserRow, 'first_name' | 'last_name'>) =>
   [u.first_name, u.last_name].filter(Boolean).join(' ');
 
+/** Оформление из магазина: цветной/огненный ник, эмодзи, золотая рамка (кэш на минуту). */
+export type NickStyle = { color?: string; fire?: boolean; grad?: string; emoji?: string; frame?: string; dev?: boolean; cover?: boolean };
+let styleCache: { at: number; map: Map<number, NickStyle> } | null = null;
+export const resetStyleCache = () => void (styleCache = null);
+export function styleOf(userId: number): NickStyle | null {
+  if (!styleCache || Date.now() - styleCache.at > 60_000) {
+    const map = new Map<number, NickStyle>();
+    const rows = db
+      .prepare(`SELECT user_id, item, option FROM prize_orders WHERE kind = 'cosmetic' AND status = 'active' AND expires_at > ? ORDER BY id`)
+      .all(new Date().toISOString()) as { user_id: number; item: string; option: string | null }[];
+    for (const r of rows) {
+      const st = map.get(r.user_id) ?? {};
+      // текст ника: что куплено последним, то и горит
+      if (r.item === 'nick-color' && r.option) Object.assign(st, { color: r.option, fire: undefined, grad: undefined });
+      if (r.item === 'nick-fire') Object.assign(st, { fire: true, color: undefined, grad: undefined });
+      if (r.item === 'nick-grad' && r.option) Object.assign(st, { grad: r.option, color: undefined, fire: undefined });
+      if (r.item === 'nick-emoji' && r.option) st.emoji = r.option;
+      if (r.item === 'avatar-frame') st.frame = 'gold';
+      if (r.item.startsWith('frame-') && r.option) st.frame = r.option;
+      if (r.item === 'profile-cover') st.cover = true;
+      map.set(r.user_id, st);
+    }
+    styleCache = { at: Date.now(), map };
+  }
+  const st = styleCache.map.get(userId) ?? null;
+  // владелец — разработчик приложения: значок </> DEV у ника и рамка у аватарки
+  if (userId === config.ownerId) return { ...(st ?? {}), dev: true };
+  return st;
+}
+
 export function publicUser(u: UserRow) {
+  const style = styleOf(u.id);
   return {
+    style,
+    /** обложка профиля — только пока действует ачивка */
+    cover_url: style?.cover ? (u.cover_url ?? null) : null,
     id: u.id,
     name: displayName(u),
     first_name: u.first_name,

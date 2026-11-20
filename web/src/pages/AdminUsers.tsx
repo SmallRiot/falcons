@@ -4,7 +4,7 @@ import { PlayerEdit } from '@shared/PlayerEdit';
 import { Search, Users } from 'lucide-react';
 import { api, type PublicUser, type Role } from '@shared/api';
 import { birthday, fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
-import { askText, ask, Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
+import { Nick, askText, ask, Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
 
 type AdminUser = PublicUser & { squads: number[]; guest_price: number | null; roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; debt: number; created_at: string };
 
@@ -74,7 +74,7 @@ export default function AdminUsers() {
             <button key={u.id} className="row" onClick={() => setOpen(u)}>
               <Avatar user={u} />
               <div className="grow">
-                <div className="title">{u.name}</div>
+                <div className="title"><Nick user={u} text={u.name} /></div>
                 <div className="meta">
                   {u.username ? `@${u.username}` : `id ${u.id}`}
                   {u.position ? ` · ${POS_SHORT[u.position]}` : ''}

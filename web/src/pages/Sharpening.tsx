@@ -46,7 +46,7 @@ export function Steps({ status }: { status: SharpItem['status'] }) {
 export default function Sharpening() {
   const { me, refresh } = useMe();
   const nav = useNavigate();
-  const { data, loading, reload } = useApi<{ price: number; items: SharpItem[] }>('/api/sharpening');
+  const { data, loading, reload } = useApi<{ price: number; items: SharpItem[]; vouchers?: number }>('/api/sharpening');
   const accounts = useApi<Account[]>('/api/accounts');
   const [open, setOpen] = useState(false);
   const [payDebt, setPayDebt] = useState<SharpItem | null>(null);
@@ -113,6 +113,21 @@ export default function Sharpening() {
         >
           {t('Заказать заточку')}
         </button>
+        {!!data.vouchers && (
+          <button
+            className="btn block"
+            style={{ marginTop: 10, background: 'linear-gradient(90deg,#e9c57e,#b98a3a)', color: '#2a1d05' }}
+            disabled={busy || active.length >= 2}
+            onClick={() =>
+              run(async () => {
+                await api.post('/api/sharpening/voucher', {});
+                await Promise.all([reload(), refresh()]);
+              }, t('Заявка отправлена — по призу, без оплаты'))
+            }
+          >
+            🎁 {t('Заточка по призу — бесплатно')}{data.vouchers > 1 ? ` (${data.vouchers})` : ''}
+          </button>
+        )}
       </div>
 
       <div className="section-title">{t('Мои заявки')}</div>

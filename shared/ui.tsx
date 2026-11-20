@@ -2,7 +2,7 @@ import { t } from './i18n';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, ImagePlus, X } from 'lucide-react';
-import { api, fetchFileUrl, type Me, type Squad } from './api';
+import { api, fetchFileUrl, type Me, type NickStyle, type Squad } from './api';
 import { haptic } from './tg';
 
 /* ---------- контекст «я» ---------- */
@@ -155,11 +155,58 @@ export function useAction() {
 
 const AVATAR_COLORS = ['#2b88cf', '#1c6aa8', '#5b8fb0', '#3a6f96', '#0d6e8a', '#4a7fa8', '#26567d', '#6c9bbd'];
 
-export function Avatar({ user, size }: { user: { id: number; first_name: string; last_name?: string | null; photo_url?: string | null }; size?: 'sm' | 'lg' }) {
+type StyledUser = { id: number; first_name: string; last_name?: string | null; photo_url?: string | null; style?: NickStyle | null };
+export function Avatar({ user, size }: { user: StyledUser; size?: 'sm' | 'lg' }) {
   const initials = ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase() || '?';
-  return (
+  const av = (
     <span className={`avatar ${size ?? ''}`} style={{ background: AVATAR_COLORS[Math.abs(user.id) % AVATAR_COLORS.length] }}>
       {user.photo_url ? <img src={user.photo_url} alt="" loading="lazy" /> : initials}
+    </span>
+  );
+  // рамка из магазина (или DEV-кольцо владельца): вращающийся градиент + свечение вокруг аватарки
+  const frame = user.style?.frame ? (user.style.frame === true ? 'gold' : user.style.frame) : user.style?.dev ? 'dev' : null;
+  if (!frame) return av;
+  return (
+    <span className={`avatar-ring ring-${frame} ${size ?? ''}`}>
+      {av}
+      {/* искры, бегающие по кругу */}
+      {size !== 'sm' && (
+        <span className="ring-orbit" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+      )}
+      {/* «Грозный факел»: языки пламени над аватаркой */}
+      {frame === 'torch' && (
+        <span className="ring-flames" aria-hidden="true">
+          {Array.from({ length: 11 }, (_, k) => (
+            <i key={k} style={{ ['--k' as string]: k } as React.CSSProperties} />
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Имя с оформлением из магазина игры: цветной или огненный ник, эмодзи. */
+export function Nick({ user, text }: { user: { style?: NickStyle | null }; text: string }) {
+  const st = user.style;
+  if (!st) return <>{text}</>;
+  return (
+    <span className="nick">
+      <span
+        className={st.fire ? 'nick-fire' : st.grad ? `nick-grad nick-grad-${st.grad}` : st.dev && !st.color ? 'nick-grad nick-grad-dev' : undefined}
+        style={st.color && !st.fire && !st.grad ? { color: st.color } : undefined}
+      >
+        {text}
+      </span>
+      {st.emoji ? <span className="nick-emoji"> {st.emoji}</span> : null}
+      {st.dev ? (
+        <span className="dev-badge" title="Разработчик приложения">
+          {'</>'} DEV
+        </span>
+      ) : null}
     </span>
   );
 }

@@ -1,0 +1,27 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ледовый дроп</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&display=swap"><link rel="stylesheet" href="./style.css">
+<main><header><span>FALCONS · ARCADE</span><b id="balance">… очк.</b></header>
+<h1>Ледовый дроп<span>.</span></h1>
+<p id="pilot-intro">Мы тестируем экономику катка. Пока идёт тест, начисление очков за каждый гол или матч не гарантируется.</p>
+<details id="pilot"><summary>Как мы подбираем начисления и цены</summary>
+<p>Смотрим, сколько очков в среднем набирает игрок, сколько остаётся после бросков и как часто хватает на приз. Сравниваем эти результаты с расчётом по шансам попадания в каждые ворота.</p>
+<p>По итогам теста подберём правила начисления. Например, гол в тренировочной двусторонке и гол в официальной игре могут стоить разное количество очков. Цены в магазине тоже пробные: подбираем их так, чтобы на призы хватало бюджета и организатору не приходилось доплачивать из своего кармана.</p>
+</details>
+<section id="welcome" hidden><span class="w-tag">Бонус</span><strong id="offer-title"></strong><div class="w-bar" id="bonus-bar"><i></i></div><p id="terms"></p><button id="bonus-action" hidden></button></section>
+<section class="board"><canvas width="720" height="515" aria-label="Хоккеист, 16 рядов штырей и 17 ворот с множителями"></canvas><div id="slots"></div></section>
+<section class="controls">
+<label id="source-label" hidden><span>Баланс для броска</span> <select id="source"><option value="wallet">Основной</option><option value="bonus">Бонусный</option></select></label>
+<div class="stake"><span>Шайбы · 1 очко за штуку</span><div class="stepper"><button type="button" id="minus" aria-label="Меньше">−</button><input id="stake" type="number" min="1" step="1" value="1" inputmode="numeric" disabled><button type="button" id="plus" aria-label="Больше">+</button></div><div class="quick"><button type="button" data-n="1">1</button><button type="button" data-n="10">10</button><button type="button" data-n="50">50</button><button type="button" data-n="max">Макс</button></div></div>
+<div class="actions"><button id="drop" disabled>Бросить по воротам</button><button id="shop">Магазин</button></div>
+</section>
+<p id="status" role="status"></p>
+<details id="shot-odds" open><summary>Шансы броска</summary><p>В каждом из 16 рядов шанс уйти вправо или влево — 50%. Число под воротами показывает, на сколько умножается очко этой шайбы. Выплата включает ставку.</p><div id="odds"></div></details>
+<details id="shot-proof"><summary>Проверить честность</summary><p>До броска сервер публикует SHA-256 своего секрета. Браузер добавляет случайное число. После броска секрет открывается.</p><small>Обязательство на следующий бросок</small><code id="commit"></code><pre id="receipt"></pre><button id="verify" hidden>Проверить последний бросок</button></details>
+</main><button id="tab" aria-label="Открыть магазин">✦</button>
+<dialog class="shop"><div class="shop-in">
+<div class="shop-top"><div><small>FALCONS · PRO SHOP</small><h2>Магазин призов</h2></div><form method="dialog"><button class="shop-x" aria-label="Закрыть">×</button></form></div>
+<div class="shop-wallet"><div><span id="wallet-label">Твой баланс</span><b id="shop-balance">…</b></div><span id="wallet-hint" class="shop-hint">Очки дают за голы. Копи на клюшку или прокачай свой ник уже сейчас.</span></div>
+<div id="items"></div>
+<p id="shopmsg" role="status"></p>
+<details class="shop-terms"><summary id="terms-summary">Как получить приз</summary><p id="shop-review">Заказ списывает очки с основного баланса. Админ сразу получает уведомление, а приз появляется у тебя в профиле. Если проверка подтвердит взлом, накрутку или использование ошибки для получения очков или приза, клуб может отказать в выдаче.</p><p id="shop-budget">Цены тестовые. С их помощью рассчитываем, сколько призов можем выдать в рамках бюджета.</p></details>
+</div></dialog>
+<script type="module" src="./game.js"></script></html>

@@ -106,7 +106,12 @@ export interface PublicUser {
   birth_date?: string | null;
   /** гость без Telegram, записан админом/тренером */
   guest?: boolean;
+  /** оформление из магазина игры */
+  style?: NickStyle | null;
+  /** обложка профиля (ачивка) */
+  cover_url?: string | null;
 }
+export type NickStyle = { color?: string; fire?: boolean; grad?: string; emoji?: string; frame?: string | boolean; dev?: boolean; cover?: boolean };
 
 export interface Squad {
   id: number;
@@ -118,7 +123,7 @@ export interface Squad {
 }
 
 export interface Me {
-  user: PublicUser & { roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; squads?: number[]; profile_complete?: boolean };
+  user: PublicUser & { roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; squads?: number[]; profile_complete?: boolean; owner?: boolean };
   squads?: Squad[];
   debts?: { period_id: number; month: string; amount: number; status: string; comment: string | null }[];
   sharpeningDebt?: { count: number; total: number } | null;
@@ -126,7 +131,7 @@ export interface Me {
   guestDebt?: { count: number; total: number; items: { id: number; event_id: number; amount: number; starts_at: string; type: string; title: string | null }[] } | null;
   /** гость: цена выхода (null — не гость) */
   guest_price?: number | null;
-  badges?: { pendingUsers?: number; proofs?: number; fees?: number; sharpenings?: number; sharpChecks?: number; sharpQueue?: number; unread?: number };
+  badges?: { pendingUsers?: number; proofs?: number; fees?: number; prizes?: number; sharpenings?: number; sharpChecks?: number; sharpQueue?: number; unread?: number };
 }
 
 export interface EventSummary {

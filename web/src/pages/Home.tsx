@@ -85,6 +85,14 @@ export default function Home() {
         </div>
       )}
 
+      <button className="home-shop" onClick={() => nav('/shop')}>
+        <span className="home-shop-ic">🏆</span>
+        <span className="grow" style={{ textAlign: 'left' }}>
+          <b>{t('Магазин ачивок')}</b>
+          <span className="muted small" style={{ display: 'block' }}>{t('Огненные ники и светящиеся рамки для аватарки')}</span>
+        </span>
+        <ChevronRight size={20} />
+      </button>
 
       <div className="section-title">
         {t('Ближайшие')}

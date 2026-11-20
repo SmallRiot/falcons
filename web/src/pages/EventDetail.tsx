@@ -5,7 +5,7 @@ import { Ban, BellRing, Clock, LayoutGrid, MapPin, Pencil, StickyNote, UserPlus,
 import { GuestAdd } from '@shared/GuestAdd';
 import { api, type EventDetail as ED, type PublicUser, type Team } from '@shared/api';
 import { DEFAULT_LOCATION, fmt, POS_SHORT } from '@shared/format';
-import { ask, Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, useAction, useApi, useMe } from '@shared/ui';
+import { Nick, ask, Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 import { SignupButtons, typeLabel } from './EventCard';
 import Lines, { ORD, TEAM_GEN } from './Lines';
 
@@ -139,7 +139,7 @@ export default function EventDetail() {
                     </span>
                     <Avatar user={p} />
                     <div className="grow">
-                      <div className="title">{p.name}</div>
+                      <div className="title"><Nick user={p} text={p.name} /></div>
                       <div className="meta">{p.position ? POS_SHORT[p.position] : t('позиция не указана')}</div>
                     </div>
                     {p.guest && <span className="chip info">{t('гость')}</span>}

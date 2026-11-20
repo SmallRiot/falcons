@@ -161,3 +161,9 @@ export const requireRole =
     if (req.user.status !== 'active' || !hasRole(req.user, ...roles))
       return reply.code(403).send({ error: 'Недостаточно прав' });
   };
+
+/** Только владелец (первый админ): управление «Ледовым дропом» и магазином. */
+export const requireOwner = async (req: FastifyRequest, reply: FastifyReply) => {
+  if (req.user.status !== 'active' || !config.ownerId || req.user.id !== config.ownerId)
+    return reply.code(403).send({ error: 'Это управление доступно только владельцу' });
+};

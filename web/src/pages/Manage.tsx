@@ -1,6 +1,6 @@
 import { t } from '@shared/i18n';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, CalendarPlus, ChevronRight, Landmark, Monitor, Receipt, Scissors, Shield, Ticket, UserPlus, Users } from 'lucide-react';
+import { CalendarDays, CalendarPlus, ChevronRight, Landmark, Monitor, Receipt, Scissors, Gamepad2, Shield, Ticket, UserPlus, Users } from 'lucide-react';
 import type { EventSummary } from '@shared/api';
 import { fmt, ROLE_LABEL } from '@shared/format';
 import { can, useApi, useMe } from '@shared/ui';
@@ -19,6 +19,7 @@ export default function Manage() {
     admin && { icon: <UserPlus size={20} />, title: t('Заявки на доступ'), n: b.pendingUsers ?? 0, to: '/admin/users' },
     admin && { icon: <Receipt size={20} />, title: t('Скрины на проверке'), n: b.proofs ?? 0, to: '/admin/finance' },
     admin && { icon: <Ticket size={20} />, title: t('Оплаты гостей'), n: b.fees ?? 0, to: '/admin/fees' },
+    me.user.owner && { icon: <Gamepad2 size={20} />, title: t('Призы к выдаче'), n: b.prizes ?? 0, to: '/admin/arcade' },
     service && { icon: <Scissors size={20} />, title: t('Заточки в очереди'), n: b.sharpenings ?? 0, to: '/service' },
   ].filter(Boolean) as { icon: React.ReactNode; title: string; n: number; to: string }[];
   const waiting = tasks.filter((t) => t.n > 0);
@@ -81,6 +82,7 @@ export default function Manage() {
         {admin && <Row icon={<Users size={20} />} title={t('Люди и роли')} count={b.pendingUsers} onClick={() => nav('/admin/users')} />}
         {admin && <Row icon={<Receipt size={20} />} title={t('Взносы и проверка оплат')} count={b.proofs} onClick={() => nav('/admin/finance')} />}
         {admin && <Row icon={<Ticket size={20} />} title={t('Оплаты гостей')} count={b.fees} onClick={() => nav('/admin/fees')} />}
+        {me.user.owner && <Row icon={<Gamepad2 size={20} />} title={t('Игра и магазин')} count={b.prizes} onClick={() => nav('/admin/arcade')} />}
         {service && <Row icon={<Scissors size={20} />} title={t('Очередь заточки')} count={b.sharpenings} onClick={() => nav('/service')} />}
         {admin && <Row icon={<Shield size={20} />} title={t('Составы')} onClick={() => nav('/admin/squads')} />}
         {admin && <Row icon={<Landmark size={20} />} title={t('Счета для оплаты')} onClick={() => nav('/admin/accounts')} />}

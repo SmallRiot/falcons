@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, ChevronRight } from 'lucide-react';
-import { api, type Notification } from '../api';
-import { fmt } from '../format';
-import { startRoute } from '../nav';
-import { Empty, Spinner, useApi, useMe } from '../ui';
+import { api, type Notification } from '@shared/api';
+import { fmt } from '@shared/format';
+import { startRoute } from '@shared/nav';
+import { Empty, Spinner, useApi, useMe } from '@shared/ui';
 
 export default function Notifications() {
   const { refresh } = useMe();

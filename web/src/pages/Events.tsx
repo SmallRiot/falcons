@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarX, Plus } from 'lucide-react';
-import type { EventSummary } from '../api';
-import { fmt } from '../format';
-import { can, Empty, Segmented, Spinner, SquadChip, useApi, useMe } from '../ui';
+import type { EventSummary } from '@shared/api';
+import { fmt } from '@shared/format';
+import { can, Empty, Segmented, Spinner, SquadChip, useApi, useMe } from '@shared/ui';
 import EventCard, { DateTile, typeLabel } from './EventCard';
 
 export default function Events() {

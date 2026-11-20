@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, type EventDetail } from '../api';
-import { fromLocalInput, toLocalInput } from '../format';
-import { Segmented, Spinner, SquadPicker, useAction, useApi, useMe } from '../ui';
+import { api, type EventDetail } from '@shared/api';
+import { fromLocalInput, toLocalInput } from '@shared/format';
+import { Segmented, Spinner, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
 
 const LAST_KEY = 'falcons.lastEvent';
 

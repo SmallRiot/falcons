@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Ban, BellRing, ClipboardList, Eye, Lock, Play, Unlock } from 'lucide-react';
-import { api, type DueStatus, type Period, type Plan, type PublicUser, type Rates } from '../api';
-import { DUE_STATUS, fmt, PLAN_LABEL } from '../format';
-import { copyText, ProofImage, Sheet, Spinner, SquadChip, toast, useAction, useApi, useMe } from '../ui';
+import { api, type DueStatus, type Period, type Plan, type PublicUser, type Rates } from '@shared/api';
+import { DUE_STATUS, fmt, PLAN_LABEL } from '@shared/format';
+import { copyText, ProofImage, Sheet, Spinner, SquadChip, toast, useAction, useApi, useMe } from '@shared/ui';
 
 type PeriodRow = Period & { rates: Rates; counts: Partial<Record<DueStatus, number>> };
 interface DueItem {

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Ban, Clock, LayoutGrid, MapPin, Pencil, StickyNote, Users } from 'lucide-react';
-import { api, type EventDetail as ED, type PublicUser, type Team } from '../api';
-import { fmt, POS_SHORT } from '../format';
-import { Avatar, Empty, Jersey, Segmented, Spinner, SquadChip, useAction, useApi, useMe } from '../ui';
+import { api, type EventDetail as ED, type PublicUser, type Team } from '@shared/api';
+import { fmt, POS_SHORT } from '@shared/format';
+import { Avatar, Empty, Jersey, Segmented, Spinner, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 import { SignupButtons, typeLabel } from './EventCard';
 import Lines, { ORD, TEAM_GEN } from './Lines';
 

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { CheckCircle2, Clock, Info, Lock, Wallet } from 'lucide-react';
-import { api, type FinanceData, type Plan } from '../api';
-import { DUE_STATUS, fmt, PLAN_LABEL } from '../format';
-import { haptic } from '../tg';
-import { Empty, ProofImage, Spinner, useAction, useApi, useMe } from '../ui';
+import { api, type FinanceData, type Plan } from '@shared/api';
+import { DUE_STATUS, fmt, PLAN_LABEL } from '@shared/format';
+import { haptic } from '@shared/tg';
+import { Empty, ProofImage, Spinner, useAction, useApi, useMe } from '@shared/ui';
 import PaySheet from './PaySheet';
 
 const PLAN_DESC: Record<string, string> = {

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eraser, Send, Sparkles } from 'lucide-react';
-import { api, type EventDetail, type LineupItem, type PublicUser, type Team } from '../api';
-import { haptic } from '../tg';
-import { Segmented, Spinner, toast, toastErr, useApi } from '../ui';
-import { fmt, POS_SHORT } from '../format';
+import { api, type EventDetail, type LineupItem, type PublicUser, type Team } from '@shared/api';
+import { haptic } from '@shared/tg';
+import { Segmented, Spinner, toast, toastErr, useApi } from '@shared/ui';
+import { fmt, POS_SHORT } from '@shared/format';
 import Lines, { DEF, GOALIES, TEAM_LABEL } from './Lines';
 
 type Sel = { kind: 'pool'; userId: number } | { kind: 'slot'; team: Team; line: number; slot: string } | null;

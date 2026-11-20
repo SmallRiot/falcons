@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarCheck, ChevronRight, Coins, Flame, Landmark, Receipt, Scissors, Shield, Trophy, Users } from 'lucide-react';
-import { api, setDevUser, setSession } from '../api';
-import { inTelegram } from '../tg';
-import { fmt, plural, POS_LABEL, ROLE_LABEL } from '../format';
-import { Avatar, can, Segmented, Sheet, SquadChip, useAction, useApi, useMe } from '../ui';
+import { api, setDevUser, setSession } from '@shared/api';
+import { inTelegram } from '@shared/tg';
+import { fmt, plural, POS_LABEL, ROLE_LABEL } from '@shared/format';
+import { Avatar, can, Segmented, Sheet, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 
 interface Stats {
   trainingsTotal: number;

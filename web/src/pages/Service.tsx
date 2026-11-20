@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Plus, Scissors, Search } from 'lucide-react';
-import { api, type PublicUser } from '../api';
-import { fmt } from '../format';
-import { Avatar, Empty, Jersey, ProofImage, Segmented, Sheet, Spinner, useAction, useApi, useMe } from '../ui';
+import { api, type PublicUser } from '@shared/api';
+import { fmt } from '@shared/format';
+import { Avatar, Empty, Jersey, ProofImage, Segmented, Sheet, Spinner, useAction, useApi, useMe } from '@shared/ui';
 import { PAY_STATUS, SHARP_STATUS, Steps, type SharpItem } from './Sharpening';
 
 type Item = SharpItem & { user: PublicUser };

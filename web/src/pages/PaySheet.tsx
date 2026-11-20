@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { ExternalLink, Copy, ClipboardList } from 'lucide-react';
-import type { Account } from '../api';
-import { fmt } from '../format';
-import { openLink } from '../tg';
-import { copyText, CopyRow, FilePick, Sheet } from '../ui';
+import type { Account } from '@shared/api';
+import { fmt } from '@shared/format';
+import { openLink } from '@shared/tg';
+import { copyText, CopyRow, FilePick, Sheet } from '@shared/ui';
 
 const BANK_CLASS = (b: string) => (['TBC', 'BOG', 'Liberty'].includes(b) ? b : 'other');
 const BANK_NAME: Record<string, string> = { TBC: 'TBC Bank', BOG: 'Bank of Georgia', Liberty: 'Liberty Bank' };

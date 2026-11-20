@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Scissors, Sparkles } from 'lucide-react';
-import { api, type Account } from '../api';
-import { fmt } from '../format';
-import { can, Empty, Spinner, useAction, useApi, useMe } from '../ui';
+import { api, type Account } from '@shared/api';
+import { fmt } from '@shared/format';
+import { can, Empty, Spinner, useAction, useApi, useMe } from '@shared/ui';
 import PaySheet from './PaySheet';
 
 export interface SharpItem {

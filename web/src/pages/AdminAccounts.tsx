@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Landmark, Pencil, Plus } from 'lucide-react';
-import { api, type Account, type FinanceData } from '../api';
-import { Empty, Segmented, Sheet, Spinner, useAction, useApi } from '../ui';
+import { api, type Account, type FinanceData } from '@shared/api';
+import { Empty, Segmented, Sheet, Spinner, useAction, useApi } from '@shared/ui';
 import { BankCard } from './PaySheet';
 
 const EMPTY = { bank: 'TBC', holder: '', iban: '', purpose: 'dues' as Account['purpose'], pay_url: '', note: '', sort: 0 };

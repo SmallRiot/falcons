@@ -3,10 +3,10 @@ import {
   Bell, CalendarDays, ClipboardCheck, Home, Landmark, LayoutGrid, LogOut, Receipt, Scissors, Shield, Trophy, User, Users, Wallet,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { setDevUser, setSession, type EventSummary } from '../api';
-import { fmt } from '../format';
-import { ROLE_LABEL } from '../format';
-import { Avatar, can, useApi, useMe } from '../ui';
+import { setDevUser, setSession, type EventSummary } from '@shared/api';
+import { fmt } from '@shared/format';
+import { ROLE_LABEL } from '@shared/format';
+import { Avatar, can, useApi, useMe } from '@shared/ui';
 
 /** Веб на компьютере: левое меню + верхняя строка с ближайшими событиями. Мобильные экраны живут в правой части. */
 export default function DesktopShell({ children }: { children: ReactNode }) {

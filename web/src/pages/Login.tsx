@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FlaskConical } from 'lucide-react';
-import { api, setSession } from '../api';
-import { Spinner, toastErr } from '../ui';
+import { api, setSession } from '@shared/api';
+import { Spinner, toastErr } from '@shared/ui';
 import { DevPicker } from './Gate';
 
 interface Cfg {

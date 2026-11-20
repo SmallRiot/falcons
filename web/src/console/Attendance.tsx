@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { api, type PublicUser, type Squad } from '../api';
-import { fmt } from '../format';
-import { can, Segmented, Spinner, SquadChip, toastErr, useApi, useMe } from '../ui';
+import { api, type PublicUser, type Squad } from '@shared/api';
+import { fmt } from '@shared/format';
+import { can, Segmented, Spinner, SquadChip, toastErr, useApi, useMe } from '@shared/ui';
 
 interface Ev {
   id: number;

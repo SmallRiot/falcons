@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Clock, FlaskConical, ShieldX, WifiOff } from 'lucide-react';
-import { api, getSession, setDevUser, setSession, type Me, type Role } from '../api';
-import { inTelegram } from '../tg';
-import { Sheet, Spinner } from '../ui';
-import { ROLE_LABEL } from '../format';
+import { api, getSession, setDevUser, setSession, type Me, type Role } from '@shared/api';
+import { inTelegram } from '@shared/tg';
+import { Sheet, Spinner } from '@shared/ui';
+import { ROLE_LABEL } from '@shared/format';
 
 type Props = {
   kind: 'pending' | 'rejected' | 'error';

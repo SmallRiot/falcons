@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Bell, CalendarPlus, ChevronRight, Receipt, Scissors, UserPlus } from 'lucide-react';
-import type { EventSummary, FinanceData } from '../api';
-import { DUE_STATUS, fmt, PLAN_LABEL } from '../format';
-import { can, Empty, useApi, useMe } from '../ui';
+import type { EventSummary, FinanceData } from '@shared/api';
+import { DUE_STATUS, fmt, PLAN_LABEL } from '@shared/format';
+import { can, Empty, useApi, useMe } from '@shared/ui';
 import EventCard from './EventCard';
 
 function greeting() {

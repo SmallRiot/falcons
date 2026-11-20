@@ -1,4 +1,4 @@
-import type { LineupItem, PublicUser, Team } from '../api';
+import type { LineupItem, PublicUser, Team } from '@shared/api';
 
 export const FWD = ['LW', 'C', 'RW'] as const;
 export const DEF = ['LD', 'RD'] as const;

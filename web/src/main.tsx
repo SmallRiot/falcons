@@ -1,8 +1,8 @@
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App';
-import { tg } from './tg';
-import './styles.css';
+import { tg } from '@shared/tg';
+import '@shared/styles.css';
 
 if (tg) {
   tg.ready();

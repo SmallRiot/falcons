@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Search, Users } from 'lucide-react';
-import { api, type PublicUser, type Role } from '../api';
-import { fmt, POS_SHORT, ROLE_LABEL } from '../format';
-import { Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '../ui';
+import { api, type PublicUser, type Role } from '@shared/api';
+import { fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
+import { Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
 
 type AdminUser = PublicUser & { squads: number[]; roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; debt: number; created_at: string };
 

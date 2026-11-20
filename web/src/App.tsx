@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Home as HomeIcon, Scissors, User, Wallet, AlertTriangle, FlaskConical } from 'lucide-react';
-import { api, ApiError, getDevUser, getSession, setSession, type Me } from './api';
-import { inTelegram, startParam, tg } from './tg';
-import { MeCtx, Sheet, Spinner, Toaster } from './ui';
-import { fmt } from './format';
-import { startRoute } from './nav';
+import { api, ApiError, getDevUser, getSession, setSession, type Me } from '@shared/api';
+import { inTelegram, startParam, tg } from '@shared/tg';
+import { MeCtx, Sheet, Spinner, Toaster } from '@shared/ui';
+import { fmt } from '@shared/format';
+import { startRoute } from '@shared/nav';
 import Gate, { DevPicker } from './pages/Gate';
 import Login from './pages/Login';
 import Home from './pages/Home';

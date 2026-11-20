@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { api, type PublicUser, type Role } from '../api';
-import { fmt, POS_SHORT, ROLE_LABEL } from '../format';
-import { can, Spinner, useAction, useApi, useMe } from '../ui';
+import { api, type PublicUser, type Role } from '@shared/api';
+import { fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
+import { can, Spinner, useAction, useApi, useMe } from '@shared/ui';
 
 type Row = PublicUser & {
   roles: Role[];

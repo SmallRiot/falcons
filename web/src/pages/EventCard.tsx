@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { Check, Clock, MapPin, X } from 'lucide-react';
-import { api, type EventSummary } from '../api';
-import { fmt } from '../format';
-import { haptic } from '../tg';
-import { Avatar, SquadChip, toastErr, useMe } from '../ui';
+import { api, type EventSummary } from '@shared/api';
+import { fmt } from '@shared/format';
+import { haptic } from '@shared/tg';
+import { Avatar, SquadChip, toastErr, useMe } from '@shared/ui';
 import { useState } from 'react';
 
 export function typeLabel(e: { type: string; title: string | null }) {

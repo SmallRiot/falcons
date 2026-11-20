@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, Shield } from 'lucide-react';
-import { api, type Squad } from '../api';
-import { Empty, Sheet, Spinner, useAction, useApi, useMe } from '../ui';
+import { api, type Squad } from '@shared/api';
+import { Empty, Sheet, Spinner, useAction, useApi, useMe } from '@shared/ui';
 
 const COLORS = ['#2b88cf', '#1f9d6b', '#c98612', '#8a4fd8', '#d64545', '#0d1f2d'];
 const EMPTY = { name: '', short: '', color: COLORS[0], division: '', sort: 0 };

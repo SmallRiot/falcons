@@ -368,7 +368,7 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .gate h1 { font-size: 26px; font-weight: 800; }
 .gate p { color: var(--muted); max-width: 320px; margin: 0; }
 
-.dev-pill { position: fixed; top: 10px; right: 10px; z-index: 40; height: 30px; padding: 0 10px; border-radius: 15px; border: 0; background: #0d1f2d; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; opacity: 0.85; }
+.dev-pill { height: 30px; padding: 0 10px; border-radius: 15px; border: 0; background: #0d1f2d; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; opacity: 0.85; }
 .fab { position: fixed; right: max(16px, calc(50% - 280px + 16px)); bottom: calc(var(--tab-h) + var(--safe-b) + 16px); z-index: 15; width: 56px; height: 56px; border-radius: 18px; border: 0; background: var(--falcon); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(43, 136, 207, 0.45); }
 .fab:active { transform: scale(0.94); }
 
@@ -425,3 +425,11 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .ask { width: 100%; max-width: 400px; background: var(--surface); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
 .ask-text { font-size: 16px; line-height: 1.45; white-space: pre-line; color: var(--ink); }
 .ask .btn-row .btn { flex: 1; }
+
+/* верхний правый угол: переключатель «Игрок / Админка» (+ тестовый вход в браузере) */
+.app.top { padding-top: 44px; }
+.top-right { position: fixed; top: 8px; right: 10px; z-index: 40; display: flex; align-items: center; gap: 6px; }
+.mode-toggle { display: flex; padding: 3px; gap: 2px; border-radius: 17px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.mode-toggle button { position: relative; height: 28px; padding: 0 10px; border: 0; border-radius: 14px; background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+.mode-toggle button.on { background: var(--falcon); color: #fff; }
+.mode-toggle .dot { position: absolute; top: -5px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--bad); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; }

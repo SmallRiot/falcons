@@ -30,11 +30,13 @@ const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile', '/manage',
 const STAFF_PATH = /^\/(manage|admin|service)(\/|$)/;
 const MODE_KEY = 'falcons.mode';
 type Mode = 'player' | 'staff';
-const readMode = (): Mode => {
+/** Сохранённый режим; если не выбирали — у админа/тренера/сервиса по умолчанию «Управление». */
+const readMode = (): Mode | null => {
   try {
-    return localStorage.getItem(MODE_KEY) === 'staff' ? 'staff' : 'player';
+    const v = localStorage.getItem(MODE_KEY);
+    return v === 'staff' || v === 'player' ? v : null;
   } catch {
-    return 'player';
+    return null;
   }
 };
 
@@ -48,7 +50,7 @@ export default function App() {
   const [devOpen, setDevOpen] = useState(false);
   const nav = useNavigate();
   const loc = useLocation();
-  const [mode, setModeState] = useState<Mode>(() => (STAFF_PATH.test(location.hash.slice(1)) ? 'staff' : readMode()));
+  const [mode, setModeState] = useState<Mode | null>(() => (STAFF_PATH.test(location.hash.slice(1)) ? 'staff' : readMode()));
   const setMode = (m: Mode) => {
     setModeState(m);
     try {
@@ -57,6 +59,12 @@ export default function App() {
       /* приватный режим — просто не запомним */
     }
   };
+  // у админа/тренера/сервиса главная — «Управление» (если сам не переключился в игрока)
+  useEffect(() => {
+    if (me && can(me, 'admin', 'coach', 'service') && mode !== 'player' && loc.pathname === '/') nav('/manage', { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.user.id, loc.pathname]);
+
   // ссылка из бота на админский экран сама включает режим управления
   useEffect(() => {
     if (STAFF_PATH.test(loc.pathname) && mode !== 'staff') setMode('staff');
@@ -94,8 +102,8 @@ export default function App() {
   const goBack = useCallback(() => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     if (idx > 0) nav(-1);
-    else nav(mode === 'staff' ? '/manage' : '/', { replace: true });
-  }, [nav, mode]);
+    else nav(me && can(me, 'admin', 'coach', 'service') && mode !== 'player' ? '/manage' : '/', { replace: true });
+  }, [nav, mode, me]);
   useEffect(() => {
     if (!tg) return;
     if (isRoot) {
@@ -121,10 +129,9 @@ export default function App() {
   const debtTotal = duesDebt + (me.sharpeningDebt?.total ?? 0);
   const staffBadge = (me.badges?.pendingUsers ?? 0) + (me.badges?.proofs ?? 0) + (me.badges?.sharpenings ?? 0);
   const isStaff = can(me, 'admin', 'coach', 'service');
-  const staffMode = isStaff && mode === 'staff';
+  const staffMode = isStaff && (mode ?? 'staff') === 'staff';
   const staffLabel = can(me, 'admin') ? 'Админка' : can(me, 'coach') ? 'Тренер' : 'Сервис';
-  const switchMode = () => {
-    const next: Mode = staffMode ? 'player' : 'staff';
+  const switchTo = (next: Mode) => {
     setMode(next);
     nav(next === 'staff' ? '/manage' : '/', { replace: true });
   };
@@ -153,7 +160,7 @@ export default function App() {
 
   return (
     <MeCtx.Provider value={{ me, refresh }}>
-      <div className={`app ${inTelegram ? '' : 'dev'}`}>
+      <div className={`app ${inTelegram ? '' : 'dev'} ${isStaff ? 'top' : ''}`}>
         {routes}
       </div>
 
@@ -176,13 +183,6 @@ export default function App() {
               <Tab to="/profile" icon={<User size={22} />} label="Профиль" />
             </>
           )}
-          {isStaff && (
-            <button className="tab mode-switch" onClick={switchMode}>
-              {staffMode ? <ArrowLeftRight size={22} /> : <ShieldCheck size={22} />}
-              {staffMode ? 'Игрок' : staffLabel}
-              {!staffMode && staffBadge ? <span className="dot">{staffBadge}</span> : null}
-            </button>
-          )}
         </div>
       </nav>
 
@@ -191,10 +191,25 @@ export default function App() {
           <ChevronLeft size={18} /> Назад
         </button>
       )}
-      {!inTelegram && (
-        <button className="dev-pill" onClick={() => setDevOpen(true)}>
-          <FlaskConical size={14} /> {me.user.first_name}
-        </button>
+      {(isStaff || !inTelegram) && (
+        <div className="top-right">
+          {isStaff && (
+            <div className="mode-toggle" role="tablist" aria-label="Режим">
+              <button className={staffMode ? '' : 'on'} onClick={() => !staffMode || switchTo('player')}>
+                <User size={13} /> Игрок
+              </button>
+              <button className={staffMode ? 'on' : ''} onClick={() => staffMode || switchTo('staff')}>
+                <ShieldCheck size={13} /> {staffLabel}
+                {!staffMode && staffBadge ? <span className="dot">{staffBadge}</span> : null}
+              </button>
+            </div>
+          )}
+          {!inTelegram && (
+            <button className="dev-pill" onClick={() => setDevOpen(true)}>
+              <FlaskConical size={14} /> {me.user.first_name}
+            </button>
+          )}
+        </div>
       )}
       <Sheet open={devOpen} onClose={() => setDevOpen(false)} title="Войти как…">
         <DevPicker embedded onPick={() => location.reload()} />

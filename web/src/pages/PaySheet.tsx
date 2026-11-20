@@ -76,7 +76,7 @@ export default function PaySheet({ open, onClose, title, amount, purpose, accoun
     <Sheet open={open} onClose={onClose} title={title}>
       <div className="card center" style={{ padding: '18px 16px' }}>
         <div className="muted small">{t('К переводу')}</div>
-        <div className="big-amount">{fmt.gel(amount)}</div>
+        <div className="big-amount">{amount == null ? 'X ₾' : fmt.gel(amount)}</div>
       </div>
 
       <div className="section-title">{t('1 · Переведи на любой счёт')}</div>

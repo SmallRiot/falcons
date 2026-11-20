@@ -17,7 +17,6 @@ export default function FrameForever() {
   const [open, setOpen] = useState(false);
   const { run } = useAction();
   const designs = cfg.data?.designs ?? Object.keys(NAMES);
-  const price = cfg.data?.price ?? 50;
 
   return (
     <div className="page">
@@ -40,14 +39,14 @@ export default function FrameForever() {
         ))}
       </div>
       <button className="btn block" onClick={() => setOpen(true)}>
-        {t('Оформить навсегда')} — {price} ₾
+        {t('Оформить навсегда')} — X ₾
       </button>
       <div className="muted small">{t('Переведи и прикрепи скрин — владелец проверит и включит рамку. Пока ждёшь, можно взять рамку на месяц за очки в магазине игры.')}</div>
       <PaySheet
         open={open}
         onClose={() => setOpen(false)}
         title={t('Рамка навсегда')}
-        amount={price}
+        amount={null}
         purpose=""
         accounts={(fin.data?.accounts ?? []).filter((a) => a.purpose === 'dues')}
         cardUrl={fin.data?.cardPayUrl}

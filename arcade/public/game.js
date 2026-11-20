@@ -419,7 +419,7 @@ function renderShop() {
   const forever = el('article', 'prize forever');
   forever.innerHTML = `<div class="art"><div class="nick-art frames"><span class="fr frame-rainbow">F</span><span class="fr frame-gold">F</span><span class="fr frame-neon">F</span></div></div>`;
   const fm = el('div', 'meta');
-  fm.innerHTML = `<span class="tag">${text('Навсегда', 'Forever')}</span><h3>${text('Особая рамка навсегда', 'Special frame forever')}</h3><p class="sub">${text('Любая рамка — твоя насовсем', 'Any frame, yours for good')}</p><div class="price">50 ₾</div>`;
+  fm.innerHTML = `<span class="tag">${text('Навсегда', 'Forever')}</span><h3>${text('Особая рамка навсегда', 'Special frame forever')}</h3><p class="sub">${text('Любая рамка — твоя насовсем', 'Any frame, yours for good')}</p><div class="price">X ₾</div>`;
   const fb = el('button', 'buy'); fb.textContent = text('Оформить', 'Get it');
   fb.onclick = () => (window.frameElement?.arcadeOpen ? window.frameElement.arcadeOpen('/frame-forever') : null);
   fm.append(fb); forever.append(fm);

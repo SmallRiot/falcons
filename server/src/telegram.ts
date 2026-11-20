@@ -675,7 +675,7 @@ export function notifyAdminsPrize(u: UserRow, o: { title: string; price: number;
 /** Владельцу: игрок оплатил рамку навсегда — проверь скрин. */
 export function notifyOwnerForeverFrame(u: UserRow, design: string) {
   if (!config.ownerId) return Promise.resolve(null);
-  return dm(config.ownerId, `🖼 <b>${esc(displayName(u))}</b> оплатил(а) особую рамку навсегда (${esc(design)}) — 50 ₾. Проверь скрин и подтверди в «Игра и магазин».`, 'admin-arcade');
+  return dm(config.ownerId, `🖼 <b>${esc(displayName(u))}</b> оплатил(а) особую рамку навсегда (${esc(design)}). Проверь скрин и подтверди в «Игра и магазин».`, 'admin-arcade');
 }
 
 /** Игроку: физический приз выдан / заказ отменён. */

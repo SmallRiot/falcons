@@ -224,7 +224,7 @@ export default function Shop() {
                 </button>
               )}
               <button className="btn frame-forever" onClick={() => nav('/frame-forever')}>
-                💎 {t('Навсегда')} · 50 ₾
+                💎 {t('Навсегда')} · X ₾
               </button>
             </div>
           </div>

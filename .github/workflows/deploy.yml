@@ -32,10 +32,12 @@ jobs:
           git archive --format=tar.gz "${{ github.ref_name }}" \
             | ssh -i ~/.ssh/deploy -o BatchMode=yes "falcons@${DEPLOY_HOST}" "${{ github.ref_name }}"
 
-      - name: Smoke test
+      - name: Smoke test (nginx + сертификат, мимо Cloudflare — он режет запросы с раннеров GitHub)
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
         run: |
           for i in $(seq 1 10); do
-            curl -fsS https://appka.gihl.ge/healthz && exit 0
+            curl -fsS --resolve "appka.gihl.ge:443:${DEPLOY_HOST}" https://appka.gihl.ge/healthz && exit 0
             sleep 3
           done
           echo "https://appka.gihl.ge/healthz не отвечает" && exit 1

@@ -1,3 +1,4 @@
+import { bankFromIban, validIban } from '@shared/format';
 import { useEffect, useState } from 'react';
 import { Landmark, Pencil, Plus } from 'lucide-react';
 import { api, type Account, type FinanceData } from '@shared/api';
@@ -76,35 +77,19 @@ export default function AdminAccounts() {
       <Sheet open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Счёт' : 'Новый счёт'}>
         {edit && (
           <div className="form">
-            <Segmented
-              value={['TBC', 'BOG', 'Liberty'].includes(edit.bank) ? edit.bank : 'other'}
-              onChange={(v) => setEdit({ ...edit, bank: v === 'other' ? '' : v })}
-              options={[
-                ['TBC', 'TBC'],
-                ['BOG', 'BOG'],
-                ['Liberty', 'Liberty'],
-                ['other', 'Другой'],
-              ]}
-            />
-            {!['TBC', 'BOG', 'Liberty'].includes(edit.bank) && (
-              <input className="input" placeholder="Название банка" value={edit.bank} onChange={(e) => setEdit({ ...edit, bank: e.target.value })} />
-            )}
             <label className="field">
-              <span>Получатель</span>
-              <input className="input" value={edit.holder} placeholder="Имя Фамилия" onChange={(e) => setEdit({ ...edit, holder: e.target.value })} />
+              <span>ФИО получателя</span>
+              <input className="input" value={edit.holder} placeholder="Как в банке, латиницей: IVAN PETROV" onChange={(e) => setEdit({ ...edit, holder: e.target.value })} />
             </label>
             <label className="field">
               <span>IBAN</span>
-              <input className="input" value={edit.iban} placeholder="GE00TB0000000000000000" onChange={(e) => setEdit({ ...edit, iban: e.target.value.toUpperCase() })} />
+              <input className="input" value={edit.iban} placeholder="GE29TB7000000000000000" onChange={(e) => setEdit({ ...edit, iban: e.target.value.toUpperCase().replace(/\s+/g, '') })} />
             </label>
-            <label className="field">
-              <span>Ссылка на оплату (необязательно)</span>
-              <input className="input" value={edit.pay_url} placeholder="https://…" onChange={(e) => setEdit({ ...edit, pay_url: e.target.value })} />
-            </label>
-            <label className="field">
-              <span>Подпись</span>
-              <input className="input" value={edit.note} placeholder="Например: переводить в лари" onChange={(e) => setEdit({ ...edit, note: e.target.value })} />
-            </label>
+            {edit.iban && (
+              <span className="small" style={{ color: validIban(edit.iban) ? 'var(--ok)' : 'var(--warn)', marginTop: -6 }}>
+                {validIban(edit.iban) ? `✓ ${bankFromIban(edit.iban).name}` : 'IBAN: GE + 2 цифры + 2 буквы банка + 16 цифр'}
+              </span>
+            )}
             <div className="field">
               <span>Для чего</span>
               <Segmented
@@ -118,7 +103,7 @@ export default function AdminAccounts() {
             </div>
             <button
               className="btn block"
-              disabled={busy}
+              disabled={busy || !edit.holder.trim() || !validIban(edit.iban)}
               onClick={() =>
                 run(async () => {
                   if (edit.id) await api.put(`/api/admin/accounts/${edit.id}`, edit);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Copy, ExternalLink, Plus } from 'lucide-react';
+import { Copy, Plus } from 'lucide-react';
 import { api, type Account, type FinanceData } from '@shared/api';
-import { fmt } from '@shared/format';
+import { bankFromIban, validIban, fmt } from '@shared/format';
 import { ask, copyText, Segmented, Spinner, useAction, useApi } from '@shared/ui';
 import Drawer from '../Drawer';
 
@@ -39,23 +39,20 @@ export default function Accounts() {
             {(data ?? [])
               .filter((a) => a.purpose === purpose)
               .map((a) => (
-                <div key={a.id} className={`bank-card ${BANK(a.bank)}`} style={{ cursor: 'pointer' }} onClick={() => setEdit({ ...a, pay_url: a.pay_url ?? '', note: a.note ?? '' })}>
+                <div key={a.id} className={`bank-card ${BANK(bankFromIban(a.iban).code)}`} style={{ cursor: 'pointer' }} onClick={() => setEdit({ ...a, pay_url: a.pay_url ?? '', note: a.note ?? '' })}>
                   <div className="bk">
-                    <span>{a.bank}</span>
+                    <span>{bankFromIban(a.iban).name}</span>
                     <span>GEL</span>
                   </div>
                   <div className="ib">{fmt.iban(a.iban)}</div>
                   <div className="hd">{a.holder}</div>
-                  {a.note && <div className="hd" style={{ opacity: 0.75, fontSize: 12 }}>{a.note}</div>}
                   <div className="actions" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => copyText(a.iban, 'IBAN скопирован')}>
                       <Copy size={14} /> IBAN
                     </button>
-                    {a.pay_url && (
-                      <a href={a.pay_url} target="_blank" rel="noreferrer">
-                        <ExternalLink size={14} /> Ссылка
-                      </a>
-                    )}
+                    <button onClick={() => copyText(a.holder, 'ФИО скопировано')}>
+                      <Copy size={14} /> ФИО
+                    </button>
                   </div>
                 </div>
               ))}
@@ -75,35 +72,26 @@ export default function Accounts() {
       <Drawer open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Счёт' : 'Новый счёт'}>
         {edit && (
           <>
-            <Segmented
-              value={['TBC', 'BOG', 'Liberty'].includes(edit.bank) ? edit.bank : 'other'}
-              onChange={(v) => setEdit({ ...edit, bank: v === 'other' ? '' : v })}
-              options={[['TBC', 'TBC'], ['BOG', 'BOG'], ['Liberty', 'Liberty'], ['other', 'Другой']]}
-            />
-            {!['TBC', 'BOG', 'Liberty'].includes(edit.bank) && <input className="input" placeholder="Название банка" value={edit.bank} onChange={(e) => setEdit({ ...edit, bank: e.target.value })} />}
             <label className="field">
-              <span>Получатель</span>
-              <input className="input" value={edit.holder} onChange={(e) => setEdit({ ...edit, holder: e.target.value })} />
+              <span>ФИО получателя</span>
+              <input className="input" value={edit.holder} placeholder="Как в банке, латиницей: IVAN PETROV" onChange={(e) => setEdit({ ...edit, holder: e.target.value })} />
             </label>
             <label className="field">
               <span>IBAN</span>
-              <input className="input" value={edit.iban} placeholder="GE00TB0000000000000000" onChange={(e) => setEdit({ ...edit, iban: e.target.value.toUpperCase() })} />
+              <input className="input" value={edit.iban} placeholder="GE29TB7000000000000000" onChange={(e) => setEdit({ ...edit, iban: e.target.value.toUpperCase().replace(/\s+/g, '') })} />
             </label>
-            <label className="field">
-              <span>Ссылка на оплату (необязательно)</span>
-              <input className="input" value={edit.pay_url} placeholder="https://…" onChange={(e) => setEdit({ ...edit, pay_url: e.target.value })} />
-            </label>
-            <label className="field">
-              <span>Подпись</span>
-              <input className="input" value={edit.note} onChange={(e) => setEdit({ ...edit, note: e.target.value })} />
-            </label>
+            {edit.iban && (
+              <span className="small" style={{ color: validIban(edit.iban) ? 'var(--ok)' : 'var(--warn)', marginTop: -6 }}>
+                {validIban(edit.iban) ? `✓ ${bankFromIban(edit.iban).name}` : 'IBAN: GE + 2 цифры + 2 буквы банка + 16 цифр'}
+              </span>
+            )}
             <div className="field">
               <span>Для чего</span>
               <Segmented value={edit.purpose} onChange={(v) => setEdit({ ...edit, purpose: v })} options={[['dues', 'Взносы'], ['sharpening', 'Заточка']]} />
             </div>
             <button
               className="btn block"
-              disabled={busy}
+              disabled={busy || !edit.holder.trim() || !validIban(edit.iban)}
               onClick={() =>
                 run(async () => {
                   if (edit.id) await api.put(`/api/admin/accounts/${edit.id}`, edit);

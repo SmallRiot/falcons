@@ -71,3 +71,21 @@ export function fromLocalInput(v: string) {
 
 /** Лёд у команды один — подставляется в новые события (сервер делает то же, если поле пустое). */
 export const DEFAULT_LOCATION = 'Арена Боба Уолша';
+
+/** Банк по грузинскому IBAN: GE00 TB 0000000000000000 — две буквы после контрольных цифр. */
+const IBAN_BANKS: Record<string, [string, string]> = {
+  TB: ['TBC', 'TBC Bank'],
+  BG: ['BOG', 'Bank of Georgia'],
+  LB: ['Liberty', 'Liberty Bank'],
+  CD: ['Credo', 'Credo Bank'],
+  BS: ['Basis', 'Basisbank'],
+  PC: ['ProCredit', 'ProCredit Bank'],
+  HS: ['Halyk', 'Halyk Bank'],
+  TR: ['Tera', 'Tera Bank'],
+};
+export function bankFromIban(iban: string): { code: string; name: string } {
+  const c = iban.replace(/\s+/g, '').toUpperCase().slice(4, 6);
+  const b = IBAN_BANKS[c];
+  return b ? { code: b[0], name: b[1] } : { code: 'other', name: 'Банк' };
+}
+export const validIban = (iban: string) => /^GE\d{2}[A-Z]{2}\d{16}$/.test(iban.replace(/\s+/g, '').toUpperCase());

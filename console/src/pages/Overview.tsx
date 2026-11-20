@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { LayoutGrid } from 'lucide-react';
 import { api, type EventSummary, type PublicUser, type Rates, type Period, type Role } from '@shared/api';
-import { fmt } from '@shared/format';
+import { birthday, fmt, plural } from '@shared/format';
 import { Avatar, can, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 
 type Player = PublicUser & { status: string; roles: Role[]; debt: number; trainings30: number; squads: number[] };
@@ -15,6 +15,7 @@ export default function Overview() {
   const players = useApi<Player[]>('/api/console/players');
   const periods = useApi<PeriodRow[]>(admin ? '/api/admin/periods' : null);
   const sharp = useApi<{ id: number; status: string; payment: string; price: number }[]>('/api/service/sharpening');
+  const bdays = useApi<{ id: number; name: string; number: number | null; birth_date: string; in_days: number; turns: number }[]>('/api/console/birthdays?days=30');
   const { run } = useAction();
 
   const upcoming = (events.data ?? []).filter((e) => !e.cancelled).slice(0, 6);
@@ -116,6 +117,32 @@ export default function Overview() {
               </div>
             </div>
           )}
+          <div className="c-card pad">
+            <h3>🎂 Дни рождения · 30 дней</h3>
+            {(bdays.data ?? []).map((b) => (
+              <div key={b.id} className="c-row">
+                <div style={{ width: 86 }}>
+                  <b>{birthday(b.birth_date)}</b>
+                </div>
+                <div className="grow">
+                  <b>{b.name}</b>
+                  <div className="muted small">
+                    исполнится {b.turns} · {b.in_days === 0 ? 'сегодня 🎉' : b.in_days === 1 ? 'завтра' : `через ${b.in_days} ${plural(b.in_days, 'день', 'дня', 'дней')}`}
+                  </div>
+                </div>
+                {admin && b.in_days === 0 && (
+                  <button
+                    className="btn secondary xs"
+                    onClick={() => confirm(`Ещё раз поздравить ${b.name} в чате?`) && run(() => api.post('/api/console/birthdays/congratulate', { user_id: b.id }), 'Поздравление отправлено 🎂')}
+                  >
+                    Поздравить ещё раз
+                  </button>
+                )}
+              </div>
+            ))}
+            {!bdays.data?.length && <div className="muted">В ближайший месяц никого</div>}
+            <div className="muted small" style={{ marginTop: 8 }}>Бот сам поздравляет в чате утром в день рождения.</div>
+          </div>
           <div className="c-card pad">
             <h3>Должники</h3>
             {debtors.slice(0, 6).map((u) => (

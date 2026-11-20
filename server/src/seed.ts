@@ -45,6 +45,14 @@ const people: [number, string, string, number, string, string, string?][] = [
 const insU = db.prepare('INSERT INTO users(id, first_name, last_name, number, position, roles, status) VALUES(?,?,?,?,?,?,?)');
 for (const [id, fn, ln, num, pos, roles, status] of people) insU.run(id, fn, ln, num, pos, roles, status ?? 'active');
 
+// дни рождения: у одного — сегодня (чтобы проверить поздравление), у части не заполнено (увидят анкету)
+const todayMD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tbilisi' }).format(new Date()).slice(5);
+for (let u = 1; u <= 20; u++) {
+  if (u === 4 || u === 12) continue;
+  const md = u === 7 ? todayMD : `${String((u % 12) + 1).padStart(2, '0')}-${String(((u * 7) % 27) + 1).padStart(2, '0')}`;
+  db.prepare('UPDATE users SET birth_date = ? WHERE id = ?').run(`${1985 + (u % 15)}-${md}`, u);
+}
+
 // составы: один первого дивизиона и два второго — названия меняются в админке
 const insSq = db.prepare('INSERT INTO squads(name, short, color, division, sort) VALUES(?,?,?,?,?)');
 insSq.run('Falcons', 'Д1', '#2b88cf', 1, 1);

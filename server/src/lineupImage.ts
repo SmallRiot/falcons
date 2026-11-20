@@ -9,10 +9,10 @@ import { Resvg } from '@resvg/resvg-js';
 
 const require = createRequire(import.meta.url);
 const fontDir = path.join(path.dirname(require.resolve('dejavu-fonts-ttf/package.json')), 'ttf');
-const FONTS = ['DejaVuSans.ttf', 'DejaVuSans-Bold.ttf', 'DejaVuSansCondensed.ttf', 'DejaVuSansCondensed-Bold.ttf'].map((f) =>
+export const FONTS = ['DejaVuSans.ttf', 'DejaVuSans-Bold.ttf', 'DejaVuSansCondensed.ttf', 'DejaVuSansCondensed-Bold.ttf'].map((f) =>
   path.join(fontDir, f),
 );
-const LOGO = `data:image/png;base64,${readFileSync(path.resolve(import.meta.dirname, '../../shared/public/logo.png')).toString('base64')}`;
+export const LOGO = `data:image/png;base64,${readFileSync(path.resolve(import.meta.dirname, '../../shared/public/logo.png')).toString('base64')}`;
 
 export interface Slot {
   user_id: number;

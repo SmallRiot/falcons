@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, type PublicUser, type Role } from '@shared/api';
-import { fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
+import { birthday, fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
 import { can, Spinner, useAction, useApi, useMe } from '@shared/ui';
 
 type Row = PublicUser & {
@@ -70,6 +70,7 @@ export default function ConsolePlayers() {
             <tr>
               <th className="sticky-col">Игрок</th>
               <th>Поз.</th>
+              <th>ДР</th>
               <th>Составы на игры</th>
               <th>Роли</th>
               <th className="num">Трен. 30д</th>
@@ -90,6 +91,7 @@ export default function ConsolePlayers() {
                   </div>
                 </td>
                 <td className="muted">{u.position ? POS_SHORT[u.position] : '—'}</td>
+                <td>{u.birth_date ? birthday(u.birth_date) : <span className="chip warn">не заполнен</span>}</td>
                 <td>
                   <div className="hstack" style={{ gap: 4 }}>
                     {squads.map((s) => {

@@ -12,7 +12,7 @@ import { config } from './config.ts';
 const TEST_CAP = 5;
 import { db, getSetting, nowIso } from './db.ts';
 import { debtsOf } from './finance.ts';
-import { sendMessage, reminderDues, reminderPlan, reminderRsvp, reminderSharpening, monthName } from './telegram.ts';
+import { notifyBirthdays, sendMessage, reminderDues, reminderPlan, reminderRsvp, reminderSharpening, monthName } from './telegram.ts';
 import { getEvent } from './signup.ts';
 import { eventAudience } from './squads.ts';
 
@@ -131,8 +131,39 @@ export async function runReminders(force = false) {
   return sent - skipped;
 }
 
+/** Именинники сегодня по Тбилиси. 29 февраля в невисокосный год поздравляем 28-го. */
+export function birthdaysToday(now = new Date()) {
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: config.tz }).format(now); // YYYY-MM-DD
+  const [y, md] = [Number(ymd.slice(0, 4)), ymd.slice(5)];
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const days = md === '02-28' && !leap ? ['02-28', '02-29'] : [md];
+  return {
+    year: y,
+    people: db
+      .prepare(
+        `SELECT id, first_name, last_name, number FROM users WHERE status = 'active' AND birth_date IS NOT NULL
+         AND substr(birth_date, 6, 5) IN (${days.map(() => '?').join(',')}) ORDER BY first_name`,
+      )
+      .all(...days) as { id: number; first_name: string; last_name: string | null; number: number | null }[],
+  };
+}
+
+/** Раз в день, после 10:00 по Тбилиси — открытка в чат. */
+export async function runBirthdays() {
+  if (quietHours()) return;
+  const { year, people } = birthdaysToday();
+  const fresh = people.filter((p) => isDue(`bday:${year}:${p.id}`, 24 * 365));
+  if (!fresh.length) return;
+  fresh.forEach((p) => markSent(`bday:${year}:${p.id}`));
+  await notifyBirthdays(fresh);
+  console.log(`[birthdays] поздравили: ${fresh.map((p) => p.first_name).join(', ')}`);
+}
+
 export function startReminders() {
-  const tick = () => runReminders().catch((e) => console.warn('[reminders] failed', e));
+  const tick = () => {
+    runReminders().catch((e) => console.warn('[reminders] failed', e));
+    runBirthdays().catch((e) => console.warn('[birthdays] failed', e));
+  };
   setTimeout(tick, 10_000);
   setInterval(tick, 15 * 60_000);
 }

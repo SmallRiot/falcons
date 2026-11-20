@@ -8,6 +8,7 @@ import { getEvent, goingCount, setSignup, type EventRow } from './signup.ts';
 import { eventSquadIds, squadsMap } from './squads.ts';
 import { h, kv, p, quote, toLegacyHtml, toPlain, type Block } from './rich.ts';
 import { renderLineupPng, type Slot } from './lineupImage.ts';
+import { renderBirthdayPng } from './birthdayCard.ts';
 import { setPlan, type Period, type Plan } from './finance.ts';
 
 type Button = { text: string; url?: string; callback_data?: string; web_app?: { url: string } };
@@ -522,6 +523,24 @@ export function notifySharpening(userId: number, ev: SharpEvent, opts: { amount?
     paid: '✅ Оплата за заточку подтверждена. Спасибо!',
   };
   return dm(userId, text[ev], 'sharpening');
+}
+
+/* ---------- дни рождения ---------- */
+
+/** Открытка в командный чат + личное поздравление имениннику. */
+export async function notifyBirthdays(people: { id: number; first_name: string; last_name: string | null; number: number | null }[]) {
+  if (!people.length) return;
+  const full = (u: (typeof people)[number]) => [u.first_name, u.last_name].filter(Boolean).join(' ');
+  const who = people.map((u) => `<b>${esc(full(u))}</b>`).join(people.length > 2 ? ', ' : ' и ');
+  const wish = pick([
+    'Острых коньков, лёгких шайб и побольше голов! 🏒🎂',
+    'Здоровья, скорости и чтобы шайба всегда шла в девятку! 🥅🎉',
+    'Пусть лёд будет гладким, а пасы — точными! 🦅🎂',
+  ]);
+  const caption = `🎂 Сегодня день рождения у ${who}!\n\n${wish}\nСоколы, поздравляем в чате 👇`;
+  await sendPhoto(TEAM, renderBirthdayPng(people.map((u) => ({ name: full(u), number: u.number }))), caption);
+  for (const u of people)
+    await dm(u.id, `🎂 <b>${esc(u.first_name)}, с днём рождения!</b>\n\nВся команда Falcons поздравляет тебя. ${wish}`);
 }
 
 /* ---------- напоминания ---------- */

@@ -3,6 +3,9 @@ import { requireRole } from '../auth.ts';
 import { db, nowIso, publicUser, rolesOf, type UserRow } from '../db.ts';
 import { debtsOf } from '../finance.ts';
 import { allSquads, squadIdsOf } from '../squads.ts';
+import { config } from '../config.ts';
+import { notifyBirthdays } from '../telegram.ts';
+import { markSent } from '../reminders.ts';
 
 /** Данные для десктопной консоли: таблицы посещаемости игр и тренировок. */
 export default async function consoleRoutes(app: FastifyInstance) {
@@ -47,6 +50,42 @@ export default async function consoleRoutes(app: FastifyInstance) {
       `INSERT INTO signups(event_id, user_id, status, attended, created_at) VALUES(?,?,?,?,?)
        ON CONFLICT(event_id, user_id) DO UPDATE SET attended = excluded.attended`,
     ).run(event_id, user_id, present ? 'in' : 'out', att, nowIso());
+    return { ok: true };
+  });
+
+  /** Ближайшие дни рождения (по умолчанию 45 дней). */
+  app.get<{ Querystring: { days?: string } }>('/api/console/birthdays', { preHandler: requireRole('admin', 'coach', 'service') }, async (req) => {
+    const horizon = Math.min(366, Number(req.query.days ?? 45));
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: config.tz }).format(new Date());
+    const t0 = Date.parse(`${today}T00:00:00Z`);
+    const year = Number(today.slice(0, 4));
+    const rows = db
+      .prepare(`SELECT id, first_name, last_name, number, birth_date FROM users WHERE status = 'active' AND birth_date IS NOT NULL`)
+      .all() as { id: number; first_name: string; last_name: string | null; number: number | null; birth_date: string }[];
+    return rows
+      .map((u) => {
+        const md = u.birth_date.slice(5);
+        let next = Date.parse(`${year}-${md}T00:00:00Z`);
+        if (isNaN(next)) next = Date.parse(`${year}-02-28T00:00:00Z`); // 29.02 в невисокосный год
+        if (next < t0) next = Date.parse(`${year + 1}-${md}T00:00:00Z`) || Date.parse(`${year + 1}-02-28T00:00:00Z`);
+        const inDays = Math.round((next - t0) / 864e5);
+        const turns = new Date(next).getUTCFullYear() - Number(u.birth_date.slice(0, 4));
+        return { id: u.id, name: [u.first_name, u.last_name].filter(Boolean).join(' '), number: u.number, birth_date: u.birth_date, in_days: inDays, turns };
+      })
+      .filter((x) => x.in_days <= horizon)
+      .sort((a, b) => a.in_days - b.in_days);
+  });
+
+  /** Поздравить вручную (если надо повторить или поздравить не в тот день). */
+  app.post<{ Body: { user_id: number } }>('/api/console/birthdays/congratulate', { preHandler: requireRole('admin') }, async (req, reply) => {
+    const u = db.prepare(`SELECT id, first_name, last_name, number FROM users WHERE id = ? AND status = 'active'`).get(Number(req.body?.user_id)) as
+      | { id: number; first_name: string; last_name: string | null; number: number | null }
+      | undefined;
+    if (!u) return reply.code(404).send({ error: 'Игрок не найден' });
+    // помечаем, чтобы утреннее автопоздравление не продублировало
+    const year = Number(new Intl.DateTimeFormat('en-CA', { timeZone: config.tz }).format(new Date()).slice(0, 4));
+    markSent(`bday:${year}:${u.id}`);
+    void notifyBirthdays([u]);
     return { ok: true };
   });
 

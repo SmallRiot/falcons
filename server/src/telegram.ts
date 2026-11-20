@@ -473,7 +473,11 @@ export const notifyDueRejected = (userId: number, month: string, comment?: strin
 /* ---------- доступ ---------- */
 
 export const notifyAccessGranted = (userId: number) =>
-  dm(userId, '🦅 <b>Добро пожаловать в Falcons!</b>\n\nДоступ открыт — заходи, записывайся на лёд и выбирай взнос 🏒', 'home');
+  dm(
+    userId,
+    '🦅 <b>Добро пожаловать в Falcons!</b>\n\nДоступ открыт. Зайди в приложение и заполни профиль — имя, фамилию и дату рождения (поздравим в чате 🎂). Потом записывайся на лёд 🏒',
+    'home',
+  );
 
 export const notifySignupBlocked = (userId: number) =>
   dm(userId, '⛔️ Запись на тренировки на паузе, пока не закрыт долг по взносам.\n\nОплатишь — сразу откроем 🙌', 'finance');

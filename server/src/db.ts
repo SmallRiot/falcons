@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   photo_url       TEXT,
   number          INTEGER,
   position        TEXT,                          -- F | D | G
+  birth_date      TEXT,                          -- YYYY-MM-DD
   roles           TEXT NOT NULL DEFAULT '',      -- admin,coach,service
   status          TEXT NOT NULL DEFAULT 'pending', -- pending | active | rejected
   signup_blocked  INTEGER NOT NULL DEFAULT 0,
@@ -163,6 +164,7 @@ function addColumn(table: string, column: string, def: string) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
   if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
 }
+addColumn('users', 'birth_date', 'TEXT');
 addColumn('periods', 'tg_message_id', 'INTEGER');
 addColumn('periods', 'locked_full', 'REAL');
 addColumn('periods', 'locked_partial', 'REAL');
@@ -192,6 +194,7 @@ export interface UserRow {
   photo_url: string | null;
   number: number | null;
   position: string | null;
+  birth_date: string | null;
   roles: string;
   status: 'pending' | 'active' | 'rejected';
   signup_blocked: number;
@@ -213,5 +216,19 @@ export function publicUser(u: UserRow) {
     photo_url: u.photo_url,
     number: u.number,
     position: u.position,
+    birth_date: u.birth_date ?? null,
   };
+}
+
+/** Профиль заполнен: имя, фамилия и дата рождения. Иначе после одобрения просим заполнить. */
+export const profileComplete = (u: Pick<UserRow, 'first_name' | 'last_name' | 'birth_date'>) =>
+  !!u.first_name?.trim() && !!u.last_name?.trim() && !!u.birth_date;
+
+/** YYYY-MM-DD, реальная дата, возраст 5–90 лет. */
+export function validBirthDate(s: unknown): string | null {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T00:00:00Z`);
+  if (isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) return null;
+  const age = (Date.now() - d.getTime()) / (365.25 * 864e5);
+  return age >= 5 && age <= 90 ? s : null;
 }

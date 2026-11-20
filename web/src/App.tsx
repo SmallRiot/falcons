@@ -21,6 +21,7 @@ import AdminAccounts from './pages/AdminAccounts';
 import Service from './pages/Service';
 import Notifications from './pages/Notifications';
 import AdminSquads from './pages/AdminSquads';
+import Onboarding from './pages/Onboarding';
 
 
 const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile'];
@@ -134,7 +135,8 @@ export default function App() {
         <DevPicker embedded onPick={() => location.reload()} />
       </Sheet>
 
-      <Sheet open={debtOpen} onClose={() => setDebtOpen(false)}>
+      {me.user.profile_complete === false && <Onboarding />}
+      <Sheet open={debtOpen && me.user.profile_complete !== false} onClose={() => setDebtOpen(false)}>
         <div className="vstack center" style={{ alignItems: 'center', gap: 12, padding: '8px 0' }}>
           <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--bad-soft)', color: 'var(--bad)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AlertTriangle size={30} />

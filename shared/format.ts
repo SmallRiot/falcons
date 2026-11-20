@@ -33,6 +33,9 @@ export const fmt = {
   },
 };
 
+/** «12 марта» из YYYY-MM-DD */
+export const birthday = (d: string) => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
+
 export function plural(n: number, one: string, few: string, many: string) {
   const m10 = n % 10,
     m100 = n % 100;

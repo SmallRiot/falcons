@@ -99,6 +99,7 @@ export interface PublicUser {
   photo_url: string | null;
   number: number | null;
   position: 'F' | 'D' | 'G' | null;
+  birth_date?: string | null;
 }
 
 export interface Squad {
@@ -111,7 +112,7 @@ export interface Squad {
 }
 
 export interface Me {
-  user: PublicUser & { roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; squads?: number[] };
+  user: PublicUser & { roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; squads?: number[]; profile_complete?: boolean };
   squads?: Squad[];
   debts?: { period_id: number; month: string; amount: number; status: string; comment: string | null }[];
   sharpeningDebt?: { count: number; total: number } | null;

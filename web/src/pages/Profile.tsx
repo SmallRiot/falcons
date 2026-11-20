@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CalendarCheck, ChevronRight, Coins, Flame, Landmark, Receipt, Scissors, Shield, Trophy, Users } from 'lucide-react';
 import { api, setDevUser } from '@shared/api';
 import { inTelegram } from '@shared/tg';
-import { fmt, plural, POS_LABEL, ROLE_LABEL } from '@shared/format';
+import { birthday, fmt, plural, POS_LABEL, ROLE_LABEL } from '@shared/format';
 import { Avatar, can, Segmented, Sheet, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 
 interface Stats {
@@ -37,6 +37,7 @@ export default function Profile() {
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>{u.name}</h1>
           <div className="muted small">
             {u.number != null ? `#${u.number}` : 'без номера'} · {u.position ? POS_LABEL[u.position] : 'позиция не указана'}
+            {u.birth_date ? ` · 🎂 ${birthday(u.birth_date)}` : ''}
           </div>
         </div>
         {!!u.squads?.length && (
@@ -56,7 +57,7 @@ export default function Profile() {
           </div>
         )}
         <button className="btn ghost sm" onClick={() => setEdit(true)}>
-          Изменить номер и позицию
+          Изменить профиль
         </button>
       </div>
 
@@ -162,13 +163,14 @@ function MenuRow({ icon, title, count, onClick }: { icon: React.ReactNode; title
 
 function EditSheet({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => Promise<void> }) {
   const { me } = useMe();
-  const [f, setF] = useState({ first_name: '', last_name: '', number: '', position: 'F' as 'F' | 'D' | 'G' });
+  const [f, setF] = useState({ first_name: '', last_name: '', birth_date: '', number: '', position: 'F' as 'F' | 'D' | 'G' });
   const { busy, run } = useAction();
   useEffect(() => {
     if (open)
       setF({
         first_name: me.user.first_name,
         last_name: me.user.last_name ?? '',
+        birth_date: me.user.birth_date ?? '',
         number: me.user.number != null ? String(me.user.number) : '',
         position: me.user.position ?? 'F',
       });
@@ -186,6 +188,10 @@ function EditSheet({ open, onClose, onSaved }: { open: boolean; onClose: () => v
             <input className="input" value={f.last_name} onChange={(e) => setF({ ...f, last_name: e.target.value })} />
           </label>
         </div>
+        <label className="field">
+          <span>Дата рождения</span>
+          <input className="input" type="date" value={f.birth_date} onChange={(e) => setF({ ...f, birth_date: e.target.value })} />
+        </label>
         <label className="field">
           <span>Игровой номер</span>
           <input className="input" inputMode="numeric" maxLength={2} value={f.number} onChange={(e) => setF({ ...f, number: e.target.value.replace(/\D/g, '') })} />

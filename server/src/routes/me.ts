@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireActive } from '../auth.ts';
-import { db, hasRole, publicUser, rolesOf } from '../db.ts';
+import { db, hasRole, profileComplete, publicUser, rolesOf, validBirthDate } from '../db.ts';
 import { debtsOf } from '../finance.ts';
 import { sharpeningDebts } from '../reminders.ts';
 import { allSquads, squadIdsOf } from '../squads.ts';
@@ -12,7 +12,14 @@ export default async function meRoutes(app: FastifyInstance) {
   app.get('/api/me', async (req) => {
     const u = req.user;
     const base = {
-      user: { ...publicUser(u), roles: rolesOf(u), status: u.status, signup_blocked: !!u.signup_blocked, squads: squadIdsOf(u.id) },
+      user: {
+        ...publicUser(u),
+        roles: rolesOf(u),
+        status: u.status,
+        signup_blocked: !!u.signup_blocked,
+        squads: squadIdsOf(u.id),
+        profile_complete: profileComplete(u),
+      },
       squads: allSquads(),
     };
     if (u.status !== 'active') return base;
@@ -40,19 +47,33 @@ export default async function meRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.patch<{ Body: { number?: number | null; position?: string | null; first_name?: string; last_name?: string | null } }>(
-    '/api/me',
-    { preHandler: requireActive },
-    async (req) => {
-      const b = req.body ?? {};
-      const pos = b.position && ['F', 'D', 'G'].includes(b.position) ? b.position : null;
-      const num = b.number == null || b.number === ('' as unknown) ? null : Math.max(0, Math.min(99, Number(b.number)));
-      db.prepare(
-        `UPDATE users SET number = ?, position = ?, first_name = COALESCE(NULLIF(?, ''), first_name), last_name = ? WHERE id = ?`,
-      ).run(num, pos, b.first_name?.trim() ?? '', b.last_name?.trim() || null, req.user.id);
-      return { ok: true };
-    },
-  );
+  app.patch<{
+    Body: { number?: number | null; position?: string | null; first_name?: string; last_name?: string | null; birth_date?: string | null };
+  }>('/api/me', { preHandler: requireActive }, async (req, reply) => {
+    const b = req.body ?? {};
+    const u = req.user;
+    // меняем только присланные поля
+    const pos = b.position === undefined ? u.position : b.position && ['F', 'D', 'G'].includes(b.position) ? b.position : null;
+    const num =
+      b.number === undefined ? u.number : b.number == null || b.number === ('' as unknown) ? null : Math.max(0, Math.min(99, Number(b.number)));
+    const first = b.first_name === undefined ? u.first_name : b.first_name.trim() || u.first_name;
+    const last = b.last_name === undefined ? u.last_name : b.last_name?.trim() || null;
+    let birth = u.birth_date;
+    if (b.birth_date !== undefined) {
+      birth = b.birth_date ? validBirthDate(b.birth_date) : null;
+      if (b.birth_date && !birth) return reply.code(400).send({ error: 'Проверь дату рождения' });
+    }
+    db.prepare('UPDATE users SET number = ?, position = ?, first_name = ?, last_name = ?, birth_date = ? WHERE id = ?').run(
+      num,
+      pos,
+      first,
+      last,
+      birth,
+      u.id,
+    );
+    return { ok: true };
+  });
+
 
   app.get('/api/me/stats', { preHandler: requireActive }, async (req) => {
     const uid = req.user.id;

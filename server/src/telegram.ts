@@ -48,8 +48,11 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
 
 /** Куда реально слать: в тестовом режиме — всё тестировщику, с пометкой «кому». */
 const TEAM = 'team';
-function route(chatId: string | number) {
-  if (!config.testChatId) return { to: chatId === TEAM ? config.teamChatId : chatId, tag: '' };
+function route(chatId: string | number): { to: string | number; tag: string; thread?: number } {
+  if (!config.testChatId) {
+    const team = chatId === TEAM || String(chatId) === String(config.teamChatId);
+    return { to: chatId === TEAM ? config.teamChatId : chatId, tag: '', thread: team && config.teamThreadId ? config.teamThreadId : undefined };
+  }
   let tag = '💬 в командный чат';
   if (chatId !== TEAM && String(chatId) !== String(config.teamChatId)) {
     const u = db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(Number(chatId)) as
@@ -60,10 +63,11 @@ function route(chatId: string | number) {
   return { to: config.testChatId, tag: `🧪 тест · ${tag}` };
 }
 
+const inThread = (thread?: number) => (thread ? { message_thread_id: thread } : {});
 const keyboard = (buttons?: Button[][]) => (buttons?.length ? { reply_markup: { inline_keyboard: buttons } } : {});
 
 export function sendMessage(chatId: string | number, text: string, buttons?: Button[][]) {
-  const { to, tag } = route(chatId);
+  const { to, tag, thread } = route(chatId);
   if (!to) {
     console.log(`\n[tg → командный чат (TEAM_CHAT_ID не задан)]\n${stripHtml(text)}\n`);
     return Promise.resolve(null);
@@ -71,6 +75,7 @@ export function sendMessage(chatId: string | number, text: string, buttons?: But
   return enqueue(() =>
     api('sendMessage', {
       chat_id: to,
+      ...inThread(thread),
       text: (tag ? `<i>${esc(tag)}</i>\n\n` : '') + text,
       parse_mode: 'HTML',
       link_preview_options: { is_disabled: true },
@@ -81,7 +86,7 @@ export function sendMessage(chatId: string | number, text: string, buttons?: But
 
 /** Фото (PNG) с подписью и кнопками — multipart sendPhoto. */
 export function sendPhoto(chatId: string | number, png: Buffer, caption: string, buttons?: Button[][]) {
-  const { to, tag } = route(chatId);
+  const { to, tag, thread } = route(chatId);
   const fullCaption = (tag ? `<i>${esc(tag)}</i>\n\n` : '') + caption;
   if (!to || !config.botToken) {
     console.log(`\n[tg photo → ${to || 'командный чат'}]\n${stripHtml(fullCaption)}\n`);
@@ -90,6 +95,7 @@ export function sendPhoto(chatId: string | number, png: Buffer, caption: string,
   return enqueue(async () => {
     const form = new FormData();
     form.set('chat_id', String(to));
+    if (thread) form.set('message_thread_id', String(thread));
     form.set('caption', fullCaption.slice(0, 1024));
     form.set('parse_mode', 'HTML');
     if (buttons?.length) form.set('reply_markup', JSON.stringify({ inline_keyboard: buttons }));
@@ -108,18 +114,19 @@ export function sendPhoto(chatId: string | number, png: Buffer, caption: string,
 
 /** Rich-сообщение (таблицы, заголовки). Если Telegram его не примет — шлём обычный текст из тех же блоков. */
 export function sendRich(chatId: string | number, blocks: Block[], buttons?: Button[][]) {
-  const { to, tag } = route(chatId);
+  const { to, tag, thread } = route(chatId);
   if (!to) {
     console.log(`\n[tg → командный чат (TEAM_CHAT_ID не задан)]\n${toPlain(blocks)}\n`);
     return Promise.resolve(null);
   }
   const all = tag ? [p(tag), ...blocks] : blocks;
   return enqueue(async () => {
-    const r = await api('sendRichMessage', { chat_id: to, rich_message: { blocks: all }, ...keyboard(buttons) });
+    const r = await api('sendRichMessage', { chat_id: to, ...inThread(thread), rich_message: { blocks: all }, ...keyboard(buttons) });
     if (r) return r;
     if (config.botToken) console.warn('[tg] rich-сообщение не прошло — отправляю обычным текстом');
     return api('sendMessage', {
       chat_id: to,
+      ...inThread(thread),
       text: toLegacyHtml(all),
       parse_mode: 'HTML',
       link_preview_options: { is_disabled: true },
@@ -632,7 +639,7 @@ export function reminderRsvp(userId: number, e: EventRow) {
 
 interface Update {
   update_id: number;
-  message?: { chat: { id: number; type: string }; from?: { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }; text?: string };
+  message?: { message_thread_id?: number; is_topic_message?: boolean; chat: { id: number; type: string; title?: string }; from?: { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }; text?: string };
   callback_query?: { id: string; from: { id: number }; data?: string; message?: { chat: { id: number }; message_id: number } };
 }
 
@@ -663,7 +670,16 @@ export async function handleUpdate(u: Update) {
   const m = u.message;
   if (m?.text) {
     const cmd = m.text.split(/[\s@]/)[0];
-    if (cmd === '/chatid') await sendMessage(m.chat.id, `chat id: <code>${m.chat.id}</code>`);
+    if (cmd === '/chatid') {
+      // отвечаем прямо там, где спросили (и в топике), без тестовой переадресации
+      const topic = m.is_topic_message ? m.message_thread_id : undefined;
+      await api('sendMessage', {
+        chat_id: m.chat.id,
+        ...inThread(topic),
+        parse_mode: 'HTML',
+        text: `chat id: <code>${m.chat.id}</code>${topic ? `\nтопик: <code>${topic}</code>` : ''}\n\nПришли это разработчику — бот будет постить ${topic ? 'в этот топик' : 'сюда'}.`,
+      });
+    }
     if (cmd === '/start' && m.chat.type === 'private' && m.from && !m.from.is_bot) {
       // /start = заявка в команду: человек появляется у админа в «Заявках», а бот теперь может ему писать
       const { upsertFromTelegram } = await import('./auth.ts');

@@ -27,6 +27,8 @@ export const config = {
   appShortName: process.env.APP_SHORT_NAME ?? '',
   webappUrl: process.env.WEBAPP_URL ?? '',
   teamChatId: process.env.TEAM_CHAT_ID ?? '',
+  /** группа с топиками: в какой топик постить (пусто — в «General») */
+  teamThreadId: Number(process.env.TEAM_THREAD_ID) || 0,
   adminIds: list(process.env.ADMIN_IDS).map(Number),
   botPolling: process.env.BOT_POLLING === '1',
   /** Тестовый режим: все сообщения бота уходят на этот chat id. */

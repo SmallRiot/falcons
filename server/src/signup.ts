@@ -40,8 +40,33 @@ export function setSignup(e: EventRow, user: UserRow, status: 'in' | 'out' | nul
       ).run(e.id, user.id, status, nowIso());
   }
   if (status !== 'in') db.prepare('DELETE FROM lineups WHERE event_id = ? AND user_id = ?').run(e.id, user.id);
+  syncGuestFee(e, user, status);
   return null;
 }
+
+export const isGuestRole = (u: Pick<UserRow, 'roles'>) => u.roles.split(',').includes('guest');
+
+/** Гость записался — появляется оплата за выход (если цена не 0); передумал — неоплаченную убираем. */
+export function syncGuestFee(e: EventRow, user: UserRow, status: 'in' | 'out' | null) {
+  if (status === 'in') {
+    if (!isGuestRole(user) || !(Number(user.guest_price) > 0)) return;
+    db.prepare('INSERT OR IGNORE INTO guest_fees(event_id, user_id, amount) VALUES(?,?,?)').run(e.id, user.id, Number(user.guest_price));
+  } else {
+    db.prepare(`DELETE FROM guest_fees WHERE event_id = ? AND user_id = ? AND status = 'unpaid'`).run(e.id, user.id);
+  }
+}
+
+export type GuestFee = { id: number; event_id: number; user_id: number; amount: number; status: 'unpaid' | 'pending' | 'paid'; proof: string | null; comment: string | null; created_at: string; updated_at: string | null };
+export const myFee = (eventId: number, userId: number) =>
+  (db.prepare('SELECT * FROM guest_fees WHERE event_id = ? AND user_id = ?').get(eventId, userId) as GuestFee | undefined) ?? null;
+/** Неоплаченные выходы гостя (для окна долга и напоминаний). */
+export const guestDebts = (userId: number) =>
+  db
+    .prepare(
+      `SELECT f.id, f.event_id, f.amount, f.status, e.starts_at, e.type, e.title FROM guest_fees f JOIN events e ON e.id = f.event_id
+       WHERE f.user_id = ? AND f.status = 'unpaid' AND e.cancelled = 0 ORDER BY e.starts_at`,
+    )
+    .all(userId) as { id: number; event_id: number; amount: number; status: string; starts_at: string; type: string; title: string | null }[];
 
 export function goingCount(eventId: number) {
   return (db.prepare(`SELECT COUNT(*) c FROM signups WHERE event_id=? AND status='in'`).get(eventId) as { c: number }).c;

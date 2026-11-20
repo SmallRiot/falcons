@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api, type PublicUser, type Role } from '@shared/api';
 import { birthday, fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
-import { Avatar, can, Spinner, useAction, useApi, useMe } from '@shared/ui';
+import { askText, Avatar, can, Spinner, useAction, useApi, useMe } from '@shared/ui';
 import { PlayerEdit } from '@shared/PlayerEdit';
 import { Pencil } from 'lucide-react';
 import Drawer from '../Drawer';
@@ -11,6 +11,7 @@ type Row = PublicUser & {
   status: 'pending' | 'active' | 'rejected';
   signup_blocked: boolean;
   squads: number[];
+  guest_price: number | null;
   debt: number;
   trainings30: number;
   games30: number;
@@ -28,7 +29,7 @@ export default function ConsolePlayers() {
   if (!data) return <Spinner />;
   const squads = me.squads ?? [];
 
-  const patch = (u: Row, body: Partial<Pick<Row, 'status' | 'roles' | 'signup_blocked' | 'squads'>>, ok?: string) => {
+  const patch = (u: Row, body: Partial<Pick<Row, 'status' | 'roles' | 'signup_blocked' | 'squads' | 'guest_price'>>, ok?: string) => {
     setData((d) => d?.map((x) => (x.id === u.id ? { ...x, ...body } : x)) ?? null);
     return run(async () => {
       await api.patch(`/api/admin/users/${u.id}`, body);
@@ -123,7 +124,7 @@ export default function ConsolePlayers() {
                 </td>
                 <td>
                   <div className="hstack" style={{ gap: 4 }}>
-                    {(['admin', 'coach', 'service'] as Role[]).map((r) => {
+                    {(['admin', 'coach', 'service', 'guest'] as Role[]).map((r) => {
                       const on = u.roles.includes(r);
                       return (
                         <button
@@ -131,9 +132,17 @@ export default function ConsolePlayers() {
                           className="sq-toggle"
                           disabled={!admin || (r === 'admin' && u.id === me.user.id)}
                           style={{ background: on ? 'var(--falcon)' : 'var(--surface-2)', color: on ? '#fff' : 'var(--muted)' }}
-                          onClick={() => patch(u, { roles: on ? u.roles.filter((x) => x !== r) : [...u.roles, r] })}
+                          onClick={async () => {
+                            if (r === 'guest' && !on) {
+                              const v = await askText(`Цена за выход на лёд для ${u.first_name}, ₾\nГость платит при каждой записи, во взносах не участвует.`, String(u.guest_price ?? 30));
+                              if (v === null || !(Number(v) >= 0)) return;
+                              return patch(u, { roles: [...u.roles, 'guest'], guest_price: Number(v) });
+                            }
+                            return patch(u, { roles: on ? u.roles.filter((x) => x !== r) : [...u.roles, r] });
+                          }}
                         >
                           {ROLE_LABEL[r]}
+                          {r === 'guest' && on ? ` · ${u.guest_price ?? 0} ₾` : ''}
                         </button>
                       );
                     })}

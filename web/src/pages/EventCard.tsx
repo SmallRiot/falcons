@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { FeePay } from './FeePay';
 import { Check, Clock, MapPin, X } from 'lucide-react';
 import { api, type EventSummary } from '@shared/api';
 import { fmt } from '@shared/format';
@@ -23,13 +24,17 @@ export function DateTile({ iso, game }: { iso: string; game?: boolean }) {
 }
 
 export function SignupButtons({ ev, onChange }: { ev: EventSummary; onChange: (e: EventSummary) => void }) {
-  const { me } = useMe();
+  const { me, refresh } = useMe();
   const [busy, setBusy] = useState(false);
+  const [payNow, setPayNow] = useState(false);
   const set = async (status: 'in' | 'out') => {
     haptic.tap();
     setBusy(true);
     try {
-      onChange(await api.post<EventSummary>(`/api/events/${ev.id}/signup`, { status: ev.my === status ? null : status }));
+      const next = await api.post<EventSummary>(`/api/events/${ev.id}/signup`, { status: ev.my === status ? null : status });
+      // гость записался — сразу окно оплаты выхода
+      if (next.myFee?.status === 'unpaid' && !ev.myFee) setPayNow(true);
+      onChange(next);
       haptic.ok();
     } catch (e) {
       toastErr(e);
@@ -48,6 +53,20 @@ export function SignupButtons({ ev, onChange }: { ev: EventSummary; onChange: (e
       <button className={`btn sm ${ev.my === 'out' ? 'out-on' : 'ghost'}`} disabled={busy} onClick={() => set('out')}>
         <X size={17} /> Не иду
       </button>
+      {ev.myFee && ev.my === 'in' && (
+        <div style={{ flexBasis: '100%' }}>
+          <FeePay
+            key={`${ev.id}-${payNow}`}
+            ev={ev}
+            autoOpen={payNow}
+            onDone={async () => {
+              setPayNow(false);
+              onChange(await api.get<EventSummary>(`/api/events/${ev.id}`));
+              await refresh();
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

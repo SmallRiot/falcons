@@ -23,6 +23,7 @@ import Notifications from './pages/Notifications';
 import AdminSquads from './pages/AdminSquads';
 import Onboarding from './pages/Onboarding';
 import Manage from './pages/Manage';
+import AdminFees from './pages/AdminFees';
 
 
 const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile', '/manage', '/admin/users', '/admin/finance', '/service', '/service/queue', '/service/debts'];
@@ -92,7 +93,7 @@ export default function App() {
   }, [needDev]);
 
   // долг показываем при каждом открытии приложения
-  const hasDebt = !!me?.debts?.length || !!me?.sharpeningDebt;
+  const hasDebt = !!me?.debts?.length || !!me?.sharpeningDebt || !!me?.guestDebt;
   useEffect(() => {
     if (hasDebt) setDebtOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,8 +129,8 @@ export default function App() {
     return <Gate kind={me.user.status} me={me} onRetry={refresh} onDev={() => setDevOpen(true)} devOpen={devOpen} setDevOpen={setDevOpen} />;
 
   const duesDebt = (me.debts ?? []).reduce((s, d) => s + d.amount, 0);
-  const debtTotal = duesDebt + (me.sharpeningDebt?.total ?? 0);
-  const staffBadge = (me.badges?.pendingUsers ?? 0) + (me.badges?.proofs ?? 0) + (me.badges?.sharpenings ?? 0);
+  const debtTotal = duesDebt + (me.sharpeningDebt?.total ?? 0) + (me.guestDebt?.total ?? 0);
+  const staffBadge = (me.badges?.pendingUsers ?? 0) + (me.badges?.proofs ?? 0) + (me.badges?.fees ?? 0) + (me.badges?.sharpenings ?? 0);
   const isStaff = can(me, 'admin', 'coach', 'service');
   const staffMode = isStaff && (mode ?? 'staff') === 'staff';
   const staffLabel = can(me, 'admin') ? 'Админка' : can(me, 'coach') ? 'Тренер' : 'Заточка';
@@ -159,6 +160,7 @@ export default function App() {
       <Route path="/service/:tab" element={<Service />} />
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/admin/squads" element={<AdminSquads />} />
+      <Route path="/admin/fees" element={<AdminFees />} />
       <Route path="/manage" element={isStaff ? <Manage /> : <Home />} />
       <Route path="*" element={staffMode ? <Manage /> : <Home />} />
     </Routes>
@@ -192,7 +194,10 @@ export default function App() {
             <>
               <Tab to="/" icon={<HomeIcon size={22} />} label="Главная" end />
               <Tab to="/events" icon={<CalendarDays size={22} />} label="События" />
-              <Tab to="/finance" icon={<Wallet size={22} />} label="Взносы" dot={me.debts?.length ? '!' : undefined} />
+              {/* гость платит за выходы, взносов у него нет (если не остался старый долг) */}
+              {(me.guest_price == null || !!me.debts?.length) && (
+                <Tab to="/finance" icon={<Wallet size={22} />} label="Взносы" dot={me.debts?.length ? '!' : undefined} />
+              )}
               <Tab to="/sharpening" icon={<Scissors size={22} />} label="Заточка" dot={me.sharpeningDebt ? '!' : undefined} />
               <Tab to="/profile" icon={<User size={22} />} label="Профиль" />
             </>
@@ -240,6 +245,7 @@ export default function App() {
             {[
               ...(me.debts ?? []).map((d) => `Взнос за ${fmt.month(d.month).toLowerCase()} — ${fmt.gel(d.amount)}${d.status === 'rejected' ? ' (скрин отклонён)' : ''}`),
               ...(me.sharpeningDebt ? [`Заточка — ${fmt.gel(me.sharpeningDebt.total)}`] : []),
+              ...(me.guestDebt ? [`Выходы на лёд (${me.guestDebt.count}) — ${fmt.gel(me.guestDebt.total)}`] : []),
             ].join(' · ')}
           </p>
           {me.user.signup_blocked && (
@@ -251,7 +257,7 @@ export default function App() {
             className="btn block"
             onClick={() => {
               setDebtOpen(false);
-              nav(duesDebt > 0 ? '/finance' : '/sharpening');
+              nav(duesDebt > 0 ? '/finance' : me.sharpeningDebt ? '/sharpening' : me.guestDebt ? `/events/${me.guestDebt.items[0].event_id}` : '/');
             }}
           >
             Оплатить

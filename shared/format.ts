@@ -46,7 +46,7 @@ export function plural(n: number, one: string, few: string, many: string) {
 
 export const POS_LABEL: Record<string, string> = { F: 'Нападающий', D: 'Защитник', G: 'Вратарь' };
 export const POS_SHORT: Record<string, string> = { F: 'НАП', D: 'ЗАЩ', G: 'ВРТ' };
-export const ROLE_LABEL: Record<string, string> = { admin: 'Админ', coach: 'Тренер', service: 'Сервис' };
+export const ROLE_LABEL: Record<string, string> = { admin: 'Админ', coach: 'Тренер', service: 'Сервис', guest: 'Гость' };
 export const PLAN_LABEL: Record<string, string> = {
   full: 'Полный',
   partial: 'Частичный',

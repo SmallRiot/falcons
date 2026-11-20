@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { CalendarDays, ClipboardCheck, LayoutDashboard, Landmark, LogOut, Receipt, Scissors, Shield, Trophy, Users } from 'lucide-react';
+import { CalendarDays, ClipboardCheck, LayoutDashboard, Landmark, LogOut, Receipt, Ticket, Scissors, Shield, Trophy, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { setDevUser, setSession, type EventSummary } from '@shared/api';
 import { fmt, ROLE_LABEL } from '@shared/format';
@@ -34,6 +34,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         <Item to="/trainings" icon={<ClipboardCheck size={18} />} label="Стата тренировок" />
         <div className="desk-group">Деньги и сервис</div>
         {admin && <Item to="/finance" icon={<Receipt size={18} />} label="Финансы" cnt={b.proofs} />}
+        {admin && <Item to="/guest-fees" icon={<Ticket size={18} />} label="Оплаты гостей" cnt={b.fees} />}
         <Item to="/sharpening" icon={<Scissors size={18} />} label="Заточка" cnt={b.sharpenings} />
         {admin && <Item to="/accounts" icon={<Landmark size={18} />} label="Счета" />}
 

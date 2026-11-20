@@ -1,3 +1,4 @@
+import GuestFees from './pages/GuestFees';
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ShieldX } from 'lucide-react';
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/games" element={<GameAttendance />} />
           <Route path="/trainings" element={<TrainingStats />} />
           {admin && <Route path="/finance" element={<Finance />} />}
+          {admin && <Route path="/guest-fees" element={<GuestFees />} />}
           <Route path="/sharpening" element={<SharpeningQueue />} />
           {admin && <Route path="/squads" element={<Squads />} />}
           {admin && <Route path="/accounts" element={<Accounts />} />}

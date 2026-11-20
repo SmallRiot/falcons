@@ -4,7 +4,7 @@
  */
 import { config } from './config.ts';
 import { db, displayName, type UserRow } from './db.ts';
-import { getEvent, goingCount, setSignup, type EventRow } from './signup.ts';
+import { getEvent, goingCount, myFee, setSignup, type EventRow } from './signup.ts';
 import { eventSquadIds, squadsMap } from './squads.ts';
 import { h, kv, p, quote, toLegacyHtml, toPlain, type Block } from './rich.ts';
 import { renderLineupPng, type Slot } from './lineupImage.ts';
@@ -578,6 +578,32 @@ export function reminderDues(userId: number, name: string, debts: { month: strin
   );
 }
 
+/* ---------- гости: оплата за выход ---------- */
+
+const evName = (e: { type: string; title: string | null; starts_at: string }) =>
+  `${e.type === 'game' ? 'игру' : 'тренировку'}${e.title ? ` «${esc(e.title)}»` : ''} ${dayWord(e.starts_at)}, ${fmtTime(e.starts_at)}`;
+
+/** Гость записался — сразу просим оплатить выход (как с заточкой). */
+export function notifyGuestFee(userId: number, e: EventRow, amount: number) {
+  return dm(userId, `🎟 Записал тебя на ${evName(e)}.\nВыход для гостя — ${amount} ₾. Переведи и прикрепи скрин 👇`, `e${e.id}`);
+}
+export function notifyAdminsGuestFee(u: UserRow, e: EventRow, amount: number) {
+  const text = `🎟 Гость <b>${esc(displayName(u))}</b> прислал(а) скрин за ${evName(e)} — ${amount} ₾. Проверишь?`;
+  return Promise.all(idsWithRole('admin').map((id) => dm(id, text, 'admin-fees')));
+}
+export function notifyGuestFeeResult(userId: number, e: EventRow, ok: boolean, comment?: string) {
+  return dm(
+    userId,
+    ok
+      ? `✅ Оплата за ${evName(e)} принята. До встречи на льду 🏒`
+      : `⚠️ Оплату за ${evName(e)} не нашли.${comment ? `\n💬 «${esc(comment)}»` : ''}\nПроверь перевод и прикрепи скрин ещё раз 👇`,
+    `e${e.id}`,
+  );
+}
+export function reminderGuestFees(userId: number, total: number, n: number) {
+  return dm(userId, `⏰ За тобой ${n > 1 ? `${n} выхода` : 'выход'} на лёд — <b>${total} ₾</b>. Переведи и прикрепи скрин, пожалуйста 🙏`, 'events');
+}
+
 export function reminderSharpening(userId: number, total: number) {
   return dm(
     userId,
@@ -669,9 +695,15 @@ export async function handleUpdate(u: Update) {
     const e = getEvent(Number(a));
     if (!e) return answer(cq.id, 'Событие не найдено');
     if (!actor) return answer(cq.id, 'Сначала открой приложение Falcons и дождись доступа 🦅', true);
+    const hadFee = !!myFee(e.id, actor.id);
     const err = setSignup(e, actor, b === 'in' ? 'in' : 'out');
     if (err) return answer(cq.id, err, true);
     refreshEventPost(e.id);
+    const fee = myFee(e.id, actor.id);
+    if (fee && !hadFee) {
+      void notifyGuestFee(actor.id, e, fee.amount);
+      return answer(cq.id, `Записал! Выход для гостя — ${fee.amount} ₾, реквизиты прислал в личку 🎟`, true);
+    }
     return answer(cq.id, b === 'in' ? pick(['Записал! До встречи на льду 🏒', 'Ты в деле! 💪', 'Отлично, ждём! 🦅']) : 'Понял, в другой раз 👋');
   }
 

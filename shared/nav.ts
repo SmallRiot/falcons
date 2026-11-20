@@ -5,6 +5,8 @@ export function startRoute(p: string): string | null {
     finance: '/finance',
     'admin-finance': '/admin/finance',
     'admin-users': '/admin/users',
+    'admin-fees': '/admin/fees',
+    events: '/events',
     service: '/service',
     sharpening: '/sharpening',
     home: '/',

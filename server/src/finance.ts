@@ -38,7 +38,7 @@ export function computeRates(period: Period) {
   const rows = db
     .prepare(
       `SELECT d.plan, d.custom_amount FROM dues d JOIN users u ON u.id = d.user_id
-       WHERE d.period_id = ? AND u.status = 'active'`,
+       WHERE d.period_id = ? AND u.status = 'active' AND ',' || u.roles || ',' NOT LIKE '%,guest,%'`,
     )
     .all(period.id) as { plan: Plan | null; custom_amount: number | null }[];
   let nFull = 0,
@@ -125,7 +125,8 @@ export function setPlan(period: Period, userId: number, plan: Plan): string | nu
 /** Создаёт строки dues для всех активных игроков, у кого их нет. */
 export function ensureDues(periodId: number) {
   db.prepare(
-    `INSERT OR IGNORE INTO dues(period_id, user_id) SELECT ?, id FROM users WHERE status = 'active'`,
+    // гости платят за выходы, а не взносами
+    `INSERT OR IGNORE INTO dues(period_id, user_id) SELECT ?, id FROM users WHERE status = 'active' AND ',' || roles || ',' NOT LIKE '%,guest,%'`,
   ).run(periodId);
 }
 

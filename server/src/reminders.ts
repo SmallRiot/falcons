@@ -12,7 +12,7 @@ import { ANNOUNCE_DAYS, config } from './config.ts';
 const TEST_CAP = 5;
 import { db, getSetting, nowIso } from './db.ts';
 import { debtsOf } from './finance.ts';
-import { notifyEventCreated, notifyBirthdays, sendMessage, reminderDues, reminderPlan, reminderRsvp, reminderSharpening, monthName } from './telegram.ts';
+import { notifyEventCreated, notifyBirthdays, sendMessage, reminderDues, reminderPlan, reminderRsvp, reminderSharpening, reminderGuestFees, monthName } from './telegram.ts';
 import { getEvent, type EventRow } from './signup.ts';
 import { eventAudience } from './squads.ts';
 
@@ -73,6 +73,21 @@ export async function runReminders(force = false) {
     const key = `debt:sharp:${d.user_id}`;
     if (!isDue(key, every)) continue;
     if (budget()) await reminderSharpening(d.user_id, d.total);
+    markSent(key);
+    sent++;
+  }
+
+  // 2б. гости: неоплаченные выходы на лёд
+  const guestRows = db
+    .prepare(
+      `SELECT f.user_id, SUM(f.amount) total, COUNT(*) n FROM guest_fees f JOIN events e ON e.id = f.event_id
+       WHERE f.status = 'unpaid' AND e.cancelled = 0 GROUP BY f.user_id`,
+    )
+    .all() as { user_id: number; total: number; n: number }[];
+  for (const g of guestRows) {
+    const key = `debt:fee:${g.user_id}`;
+    if (!isDue(key, every)) continue;
+    if (budget()) await reminderGuestFees(g.user_id, g.total, g.n);
     markSent(key);
     sent++;
   }

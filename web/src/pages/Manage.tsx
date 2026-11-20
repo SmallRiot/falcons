@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, CalendarPlus, ChevronRight, Landmark, Monitor, Receipt, Scissors, Shield, UserPlus, Users } from 'lucide-react';
+import { CalendarDays, CalendarPlus, ChevronRight, Landmark, Monitor, Receipt, Scissors, Shield, Ticket, UserPlus, Users } from 'lucide-react';
 import type { EventSummary } from '@shared/api';
 import { fmt, ROLE_LABEL } from '@shared/format';
 import { can, useApi, useMe } from '@shared/ui';
@@ -17,6 +17,7 @@ export default function Manage() {
   const tasks = [
     admin && { icon: <UserPlus size={20} />, title: 'Заявки на доступ', n: b.pendingUsers ?? 0, to: '/admin/users' },
     admin && { icon: <Receipt size={20} />, title: 'Скрины на проверке', n: b.proofs ?? 0, to: '/admin/finance' },
+    admin && { icon: <Ticket size={20} />, title: 'Оплаты гостей', n: b.fees ?? 0, to: '/admin/fees' },
     service && { icon: <Scissors size={20} />, title: 'Заточки в очереди', n: b.sharpenings ?? 0, to: '/service' },
   ].filter(Boolean) as { icon: React.ReactNode; title: string; n: number; to: string }[];
   const waiting = tasks.filter((t) => t.n > 0);
@@ -77,6 +78,7 @@ export default function Manage() {
         {coach && <Row icon={<CalendarDays size={20} />} title="События и пятёрки" onClick={() => nav('/events')} />}
         {admin && <Row icon={<Users size={20} />} title="Люди и роли" count={b.pendingUsers} onClick={() => nav('/admin/users')} />}
         {admin && <Row icon={<Receipt size={20} />} title="Взносы и проверка оплат" count={b.proofs} onClick={() => nav('/admin/finance')} />}
+        {admin && <Row icon={<Ticket size={20} />} title="Оплаты гостей" count={b.fees} onClick={() => nav('/admin/fees')} />}
         {service && <Row icon={<Scissors size={20} />} title="Очередь заточки" count={b.sharpenings} onClick={() => nav('/service')} />}
         {admin && <Row icon={<Shield size={20} />} title="Составы" onClick={() => nav('/admin/squads')} />}
         {admin && <Row icon={<Landmark size={20} />} title="Счета для оплаты" onClick={() => nav('/admin/accounts')} />}

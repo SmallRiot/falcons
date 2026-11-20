@@ -111,6 +111,7 @@ export default async function consoleRoutes(app: FastifyInstance) {
       status: u.status,
       signup_blocked: !!u.signup_blocked,
       squads: squadIdsOf(u.id),
+      guest_price: u.guest_price ?? null,
       debt: debtsOf(u.id).reduce((s, d) => s + d.amount, 0),
       trainings30: att.get(u.id)?.t ?? 0,
       games30: att.get(u.id)?.g ?? 0,

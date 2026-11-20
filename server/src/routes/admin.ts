@@ -9,7 +9,7 @@ import { notifyAccessGranted, notifySignupBlocked } from '../telegram.ts';
 import { removeAvatar, saveAvatar, updateProfile, type ProfileBody } from '../profile.ts';
 import { allSquads, setUserSquads, squadIdsOf, type Squad } from '../squads.ts';
 
-const ROLES: Role[] = ['admin', 'coach', 'service'];
+const ROLES: Role[] = ['admin', 'coach', 'service', 'guest'];
 const MIME: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.png': 'image/png',
@@ -33,13 +33,14 @@ export default async function adminRoutes(app: FastifyInstance) {
         status: u.status,
         signup_blocked: !!u.signup_blocked,
         squads: squadIdsOf(u.id),
+        guest_price: u.guest_price ?? null,
         created_at: u.created_at,
         debt: debts.reduce((s, d) => s + d.amount, 0),
       };
     });
   });
 
-  app.patch<{ Params: { id: string }; Body: ProfileBody & { status?: UserRow['status']; roles?: Role[]; signup_blocked?: boolean; squads?: number[] } }>(
+  app.patch<{ Params: { id: string }; Body: ProfileBody & { status?: UserRow['status']; roles?: Role[]; signup_blocked?: boolean; squads?: number[]; guest_price?: number | null } }>(
     '/api/admin/users/:id',
     admin,
     async (req, reply) => {
@@ -56,6 +57,13 @@ export default async function adminRoutes(app: FastifyInstance) {
       const blocked = b.signup_blocked !== undefined ? (b.signup_blocked ? 1 : 0) : u.signup_blocked;
       db.prepare('UPDATE users SET status=?, roles=?, signup_blocked=? WHERE id=?').run(status, roles, blocked, id);
       if (b.squads) setUserSquads(id, b.squads.map(Number));
+      if (b.guest_price !== undefined)
+        db.prepare('UPDATE users SET guest_price = ? WHERE id = ?').run(b.guest_price == null ? null : Math.max(0, Number(b.guest_price)), id);
+      // стал гостем — из несобранных взносов его убираем: он платит за выходы
+      if (roles.split(',').includes('guest') && !u.roles.split(',').includes('guest'))
+        db.prepare(
+          `DELETE FROM dues WHERE user_id = ? AND status != 'paid' AND period_id IN (SELECT id FROM periods WHERE locked = 0)`,
+        ).run(id);
       if (status === 'active' && u.status !== 'active') void notifyAccessGranted(id);
       if (blocked && !u.signup_blocked)
         void notifySignupBlocked(id);

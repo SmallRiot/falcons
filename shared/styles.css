@@ -229,7 +229,7 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .event-bottom { display: flex; align-items: center; gap: 10px; }
 .progress { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; flex: 1; }
 .progress > div { height: 100%; background: var(--falcon); border-radius: 3px; transition: width 0.3s ease; }
-.signup-btns { display: flex; gap: 8px; }
+.signup-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .signup-btns .btn { flex: 1; }
 .signup-btns .btn.in-on { background: var(--ok); color: #fff; }
 .signup-btns .btn.out-on { background: var(--bad-soft); color: var(--bad); }

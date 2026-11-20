@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { requireActive } from '../auth.ts';
 import { removeAvatar, saveAvatar, updateProfile, type ProfileBody } from '../profile.ts';
+import { guestDebts } from '../signup.ts';
 import { db, hasRole, profileComplete, publicUser, rolesOf, validBirthDate } from '../db.ts';
 import { debtsOf } from '../finance.ts';
 import { sharpeningDebts } from '../reminders.ts';
@@ -42,8 +43,14 @@ export default async function meRoutes(app: FastifyInstance) {
       ).c;
     }
     badges.unread = (db.prepare('SELECT COUNT(*) c FROM notifications WHERE user_id=? AND read=0').get(u.id) as { c: number }).c;
+    if (hasRole(u, 'admin'))
+      badges.fees = (db.prepare(`SELECT COUNT(*) c FROM guest_fees WHERE status='pending'`).get() as { c: number }).c;
+    const gd = guestDebts(u.id);
     const sharp = sharpeningDebts(u.id)[0];
-    return { ...base, debts: debtsOf(u.id), sharpeningDebt: sharp ? { count: sharp.n, total: sharp.total } : null, badges };
+    return { ...base, debts: debtsOf(u.id), sharpeningDebt: sharp ? { count: sharp.n, total: sharp.total } : null,
+      guestDebt: gd.length ? { count: gd.length, total: gd.reduce((a, x) => a + x.amount, 0), items: gd } : null,
+      guest_price: hasRole(u, 'guest') ? u.guest_price ?? 0 : null,
+      badges };
   });
 
   app.get('/api/notifications', { preHandler: requireActive }, async (req) =>

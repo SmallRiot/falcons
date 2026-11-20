@@ -3,9 +3,9 @@ import { PlayerEdit } from '@shared/PlayerEdit';
 import { Search, Users } from 'lucide-react';
 import { api, type PublicUser, type Role } from '@shared/api';
 import { birthday, fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
-import { ask, Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
+import { askText, ask, Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '@shared/ui';
 
-type AdminUser = PublicUser & { squads: number[]; roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; debt: number; created_at: string };
+type AdminUser = PublicUser & { squads: number[]; guest_price: number | null; roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; debt: number; created_at: string };
 
 export default function AdminUsers() {
   const { me, refresh } = useMe();
@@ -20,6 +20,17 @@ export default function AdminUsers() {
     setOpen((o) => (o ? (data ?? []).find((u) => u.id === o.id) ?? o : o));
   }, [data]);
 
+  /** спросить цену выхода и сделать гостем (при впускании или из карточки) */
+  const makeGuest = async (u: AdminUser, admit: boolean) => {
+    const v = await askText(`Цена за выход на лёд для ${u.first_name}, ₾\nГость платит при каждой записи. 0 — бесплатно.`, String(u.guest_price ?? 30), 'например 30');
+    if (v === null || !(Number(v) >= 0)) return;
+    await patch(
+      u,
+      { ...(admit ? { status: 'active' as const } : {}), roles: [...u.roles.filter((r) => r !== 'guest'), 'guest'], guest_price: Number(v) },
+      admit ? `${u.first_name} пущен гостем · ${Number(v)} ₾ за выход` : `Гость · ${Number(v)} ₾ за выход`,
+    );
+  };
+
   const all = data ?? [];
   const pending = all.filter((u) => u.status === 'pending').length;
   const list = all
@@ -27,7 +38,7 @@ export default function AdminUsers() {
     .filter((u) => !q || `${u.name} ${u.username ?? ''} ${u.number ?? ''}`.toLowerCase().includes(q.toLowerCase()));
 
   const squadsById = new Map((me.squads ?? []).map((s) => [s.id, s]));
-  const patch = (u: AdminUser, body: Partial<Pick<AdminUser, 'status' | 'roles' | 'signup_blocked' | 'squads'>>, ok: string) =>
+  const patch = (u: AdminUser, body: Partial<Pick<AdminUser, 'status' | 'roles' | 'signup_blocked' | 'squads' | 'guest_price'>>, ok: string) =>
     run(async () => {
       await api.patch(`/api/admin/users/${u.id}`, body);
       await Promise.all([reload(), refresh()]);
@@ -127,6 +138,7 @@ export default function AdminUsers() {
             )}
 
             {open.status !== 'active' ? (
+              <>
               <div className="btn-row">
                 {open.status === 'pending' && (
                   <button className="btn bad-soft" disabled={busy} onClick={() => patch(open, { status: 'rejected' }, 'Отклонено')}>
@@ -137,18 +149,30 @@ export default function AdminUsers() {
                   Пустить в команду
                 </button>
               </div>
+              <button className="btn secondary block" disabled={busy} onClick={() => makeGuest(open, true)}>
+                Пустить гостем — с оплатой за каждый выход
+              </button>
+              </>
             ) : (
               <>
                 <div className="section-title">Составы на игры</div>
                 <SquadPicker squads={me.squads ?? []} value={open.squads} onChange={(v) => patch(open, { squads: v }, 'Составы обновлены')} />
                 <div className="section-title">Роли</div>
                 <div className="list">
-                  {(['admin', 'coach', 'service'] as Role[]).map((r) => (
+                  {(['admin', 'coach', 'service', 'guest'] as Role[]).map((r) => (
                     <label key={r} className="row check" style={{ cursor: 'pointer' }}>
                       <div className="grow">
                         <div className="title">{ROLE_LABEL[r]}</div>
                         <div className="meta">
-                          {r === 'admin' ? 'Люди, взносы, счета' : r === 'coach' ? 'События и пятёрки' : 'Заявки на заточку'}
+                          {r === 'admin'
+                            ? 'Люди, взносы, счета'
+                            : r === 'coach'
+                              ? 'События и пятёрки'
+                              : r === 'service'
+                                ? 'Заявки на заточку'
+                                : open.roles.includes('guest')
+                                  ? `Платит за каждый выход: ${fmt.gel(open.guest_price ?? 0)} · без взносов`
+                                  : 'Платит за каждый выход, без взносов'}
                         </div>
                       </div>
                       <input
@@ -156,16 +180,23 @@ export default function AdminUsers() {
                         disabled={busy || (r === 'admin' && open.id === me.user.id)}
                         checked={open.roles.includes(r)}
                         onChange={(e) =>
-                          patch(
-                            open,
-                            { roles: e.target.checked ? [...open.roles, r] : open.roles.filter((x) => x !== r) },
-                            'Роли обновлены',
-                          )
+                          r === 'guest' && e.target.checked
+                            ? makeGuest(open, false)
+                            : patch(
+                                open,
+                                { roles: e.target.checked ? [...open.roles, r] : open.roles.filter((x) => x !== r) },
+                                'Роли обновлены',
+                              )
                         }
                       />
                     </label>
                   ))}
                 </div>
+                {open.roles.includes('guest') && (
+                  <button className="btn ghost block" disabled={busy} onClick={() => makeGuest(open, false)}>
+                    Изменить цену выхода ({fmt.gel(open.guest_price ?? 0)})
+                  </button>
+                )}
                 <div className="section-title">Запись на тренировки</div>
                 <div className="list">
                   <label className="row check" style={{ cursor: 'pointer' }}>

@@ -2,8 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { requireActive, requireRole } from '../auth.ts';
 import { ANNOUNCE_DAYS, DEFAULT_LOCATION } from '../config.ts';
 import { db, hasRole, nowIso, publicUser, type UserRow } from '../db.ts';
-import { notifyEventCreated, notifyLineupPersonal, notifyLineupPublished, refreshEventPost, renderFor } from '../telegram.ts';
-import { setSignup, type EventRow } from '../signup.ts';
+import { notifyEventCreated, notifyGuestFee, notifyLineupPersonal, notifyLineupPublished, refreshEventPost, renderFor } from '../telegram.ts';
+import { myFee, setSignup, type EventRow } from '../signup.ts';
 import { canSeeEvent, canSeeRoster, eventSquadIds, setEventSquads, squadsMap, VISIBLE_SQL } from '../squads.ts';
 
 type EventBody = Partial<EventRow> & { notify?: boolean; squad_ids?: number[] };
@@ -51,7 +51,20 @@ function summarize(e: EventRow, userId: number) {
     .map((id) => sq.get(id))
     .filter(Boolean)
     .map((s) => ({ id: s!.id, short: s!.short, name: s!.name, color: s!.color }));
-  return { ...e, squads, cancelled: !!e.cancelled, lineup_published: !!e.lineup_published, going, out, my: mine?.status ?? null, myReserve, avatars };
+  const fee = myFee(e.id, userId);
+  return {
+    ...e,
+    squads,
+    cancelled: !!e.cancelled,
+    lineup_published: !!e.lineup_published,
+    going,
+    out,
+    my: mine?.status ?? null,
+    myReserve,
+    avatars,
+    /** гость: оплата за этот выход */
+    myFee: fee ? { id: fee.id, amount: fee.amount, status: fee.status } : null,
+  };
 }
 
 export default async function eventRoutes(app: FastifyInstance) {
@@ -188,8 +201,11 @@ export default async function eventRoutes(app: FastifyInstance) {
       const id = Number(req.params.id);
       const e = db.prepare('SELECT * FROM events WHERE id = ?').get(id) as EventRow | undefined;
       if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
+      const hadFee = !!myFee(id, req.user.id);
       const err = setSignup(e, req.user, req.body?.status ?? null);
       if (err) return reply.code(400).send({ error: err });
+      const fee = myFee(id, req.user.id);
+      if (fee && !hadFee) void notifyGuestFee(req.user.id, e, fee.amount);
       refreshEventPost(id);
       return summarize(db.prepare('SELECT * FROM events WHERE id = ?').get(id) as unknown as EventRow, req.user.id);
     },

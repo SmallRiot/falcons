@@ -176,6 +176,21 @@ addColumn('events', 'score_them', 'INTEGER');
 addColumn('signups', 'attended', 'INTEGER');
 addColumn('sharpenings', 'payment', "TEXT NOT NULL DEFAULT 'pending'");
 addColumn('lineups', 'team', "TEXT NOT NULL DEFAULT ''");
+// роль «гость»: цена за выход на лёд и оплаты за каждое событие
+addColumn('users', 'guest_price', 'REAL');
+db.exec(`
+CREATE TABLE IF NOT EXISTS guest_fees (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id   INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount     REAL NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'unpaid',      -- unpaid | pending | paid
+  proof      TEXT,
+  comment    TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT,
+  UNIQUE (event_id, user_id)
+);`);
 
 export const nowIso = () => new Date().toISOString();
 
@@ -187,7 +202,8 @@ export function setSetting(key: string, value: string) {
   db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key, value);
 }
 
-export type Role = 'admin' | 'coach' | 'service';
+/** guest — платит за каждый выход на лёд (users.guest_price), во взносах не участвует */
+export type Role = 'admin' | 'coach' | 'service' | 'guest';
 export interface UserRow {
   id: number;
   first_name: string;
@@ -199,6 +215,7 @@ export interface UserRow {
   birth_date: string | null;
   roles: string;
   status: 'pending' | 'active' | 'rejected' | 'guest';
+  guest_price?: number | null;
   signup_blocked: number;
   created_at: string;
 }

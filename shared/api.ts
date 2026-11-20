@@ -88,7 +88,7 @@ export async function fetchFileUrl(name: string): Promise<string> {
 
 /* ---------- типы ---------- */
 
-export type Role = 'admin' | 'coach' | 'service';
+export type Role = 'admin' | 'coach' | 'service' | 'guest';
 
 export interface PublicUser {
   id: number;
@@ -118,7 +118,11 @@ export interface Me {
   squads?: Squad[];
   debts?: { period_id: number; month: string; amount: number; status: string; comment: string | null }[];
   sharpeningDebt?: { count: number; total: number } | null;
-  badges?: { pendingUsers?: number; proofs?: number; sharpenings?: number; sharpChecks?: number; sharpQueue?: number; unread?: number };
+  /** гость: неоплаченные выходы на лёд */
+  guestDebt?: { count: number; total: number; items: { id: number; event_id: number; amount: number; starts_at: string; type: string; title: string | null }[] } | null;
+  /** гость: цена выхода (null — не гость) */
+  guest_price?: number | null;
+  badges?: { pendingUsers?: number; proofs?: number; fees?: number; sharpenings?: number; sharpChecks?: number; sharpQueue?: number; unread?: number };
 }
 
 export interface EventSummary {
@@ -139,6 +143,8 @@ export interface EventSummary {
   out: number;
   my: 'in' | 'out' | null;
   myReserve: boolean;
+  /** гость: оплата за этот выход */
+  myFee?: { id: number; amount: number; status: 'unpaid' | 'pending' | 'paid' } | null;
   avatars: { id: number; first_name: string; last_name: string | null; photo_url: string | null }[];
 }
 

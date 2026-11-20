@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireActive, requireRole } from '../auth.ts';
-import { db, getSetting, nowIso, publicUser, setSetting, type UserRow } from '../db.ts';
+import { db, getSetting, hasRole, nowIso, publicUser, setSetting, type UserRow } from '../db.ts';
 import { amountFor, computeRates, ensureDues, lockPeriod, setPlan, type DueRow, type Period, type Plan } from '../finance.ts';
 import {
   notifyAdminsProof,
@@ -68,7 +68,14 @@ export default async function financeRoutes(app: FastifyInstance) {
     if (!p.locked) return reply.code(400).send({ error: 'Сбор ещё не начался — дождитесь итоговой суммы' });
     if (d.status === 'paid') return reply.code(400).send({ error: 'Уже оплачено' });
     const { file, fields } = await readUpload(req);
-    if (!file) return reply.code(400).send({ error: 'Прикрепите скрин оплаты' });
+    if (!file) {
+      // админ сам принимает деньги — свою оплату может отметить без скрина
+      if (!hasRole(req.user, 'admin')) return reply.code(400).send({ error: 'Прикрепите скрин оплаты' });
+      db.prepare(
+        `UPDATE dues SET status = 'paid', submitted_at = ?, comment = ?, reviewed_by = ?, reviewed_at = ? WHERE period_id = ? AND user_id = ?`,
+      ).run(nowIso(), fields.comment?.trim() || 'Без скрина (админ)', req.user.id, nowIso(), p.id, req.user.id);
+      return { ok: true, paid: true };
+    }
     db.prepare(
       `UPDATE dues SET proof = ?, status = 'pending', submitted_at = ?, comment = ? WHERE period_id = ? AND user_id = ?`,
     ).run(file, nowIso(), fields.comment?.trim() || null, p.id, req.user.id);
@@ -299,25 +306,34 @@ export default async function financeRoutes(app: FastifyInstance) {
     note?: string;
     sort?: number;
   }
-  const clean = (b: AccountBody) => [
-    b.bank?.trim(),
-    b.holder?.trim(),
-    b.iban?.replace(/\s+/g, '').toUpperCase(),
-    b.purpose === 'sharpening' ? 'sharpening' : 'dues',
-    b.pay_url?.trim() || null,
-    b.note?.trim() || null,
-    Number(b.sort ?? 0),
-  ] as const;
+  // Счёт = ФИО получателя + IBAN. Банк определяем по IBAN (GE00 TB… → TBC).
+  const IBAN_BANK: Record<string, string> = { TB: 'TBC', BG: 'BOG', LB: 'Liberty', CD: 'Credo', BS: 'Basis', PC: 'ProCredit', HS: 'Halyk', TR: 'Tera' };
+  const clean = (b: AccountBody) => {
+    const iban = (b.iban ?? '').replace(/\s+/g, '').toUpperCase();
+    return [
+      IBAN_BANK[iban.slice(4, 6)] ?? 'Банк',
+      b.holder?.trim(),
+      iban,
+      b.purpose === 'sharpening' ? 'sharpening' : 'dues',
+      null,
+      null,
+      Number(b.sort ?? 0),
+    ] as const;
+  };
+  const check = (v: ReturnType<typeof clean>) =>
+    !v[1] ? 'Укажите ФИО получателя' : !/^GE\d{2}[A-Z]{2}\d{16}$/.test(v[2]) ? 'IBAN выглядит неверно: GE + 20 символов, например GE29TB7000000000000000' : null;
 
   app.post<{ Body: AccountBody }>('/api/admin/accounts', admin, async (req, reply) => {
     const v = clean(req.body ?? ({} as AccountBody));
-    if (!v[0] || !v[1] || !v[2]) return reply.code(400).send({ error: 'Банк, получатель и IBAN обязательны' });
+    const err = check(v);
+    if (err) return reply.code(400).send({ error: err });
     db.prepare('INSERT INTO accounts(bank, holder, iban, purpose, pay_url, note, sort) VALUES(?,?,?,?,?,?,?)').run(...v);
     return { ok: true };
   });
   app.put<{ Params: { id: string }; Body: AccountBody }>('/api/admin/accounts/:id', admin, async (req, reply) => {
     const v = clean(req.body ?? ({} as AccountBody));
-    if (!v[0] || !v[1] || !v[2]) return reply.code(400).send({ error: 'Банк, получатель и IBAN обязательны' });
+    const err = check(v);
+    if (err) return reply.code(400).send({ error: err });
     db.prepare('UPDATE accounts SET bank=?, holder=?, iban=?, purpose=?, pay_url=?, note=?, sort=? WHERE id=?').run(
       ...v,
       Number(req.params.id),

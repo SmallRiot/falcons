@@ -3,7 +3,7 @@ import { CheckCircle2, Clock, Info, Lock, Wallet } from 'lucide-react';
 import { api, type FinanceData, type Plan } from '@shared/api';
 import { DUE_STATUS, fmt, PLAN_LABEL } from '@shared/format';
 import { haptic } from '@shared/tg';
-import { Empty, ProofImage, Spinner, useAction, useApi, useMe } from '@shared/ui';
+import { can, Empty, ProofImage, Spinner, useAction, useApi, useMe } from '@shared/ui';
 import PaySheet from './PaySheet';
 
 const PLAN_DESC: Record<string, string> = {
@@ -216,14 +216,15 @@ export default function Finance() {
         amount={payFor?.amount ?? null}
         purpose={`Falcons ${payFor?.month ?? p.month} — ${me.user.name}`}
         accounts={accounts}
+        allowNoProof={can(me, 'admin')}
         onSubmit={async (file, comment) => {
           const fd = new FormData();
           fd.append('comment', comment);
-          fd.append('file', file);
+          if (file) fd.append('file', file);
           return run(async () => {
             await api.post(`/api/finance/${payFor!.id}/proof`, fd);
             await Promise.all([reload(), refresh()]);
-          }, 'Скрин отправлен на проверку');
+          }, file ? 'Скрин отправлен на проверку' : 'Отмечено: оплачено');
         }}
       />
     </div>

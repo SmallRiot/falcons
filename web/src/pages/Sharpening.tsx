@@ -166,7 +166,7 @@ export default function Sharpening() {
         accounts={accs}
         onSubmit={async (file) => {
           const fd = new FormData();
-          fd.append('file', file);
+          fd.append('file', file!);
           return run(async () => {
             await api.post(`/api/sharpening/${payDebt!.id}/proof`, fd);
             await Promise.all([reload(), refresh()]);
@@ -193,7 +193,7 @@ export default function Sharpening() {
         onSubmit={async (file) => {
           const fd = new FormData();
           fd.append('note', note);
-          fd.append('file', file);
+          fd.append('file', file!);
           return run(async () => {
             await api.post('/api/sharpening', fd);
             setNote('');

@@ -1,32 +1,27 @@
 import { useState } from 'react';
-import { ExternalLink, Copy, ClipboardList } from 'lucide-react';
+import { Copy, ClipboardList } from 'lucide-react';
 import type { Account } from '@shared/api';
-import { fmt } from '@shared/format';
-import { openLink } from '@shared/tg';
+import { bankFromIban, fmt } from '@shared/format';
 import { copyText, CopyRow, FilePick, Sheet } from '@shared/ui';
 
-const BANK_CLASS = (b: string) => (['TBC', 'BOG', 'Liberty'].includes(b) ? b : 'other');
-const BANK_NAME: Record<string, string> = { TBC: 'TBC Bank', BOG: 'Bank of Georgia', Liberty: 'Liberty Bank' };
 
 export function BankCard({ acc, amount, purpose }: { acc: Account; amount?: number | null; purpose?: string }) {
   const all = [`Получатель: ${acc.holder}`, `IBAN: ${acc.iban}`, amount ? `Сумма: ${amount} GEL` : '', purpose ? `Назначение: ${purpose}` : '']
     .filter(Boolean)
     .join('\n');
+  const bank = bankFromIban(acc.iban);
   return (
-    <div className={`bank-card ${BANK_CLASS(acc.bank)}`}>
+    <div className={`bank-card ${['TBC', 'BOG', 'Liberty'].includes(bank.code) ? bank.code : 'other'}`}>
       <div className="bk">
-        <span>{BANK_NAME[acc.bank] ?? acc.bank}</span>
+        <span>{bank.name}</span>
         <span style={{ opacity: 0.8 }}>GEL</span>
       </div>
       <div className="ib">{fmt.iban(acc.iban)}</div>
       <div className="hd">{acc.holder}</div>
-      {acc.note && <div className="hd" style={{ opacity: 0.75, fontSize: 12, marginTop: 2 }}>{acc.note}</div>}
       <div className="actions">
-        {acc.pay_url && (
-          <button className="primary" onClick={() => openLink(acc.pay_url!)}>
-            <ExternalLink size={14} /> Оплатить в банке
-          </button>
-        )}
+        <button onClick={() => copyText(acc.holder, 'ФИО скопировано')}>
+          <Copy size={14} /> ФИО
+        </button>
         <button onClick={() => copyText(acc.iban, 'IBAN скопирован')}>
           <Copy size={14} /> IBAN
         </button>
@@ -47,13 +42,25 @@ type Props = {
   accounts: Account[];
   submitLabel?: string;
   extra?: React.ReactNode;
-  onSubmit: (file: File, comment: string) => Promise<boolean>;
+  /** админу можно отметить оплату без скрина */
+  allowNoProof?: boolean;
+  onSubmit: (file: File | null, comment: string) => Promise<boolean>;
 };
 
-export default function PaySheet({ open, onClose, title, amount, purpose, accounts, submitLabel, extra, onSubmit }: Props) {
+export default function PaySheet({ open, onClose, title, amount, purpose, accounts, submitLabel, extra, allowNoProof, onSubmit }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
+  const submit = async (f: File | null) => {
+    setBusy(true);
+    const ok = await onSubmit(f, comment);
+    setBusy(false);
+    if (ok) {
+      setFile(null);
+      setComment('');
+      onClose();
+    }
+  };
   return (
     <Sheet open={open} onClose={onClose} title={title}>
       <div className="card center" style={{ padding: '18px 16px' }}>
@@ -74,26 +81,18 @@ export default function PaySheet({ open, onClose, title, amount, purpose, accoun
         <CopyRow label="Назначение платежа" value={purpose} copy={purpose} />
       </div>
 
-      <div className="section-title">2 · Прикрепи скрин перевода</div>
+      <div className="section-title">2 · Прикрепи скрин перевода{allowNoProof ? ' (админу — необязательно)' : ''}</div>
       {extra}
       <FilePick file={file} onChange={setFile} />
       <input className="input" placeholder="Комментарий (необязательно)" value={comment} onChange={(e) => setComment(e.target.value)} />
-      <button
-        className="btn block"
-        disabled={!file || busy}
-        onClick={async () => {
-          setBusy(true);
-          const ok = await onSubmit(file!, comment);
-          setBusy(false);
-          if (ok) {
-            setFile(null);
-            setComment('');
-            onClose();
-          }
-        }}
-      >
+      <button className="btn block" disabled={!file || busy} onClick={() => submit(file)}>
         {busy ? 'Отправляю…' : (submitLabel ?? 'Отправить на проверку')}
       </button>
+      {allowNoProof && (
+        <button className="btn ghost block" disabled={busy} onClick={() => submit(null)}>
+          Я админ — отметить оплаченным без скрина
+        </button>
+      )}
     </Sheet>
   );
 }

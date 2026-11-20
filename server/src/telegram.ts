@@ -48,13 +48,24 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
 
 /** Куда реально слать: в тестовом режиме — всё тестировщику, с пометкой «кому». */
 const TEAM = 'team';
+/** Тренировки и игры — каждая в свой топик группы (если заданы), остальное — в общий. */
+const TEAM_TRAININGS = 'team:training';
+const TEAM_GAMES = 'team:game';
+const teamFor = (e: { type: string }) => (e.type === 'game' ? TEAM_GAMES : TEAM_TRAININGS);
+const isTeam = (chatId: string | number) => typeof chatId === 'string' && chatId.startsWith(TEAM);
+function teamThread(chatId: string | number) {
+  if (chatId === TEAM_TRAININGS && config.trainingsThreadId) return config.trainingsThreadId;
+  if (chatId === TEAM_GAMES && config.gamesThreadId) return config.gamesThreadId;
+  return config.teamThreadId || undefined;
+}
 function route(chatId: string | number): { to: string | number; tag: string; thread?: number } {
   if (!config.testChatId) {
-    const team = chatId === TEAM || String(chatId) === String(config.teamChatId);
-    return { to: chatId === TEAM ? config.teamChatId : chatId, tag: '', thread: team && config.teamThreadId ? config.teamThreadId : undefined };
+    if (isTeam(chatId)) return { to: config.teamChatId, tag: '', thread: teamThread(chatId) };
+    const team = String(chatId) === String(config.teamChatId);
+    return { to: chatId, tag: '', thread: team ? teamThread(TEAM) : undefined };
   }
   let tag = '💬 в командный чат';
-  if (chatId !== TEAM && String(chatId) !== String(config.teamChatId)) {
+  if (!isTeam(chatId) && String(chatId) !== String(config.teamChatId)) {
     const u = db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(Number(chatId)) as
       | { first_name: string; last_name: string | null }
       | undefined;
@@ -271,7 +282,7 @@ function eventButtons(e: EventRow): Button[][] {
 }
 
 export async function notifyEventCreated(e: EventRow) {
-  const msg = await sendRich(TEAM, eventBlocks(e), eventButtons(e));
+  const msg = await sendRich(teamFor(e), eventBlocks(e), eventButtons(e));
   if (msg?.message_id) db.prepare('UPDATE events SET tg_message_id = ? WHERE id = ?').run(msg.message_id, e.id);
 }
 
@@ -321,7 +332,7 @@ export function renderFor(e: EventRow, highlight?: number) {
 
 export function notifyLineupPublished(e: EventRow) {
   const caption = `📋 <b>Пятёрки готовы!</b> ${e.type === 'game' ? 'Игра' : 'Тренировка'} ${dayWord(e.starts_at)}, ${fmtTime(e.starts_at)}.\nКаждому написал в личку, где он играет 👀`;
-  return sendPhoto(TEAM, renderFor(e), caption, [[{ text: '📋 Открыть в приложении', url: appLink(`e${e.id}`) }]]);
+  return sendPhoto(teamFor(e), renderFor(e), caption, [[{ text: '📋 Открыть в приложении', url: appLink(`e${e.id}`) }]]);
 }
 
 export function lineupCaption(e: EventRow, item: { team: string; line: number }) {

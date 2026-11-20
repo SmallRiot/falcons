@@ -152,6 +152,8 @@ export interface LineupItem {
 
 export interface EventDetail extends EventSummary {
   canEdit: boolean;
+  /** игра чужого состава: кто идёт — не показываем */
+  rosterHidden?: boolean;
   players: (PublicUser & { reserve: boolean })[];
   notGoing: PublicUser[];
   lineup: LineupItem[];

@@ -4,7 +4,7 @@ import { ANNOUNCE_DAYS, DEFAULT_LOCATION } from '../config.ts';
 import { db, hasRole, nowIso, publicUser, type UserRow } from '../db.ts';
 import { notifyEventCreated, notifyLineupPersonal, notifyLineupPublished, refreshEventPost, renderFor } from '../telegram.ts';
 import { setSignup, type EventRow } from '../signup.ts';
-import { canSeeEvent, eventSquadIds, setEventSquads, squadsMap, VISIBLE_SQL } from '../squads.ts';
+import { canSeeEvent, canSeeRoster, eventSquadIds, setEventSquads, squadsMap, VISIBLE_SQL } from '../squads.ts';
 
 type EventBody = Partial<EventRow> & { notify?: boolean; squad_ids?: number[] };
 
@@ -68,7 +68,10 @@ export default async function eventRoutes(app: FastifyInstance) {
          ORDER BY starts_at ${past ? 'DESC' : 'ASC'} LIMIT 80`,
       )
       .all(...(all ? [edge] : [edge, req.user.id])) as unknown as EventRow[];
-    return rows.map((e) => summarize(e, req.user.id));
+    return rows.map((e) => {
+      const sum = summarize(e, req.user.id);
+      return canSeeRoster(req.user, e) ? sum : { ...sum, avatars: [] };
+    });
   });
 
   app.get<{ Params: { id: string } }>('/api/events/:id', { preHandler: requireActive }, async (req, reply) => {
@@ -87,12 +90,16 @@ export default async function eventRoutes(app: FastifyInstance) {
             slot: string;
           }[])
         : [];
+    const roster = canSeeRoster(req.user, e);
+    const sum = summarize(e, req.user.id);
     return {
-      ...summarize(e, req.user.id),
+      ...sum,
+      avatars: roster ? sum.avatars : [],
       canEdit,
-      players: going.map((p, i) => ({ ...publicUser(p), reserve: i >= cap })),
-      notGoing: ps.filter((p) => p.signup_status === 'out').map(publicUser),
-      lineup,
+      rosterHidden: !roster,
+      players: roster ? going.map((p, i) => ({ ...publicUser(p), reserve: i >= cap })) : [],
+      notGoing: roster ? ps.filter((p) => p.signup_status === 'out').map(publicUser) : [],
+      lineup: roster ? lineup : [],
     };
   });
 
@@ -299,7 +306,8 @@ export default async function eventRoutes(app: FastifyInstance) {
       throw err;
     }
     if (req.body.publish) {
-      if (!e.lineup_published) void notifyLineupPublished(e);
+      // пятёрки на игру — только в личку (в общем чате есть и не игроки состава); тренировки — и в чат
+      if (!e.lineup_published && e.type !== 'game') void notifyLineupPublished(e);
       const changed = items.filter((i) => before.get(i.user_id) !== `${i.team}:${i.line}`);
       void notifyLineupPersonal(e, changed);
       return { ok: true, notified: changed.length };

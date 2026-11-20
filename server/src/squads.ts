@@ -39,6 +39,17 @@ export function canSeeEvent(user: Pick<UserRow, 'id' | 'roles'>, eventId: number
   return !!db.prepare(`SELECT 1 FROM events e WHERE e.id = ? AND ${VISIBLE_SQL}`).get(eventId, user.id);
 }
 
+/**
+ * Кто идёт на игру, видят только игроки её состава (и тренер с админом).
+ * Игра без составов — для всего клуба: видят все, кто состоит хоть в одном составе. Тренировки видят все.
+ */
+export function canSeeRoster(user: Pick<UserRow, 'id' | 'roles'>, e: { id: number; type: string }) {
+  if (e.type !== 'game' || hasRole(user, 'admin', 'coach')) return true;
+  const sq = eventSquadIds(e.id);
+  const mine = squadIdsOf(user.id);
+  return sq.length ? sq.some((id) => mine.includes(id)) : mine.length > 0;
+}
+
 /** Кому адресовано событие (для напоминаний): активные игроки нужных составов. */
 export function eventAudience(eventId: number) {
   return (

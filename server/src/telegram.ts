@@ -246,7 +246,8 @@ function eventBlocks(e: EventRow): Block[] {
       .prepare(`SELECT u.first_name, u.last_name FROM signups s JOIN users u ON u.id = s.user_id WHERE s.event_id = ? AND s.status = 'in' ORDER BY s.created_at`)
       .all(e.id) as { first_name: string; last_name: string | null }[]
   ).map(shortName);
-  if (names.length && !e.cancelled) blocks.push(quote(`✅ Идут: ${names.join(', ')}`));
+  // у игр кто идёт видят только игроки состава — в общий чат имена не выносим
+  if (names.length && !e.cancelled && e.type !== 'game') blocks.push(quote(`✅ Идут: ${names.join(', ')}`));
   blocks.push(p(e.cancelled ? '❌ Отменено' : pick(['Жми кнопку — и ты на льду 👇', 'Отметься, чтобы тренер видел состав 👇', 'Кто с нами? 👇'])));
   return blocks;
 }

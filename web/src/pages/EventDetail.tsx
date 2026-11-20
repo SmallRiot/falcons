@@ -95,12 +95,16 @@ export default function EventDetail() {
         value={tab}
         onChange={setTab}
         options={[
-          ['roster', `Идут · ${ev.players.length}`],
+          ['roster', `Идут · ${ev.rosterHidden ? ev.going : ev.players.length}`],
           ['lines', 'Пятёрки'],
         ]}
       />
 
-      {tab === 'roster' ? (
+      {ev.rosterHidden ? (
+        <Empty icon={<Users size={26} />} title={`Идут: ${ev.going}`}>
+          Кто записался и пятёрки на игру видят только игроки этого состава.
+        </Empty>
+      ) : tab === 'roster' ? (
         <>
           {ev.canEdit && !ev.cancelled && !isPast && (
             <button className="btn secondary block" onClick={() => setGuestOpen(true)}>

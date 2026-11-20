@@ -1,0 +1,202 @@
+import type { FastifyInstance } from 'fastify';
+import { requireActive, requireRole } from '../auth.ts';
+import { db, hasRole, nowIso, publicUser, type UserRow } from '../db.ts';
+import { notifyEventCreated, notifyLineupPersonal, notifyLineupPublished, refreshEventPost } from '../telegram.ts';
+import { setSignup, type EventRow } from '../signup.ts';
+
+
+const SLOTS = ['LW', 'C', 'RW', 'LD', 'RD'];
+const GOALIE_SLOTS = ['G1', 'G2'];
+
+function participants(eventId: number) {
+  return db
+    .prepare(
+      `SELECT u.*, s.status AS signup_status, s.created_at AS signed_at
+       FROM signups s JOIN users u ON u.id = s.user_id
+       WHERE s.event_id = ? ORDER BY s.created_at`,
+    )
+    .all(eventId) as unknown as (UserRow & { signup_status: string; signed_at: string })[];
+}
+
+function summarize(e: EventRow, userId: number) {
+  const stats = db
+    .prepare(`SELECT status, COUNT(*) c FROM signups WHERE event_id = ? GROUP BY status`)
+    .all(e.id) as { status: string; c: number }[];
+  const going = stats.find((s) => s.status === 'in')?.c ?? 0;
+  const out = stats.find((s) => s.status === 'out')?.c ?? 0;
+  const mine = db.prepare('SELECT status, created_at FROM signups WHERE event_id = ? AND user_id = ?').get(e.id, userId) as
+    | { status: string; created_at: string }
+    | undefined;
+  let myReserve = false;
+  if (mine?.status === 'in' && e.capacity) {
+    const before = (
+      db
+        .prepare(`SELECT COUNT(*) c FROM signups WHERE event_id = ? AND status='in' AND created_at < ?`)
+        .get(e.id, mine.created_at) as { c: number }
+    ).c;
+    myReserve = before >= e.capacity;
+  }
+  const avatars = db
+    .prepare(
+      `SELECT u.id, u.first_name, u.last_name, u.photo_url FROM signups s JOIN users u ON u.id=s.user_id
+       WHERE s.event_id=? AND s.status='in' ORDER BY s.created_at LIMIT 5`,
+    )
+    .all(e.id);
+  return { ...e, cancelled: !!e.cancelled, lineup_published: !!e.lineup_published, going, out, my: mine?.status ?? null, myReserve, avatars };
+}
+
+export default async function eventRoutes(app: FastifyInstance) {
+  app.get<{ Querystring: { scope?: string } }>('/api/events', { preHandler: requireActive }, async (req) => {
+    const past = req.query.scope === 'past';
+    // событие считается «текущим» ещё 3 часа после начала
+    const edge = new Date(Date.now() - 3 * 3600e3).toISOString();
+    const rows = db
+      .prepare(
+        `SELECT * FROM events WHERE starts_at ${past ? '<' : '>='} ? ORDER BY starts_at ${past ? 'DESC' : 'ASC'} LIMIT 60`,
+      )
+      .all(edge) as unknown as EventRow[];
+    return rows.map((e) => summarize(e, req.user.id));
+  });
+
+  app.get<{ Params: { id: string } }>('/api/events/:id', { preHandler: requireActive }, async (req, reply) => {
+    const e = db.prepare('SELECT * FROM events WHERE id = ?').get(Number(req.params.id)) as EventRow | undefined;
+    if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
+    const ps = participants(e.id);
+    const going = ps.filter((p) => p.signup_status === 'in');
+    const cap = e.capacity ?? Infinity;
+    const canEdit = hasRole(req.user, 'coach', 'admin');
+    const lineup =
+      e.lineup_published || canEdit
+        ? (db.prepare('SELECT user_id, team, line, slot FROM lineups WHERE event_id = ?').all(e.id) as {
+            user_id: number;
+            team: string;
+            line: number;
+            slot: string;
+          }[])
+        : [];
+    return {
+      ...summarize(e, req.user.id),
+      canEdit,
+      players: going.map((p, i) => ({ ...publicUser(p), reserve: i >= cap })),
+      notGoing: ps.filter((p) => p.signup_status === 'out').map(publicUser),
+      lineup,
+    };
+  });
+
+  app.post<{ Body: Partial<EventRow> & { notify?: boolean } }>(
+    '/api/events',
+    { preHandler: requireRole('coach', 'admin') },
+    async (req, reply) => {
+      const b = req.body ?? {};
+      if (!b.starts_at || isNaN(Date.parse(b.starts_at))) return reply.code(400).send({ error: 'Укажите дату и время' });
+      const type = b.type === 'game' ? 'game' : 'training';
+      const r = db
+        .prepare(
+          `INSERT INTO events(type, title, starts_at, duration_min, location, capacity, notes, created_by)
+           VALUES(?,?,?,?,?,?,?,?)`,
+        )
+        .run(
+          type,
+          b.title?.trim() || null,
+          new Date(b.starts_at).toISOString(),
+          Number(b.duration_min) || 90,
+          b.location?.trim() || null,
+          b.capacity ? Number(b.capacity) : null,
+          b.notes?.trim() || null,
+          req.user.id,
+        );
+      const e = db.prepare('SELECT * FROM events WHERE id = ?').get(r.lastInsertRowid) as unknown as EventRow;
+      if (b.notify !== false) void notifyEventCreated(e);
+      return e;
+    },
+  );
+
+  app.patch<{ Params: { id: string }; Body: Partial<EventRow> }>(
+    '/api/events/:id',
+    { preHandler: requireRole('coach', 'admin') },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      const e = db.prepare('SELECT * FROM events WHERE id = ?').get(id) as EventRow | undefined;
+      if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
+      const b = { ...e, ...req.body };
+      db.prepare(
+        `UPDATE events SET type=?, title=?, starts_at=?, duration_min=?, location=?, capacity=?, notes=?, cancelled=? WHERE id=?`,
+      ).run(
+        b.type === 'game' ? 'game' : 'training',
+        b.title || null,
+        new Date(b.starts_at).toISOString(),
+        Number(b.duration_min) || 90,
+        b.location || null,
+        b.capacity ? Number(b.capacity) : null,
+        b.notes || null,
+        b.cancelled ? 1 : 0,
+        id,
+      );
+      refreshEventPost(id);
+      return { ok: true };
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { status: 'in' | 'out' | null } }>(
+    '/api/events/:id/signup',
+    { preHandler: requireActive },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      const e = db.prepare('SELECT * FROM events WHERE id = ?').get(id) as EventRow | undefined;
+      if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
+      const err = setSignup(e, req.user, req.body?.status ?? null);
+      if (err) return reply.code(400).send({ error: err });
+      refreshEventPost(id);
+      return summarize(db.prepare('SELECT * FROM events WHERE id = ?').get(id) as unknown as EventRow, req.user.id);
+    },
+  );
+
+  app.put<{
+    Params: { id: string };
+    Body: { items: { user_id: number; team?: string; line: number; slot: string }[]; publish?: boolean };
+  }>('/api/events/:id/lineup', { preHandler: requireRole('coach', 'admin') }, async (req, reply) => {
+    const id = Number(req.params.id);
+    const e = db.prepare('SELECT * FROM events WHERE id = ?').get(id) as EventRow | undefined;
+    if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
+    const items = (req.body?.items ?? [])
+      .map((i) => ({ ...i, team: i.team === 'dark' || i.team === 'light' ? i.team : '' }))
+      .filter(
+        (i) =>
+          (i.line === 0 && GOALIE_SLOTS.includes(i.slot)) || (i.line >= 1 && i.line <= 4 && SLOTS.includes(i.slot)),
+      );
+    const seen = new Set<string>();
+    const users = new Set<number>();
+    for (const i of items) {
+      const k = `${i.team}:${i.line}:${i.slot}`;
+      if (seen.has(k) || users.has(i.user_id)) return reply.code(400).send({ error: 'Игрок или позиция повторяются' });
+      seen.add(k);
+      users.add(i.user_id);
+    }
+    // что было опубликовано раньше — чтобы при правке писать только тем, у кого что-то поменялось
+    const before = e.lineup_published
+      ? new Map(
+          (db.prepare('SELECT user_id, team, line FROM lineups WHERE event_id = ?').all(id) as { user_id: number; team: string; line: number }[]).map(
+            (r) => [r.user_id, `${r.team}:${r.line}`],
+          ),
+        )
+      : new Map<number, string>();
+    db.exec('BEGIN');
+    try {
+      db.prepare('DELETE FROM lineups WHERE event_id = ?').run(id);
+      const ins = db.prepare('INSERT INTO lineups(event_id, user_id, team, line, slot) VALUES(?,?,?,?,?)');
+      for (const i of items) ins.run(id, i.user_id, i.team, i.line, i.slot);
+      if (req.body.publish) db.prepare('UPDATE events SET lineup_published = 1 WHERE id = ?').run(id);
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    if (req.body.publish) {
+      if (!e.lineup_published) void notifyLineupPublished(e);
+      const changed = items.filter((i) => before.get(i.user_id) !== `${i.team}:${i.line}`);
+      void notifyLineupPersonal(e, changed);
+      return { ok: true, notified: changed.length };
+    }
+    return { ok: true, notified: 0 };
+  });
+}

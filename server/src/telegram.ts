@@ -51,6 +51,8 @@ const TEAM = 'team';
 /** Тренировки и игры — каждая в свой топик группы (если заданы), остальное — в общий. */
 const TEAM_TRAININGS = 'team:training';
 const TEAM_GAMES = 'team:game';
+/** взносы: опрос, «сбор открыт», должники */
+const TEAM_DUES = 'team:dues';
 const teamFor = (e: { type: string }) => (e.type === 'game' ? TEAM_GAMES : TEAM_TRAININGS);
 const isTeam = (chatId: string | number) => typeof chatId === 'string' && chatId.startsWith(TEAM);
 /**
@@ -63,6 +65,7 @@ function teamThread(chatId: string | number) {
   const general = threadSetting('thread_general', config.teamThreadId);
   if (chatId === TEAM_TRAININGS) return threadSetting('thread_trainings', config.trainingsThreadId) || general || undefined;
   if (chatId === TEAM_GAMES) return threadSetting('thread_games', config.gamesThreadId) || general || undefined;
+  if (chatId === TEAM_DUES) return threadSetting('thread_dues', 0) || general || undefined;
   return general || undefined;
 }
 function route(chatId: string | number): { to: string | number; tag: string; thread?: number } {
@@ -237,8 +240,9 @@ function idsWithRole(role: string): number[] {
     .map((u) => u.id);
 }
 
+/** Взносы и должники — в свой топик (/here_dues), иначе в общий. */
 function toTeamChat(text: string, buttons?: Button[][]) {
-  return sendMessage(TEAM, text, buttons);
+  return sendMessage(TEAM_DUES, text, buttons);
 }
 
 /** Чат, где лежит пост события (в тестовом режиме — у тестировщика). */
@@ -701,7 +705,7 @@ export function greetGroup(chatId: number) {
       '⏰ напоминать отметиться и про взносы, чтобы никто не забыл;',
       '🎂 поздравлять с днём рождения.',
       '',
-      '⚙️ <i>Админу: напишите /here_trainings в топике тренировок, /here_games — в топике игр, /here_general — где взносы и объявления.</i>',
+      '⚙️ <i>Админу: напишите /here_trainings в топике тренировок, /here_games — игр, /here_dues — взносов, /here_general — где поздравления и общее.</i>',
       '',
       `👉 <b>Напишите мне /start в личку</b>${link ? '' : ` (@${esc(config.botUsername || 'бот')})`} — без этого я не смогу писать вам лично. Админ пустит в команду, и всё заработает.`,
     ].join('\n'),
@@ -725,7 +729,8 @@ export async function handleUpdate(u: Update) {
     const HERE: Record<string, [string, string]> = {
       '/here_trainings': ['thread_trainings', 'тренировки'],
       '/here_games': ['thread_games', 'игры'],
-      '/here_general': ['thread_general', 'взносы, должников и поздравления'],
+      '/here_dues': ['thread_dues', 'взносы и должников'],
+      '/here_general': ['thread_general', 'поздравления с ДР и общие объявления'],
     };
     if (HERE[cmd] && (m.chat.type === 'group' || m.chat.type === 'supergroup')) {
       const reply = (text: string) =>

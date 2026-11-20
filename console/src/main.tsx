@@ -5,7 +5,8 @@ import '@shared/styles.css';
 import './console.css';
 
 createRoot(document.getElementById('root')!).render(
-  <BrowserRouter>
+  // в проде консоль живёт на /console/ (собирается с --base=/console/), в dev — в корне
+  <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
     <App />
   </BrowserRouter>,
 );

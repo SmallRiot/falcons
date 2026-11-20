@@ -17,6 +17,8 @@ const list = (v?: string) =>
 
 export const config = {
   port: Number(process.env.PORT ?? 8787),
+  /** в проде 127.0.0.1 — наружу смотрит только nginx */
+  host: process.env.HOST ?? '0.0.0.0',
   consolePort: Number(process.env.CONSOLE_PORT ?? 8788),
   dataDir: path.resolve(import.meta.dirname, '../..', process.env.DATA_DIR ?? './data'),
   devAuth: process.env.DEV_AUTH === '1',

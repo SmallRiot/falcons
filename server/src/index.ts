@@ -63,13 +63,13 @@ if (config.testChatId) console.warn(`🧪 TEST_CHAT_ID задан — все с�
 
 const root = path.resolve(import.meta.dirname, '../..');
 const mini = await buildServer(path.join(root, 'web/dist'));
-await mini.listen({ port: config.port, host: '0.0.0.0' });
+await mini.listen({ port: config.port, host: config.host });
 console.log(`🦅 Мини-приложение + API: http://localhost:${config.port}`);
 
 const consoleDist = path.join(root, 'console/dist');
 if (existsSync(consoleDist)) {
   const cons = await buildServer(consoleDist);
-  await cons.listen({ port: config.consolePort, host: '0.0.0.0' });
+  await cons.listen({ port: config.consolePort, host: config.host });
   console.log(`🖥  Консоль + API: http://localhost:${config.consolePort}`);
 }
 

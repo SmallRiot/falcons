@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react';
 // Веб-консоль для админов и тренера (десктоп). Общий дизайн и код — в ../shared.
 export default defineConfig({
   plugins: [react()],
+  // в проде консоль открывается по https://<домен>/console/
+  base: process.env.CONSOLE_BASE || '/',
   publicDir: path.resolve(__dirname, '../shared/public'),
   resolve: { alias: { '@shared': path.resolve(__dirname, '../shared') } },
   server: {

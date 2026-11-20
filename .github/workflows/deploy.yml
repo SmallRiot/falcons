@@ -1,0 +1,41 @@
+# Выкладка в прод по тегу: git tag 0.0.2 && git push origin 0.0.2
+# Сервер принимает архив исходников по SSH-ключу, который умеет только запускать /opt/falcons/deploy.sh.
+name: Deploy
+
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+', 'v[0-9]+.[0-9]+.[0-9]+']
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://appka.gihl.ge
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ship ${{ github.ref_name }} to server
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          git archive --format=tar.gz "${{ github.ref_name }}" \
+            | ssh -i ~/.ssh/deploy -o BatchMode=yes "falcons@${DEPLOY_HOST}" "${{ github.ref_name }}"
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 10); do
+            curl -fsS https://appka.gihl.ge/healthz && exit 0
+            sleep 3
+          done
+          echo "https://appka.gihl.ge/healthz не отвечает" && exit 1

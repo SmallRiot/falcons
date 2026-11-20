@@ -52,7 +52,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             onClick={() => {
               setSession(null);
               setDevUser(null);
-              location.href = '/';
+              location.href = import.meta.env.BASE_URL;
             }}
           >
             <LogOut size={15} />

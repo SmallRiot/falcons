@@ -85,7 +85,7 @@ function NoAccess({ text }: { text: string }) {
         onClick={() => {
           setSession(null);
           setDevUser(null);
-          location.href = '/';
+          location.href = import.meta.env.BASE_URL;
         }}
       >
         Войти другим аккаунтом

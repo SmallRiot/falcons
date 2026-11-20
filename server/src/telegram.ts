@@ -3,7 +3,7 @@
  * Без BOT_TOKEN сообщения пишутся в консоль, а личные — ещё и в ленту уведомлений приложения.
  */
 import { config } from './config.ts';
-import { db, displayName, type UserRow } from './db.ts';
+import { db, displayName, getSetting, setSetting, type UserRow } from './db.ts';
 import { getEvent, goingCount, myFee, setSignup, type EventRow } from './signup.ts';
 import { eventSquadIds, squadsMap } from './squads.ts';
 import { h, kv, p, quote, toLegacyHtml, toPlain, type Block } from './rich.ts';
@@ -53,19 +53,26 @@ const TEAM_TRAININGS = 'team:training';
 const TEAM_GAMES = 'team:game';
 const teamFor = (e: { type: string }) => (e.type === 'game' ? TEAM_GAMES : TEAM_TRAININGS);
 const isTeam = (chatId: string | number) => typeof chatId === 'string' && chatId.startsWith(TEAM);
+/**
+ * Группа и топики: то, что админ задал командами /here_* прямо в группе (хранится в базе),
+ * иначе — из .env (TEAM_CHAT_ID, TEAM_THREAD_*).
+ */
+const teamChatId = () => getSetting('team_chat_id', '') || config.teamChatId;
+const threadSetting = (key: string, env: number) => Number(getSetting(key, '')) || env || 0;
 function teamThread(chatId: string | number) {
-  if (chatId === TEAM_TRAININGS && config.trainingsThreadId) return config.trainingsThreadId;
-  if (chatId === TEAM_GAMES && config.gamesThreadId) return config.gamesThreadId;
-  return config.teamThreadId || undefined;
+  const general = threadSetting('thread_general', config.teamThreadId);
+  if (chatId === TEAM_TRAININGS) return threadSetting('thread_trainings', config.trainingsThreadId) || general || undefined;
+  if (chatId === TEAM_GAMES) return threadSetting('thread_games', config.gamesThreadId) || general || undefined;
+  return general || undefined;
 }
 function route(chatId: string | number): { to: string | number; tag: string; thread?: number } {
   if (!config.testChatId) {
-    if (isTeam(chatId)) return { to: config.teamChatId, tag: '', thread: teamThread(chatId) };
-    const team = String(chatId) === String(config.teamChatId);
+    if (isTeam(chatId)) return { to: teamChatId(), tag: '', thread: teamThread(chatId) };
+    const team = String(chatId) === String(teamChatId());
     return { to: chatId, tag: '', thread: team ? teamThread(TEAM) : undefined };
   }
   let tag = '💬 в командный чат';
-  if (!isTeam(chatId) && String(chatId) !== String(config.teamChatId)) {
+  if (!isTeam(chatId) && String(chatId) !== String(teamChatId())) {
     const u = db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(Number(chatId)) as
       | { first_name: string; last_name: string | null }
       | undefined;
@@ -235,7 +242,7 @@ function toTeamChat(text: string, buttons?: Button[][]) {
 }
 
 /** Чат, где лежит пост события (в тестовом режиме — у тестировщика). */
-const teamTarget = () => config.testChatId || config.teamChatId;
+const teamTarget = () => config.testChatId || teamChatId();
 
 /* ---------- события ---------- */
 
@@ -694,6 +701,8 @@ export function greetGroup(chatId: number) {
       '⏰ напоминать отметиться и про взносы, чтобы никто не забыл;',
       '🎂 поздравлять с днём рождения.',
       '',
+      '⚙️ <i>Админу: напишите /here_trainings в топике тренировок, /here_games — в топике игр, /here_general — где взносы и объявления.</i>',
+      '',
       `👉 <b>Напишите мне /start в личку</b>${link ? '' : ` (@${esc(config.botUsername || 'бот')})`} — без этого я не смогу писать вам лично. Админ пустит в команду, и всё заработает.`,
     ].join('\n'),
     ...(link ? { reply_markup: { inline_keyboard: [[{ text: '👋 Написать боту /start', url: link }]] } } : {}),
@@ -712,6 +721,28 @@ export async function handleUpdate(u: Update) {
   const m = u.message;
   if (m?.text) {
     const cmd = m.text.split(/[\s@]/)[0];
+    // админ команды пишет в нужном топике группы: бот запоминает, куда что постить
+    const HERE: Record<string, [string, string]> = {
+      '/here_trainings': ['thread_trainings', 'тренировки'],
+      '/here_games': ['thread_games', 'игры'],
+      '/here_general': ['thread_general', 'взносы, должников и поздравления'],
+    };
+    if (HERE[cmd] && (m.chat.type === 'group' || m.chat.type === 'supergroup')) {
+      const reply = (text: string) =>
+        api('sendMessage', { chat_id: m.chat.id, ...inThread(m.is_topic_message ? m.message_thread_id : undefined), parse_mode: 'HTML', text });
+      const who = m.from ? (db.prepare('SELECT * FROM users WHERE id = ?').get(m.from.id) as UserRow | undefined) : undefined;
+      if (!who || who.status !== 'active' || !who.roles.split(',').includes('admin'))
+        return void (await reply('🙅 Это может только админ Falcons.'));
+      const [key, what] = HERE[cmd];
+      const prevChat = teamChatId();
+      // переехали в другую группу — старые топики не подходят
+      if (String(prevChat) !== String(m.chat.id)) for (const k of Object.values(HERE)) setSetting(k[0], '');
+      setSetting('team_chat_id', String(m.chat.id));
+      setSetting(key, m.is_topic_message && m.message_thread_id ? String(m.message_thread_id) : '');
+      const where = m.is_topic_message ? 'в этот топик' : 'сюда, в общий чат';
+      const moved = prevChat && String(prevChat) !== String(m.chat.id) ? '\nℹ️ Раньше я постил в другую группу — теперь всё сюда.' : '';
+      return void (await reply(`✅ Ок, ${what} буду постить ${where}.${moved}`));
+    }
     if (cmd === '/chatid') {
       // отвечаем прямо там, где спросили (и в топике), без тестовой переадресации
       const topic = m.is_topic_message ? m.message_thread_id : undefined;

@@ -1,6 +1,23 @@
 import { tg } from './tg';
 
 const DEV_KEY = 'falcons.devUser';
+const SESSION_KEY = 'falcons.session';
+
+export function getSession(): string | null {
+  try {
+    return localStorage.getItem(SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+export function setSession(token: string | null) {
+  try {
+    if (token) localStorage.setItem(SESSION_KEY, token);
+    else localStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* приватный режим */
+  }
+}
 
 export function getDevUser(): number | null {
   try {
@@ -21,6 +38,8 @@ export function setDevUser(id: number | null) {
 
 function authHeaders(): Record<string, string> {
   if (tg?.initData) return { authorization: `tma ${tg.initData}` };
+  const session = getSession();
+  if (session) return { authorization: `Bearer ${session}` };
   const dev = getDevUser();
   return dev ? { 'x-dev-user': String(dev) } : {};
 }

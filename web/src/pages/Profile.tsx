@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarCheck, ChevronRight, Coins, Flame, Landmark, Receipt, Scissors, Shield, Trophy, Users } from 'lucide-react';
-import { api } from '../api';
+import { api, setDevUser, setSession } from '../api';
+import { inTelegram } from '../tg';
 import { fmt, plural, POS_LABEL, ROLE_LABEL } from '../format';
 import { Avatar, can, Segmented, Sheet, SquadChip, useAction, useApi, useMe } from '../ui';
 
@@ -112,6 +113,19 @@ export default function Profile() {
             )}
           </div>
         </>
+      )}
+
+      {!inTelegram && (
+        <button
+          className="btn ghost block"
+          onClick={() => {
+            setSession(null);
+            setDevUser(null);
+            location.href = '/';
+          }}
+        >
+          Выйти
+        </button>
       )}
 
       <EditSheet open={edit} onClose={() => setEdit(false)} onSaved={refresh} />

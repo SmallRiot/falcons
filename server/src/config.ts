@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const envPath = path.resolve(import.meta.dirname, '../../.env');
@@ -30,3 +31,12 @@ export const config = {
 
 export const uploadsDir = path.join(config.dataDir, 'uploads');
 mkdirSync(uploadsDir, { recursive: true });
+
+/** Ключ подписи веб-сессий: из SESSION_SECRET или сгенерированный один раз и сохранённый в DATA_DIR. */
+function loadSessionSecret() {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  const file = path.join(config.dataDir, 'session.key');
+  if (!existsSync(file)) writeFileSync(file, randomBytes(32).toString('hex'), { mode: 0o600 });
+  return readFileSync(file, 'utf8').trim();
+}
+export const sessionSecret = loadSessionSecret();

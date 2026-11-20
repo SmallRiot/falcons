@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Home as HomeIcon, Scissors, User, Wallet, AlertTriangle, FlaskConical } from 'lucide-react';
-import { api, ApiError, getDevUser, type Me } from './api';
+import { api, ApiError, getDevUser, getSession, setSession, type Me } from './api';
 import { inTelegram, startParam, tg } from './tg';
 import { MeCtx, Sheet, Spinner, Toaster } from './ui';
 import { fmt } from './format';
 import { startRoute } from './nav';
 import Gate, { DevPicker } from './pages/Gate';
+import Login from './pages/Login';
 import Home from './pages/Home';
 import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';
@@ -28,7 +29,8 @@ const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile'];
 export default function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [err, setErr] = useState<{ status: number; message: string } | null>(null);
-  const [needDev, setNeedDev] = useState(!inTelegram && !getDevUser());
+  // на сайте: вход через Telegram (или тестовый вход, если включён на сервере)
+  const [needDev, setNeedDev] = useState(!inTelegram && !getSession() && !getDevUser());
   const [debtOpen, setDebtOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
   const nav = useNavigate();
@@ -39,6 +41,11 @@ export default function App() {
       setMe(await api.get<Me>('/api/me'));
       setErr(null);
     } catch (e) {
+      if (e instanceof ApiError && e.status === 401 && !inTelegram && getSession()) {
+        setSession(null);
+        setNeedDev(true);
+        return;
+      }
       setErr({ status: e instanceof ApiError ? e.status : 0, message: (e as Error).message });
     }
   }, []);
@@ -76,7 +83,7 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [loc.pathname]);
 
-  if (needDev) return <DevPicker onPick={() => setNeedDev(false)} />;
+  if (needDev) return <Login onDone={() => setNeedDev(false)} />;
   if (err) return <Gate kind="error" message={err.message} onRetry={refresh} onDev={() => setDevOpen(true)} devOpen={devOpen} setDevOpen={setDevOpen} />;
   if (!me) return <Spinner />;
   if (me.user.status !== 'active')
@@ -88,7 +95,7 @@ export default function App() {
 
   return (
     <MeCtx.Provider value={{ me, refresh }}>
-      <div className={`app ${inTelegram ? '' : 'dev'}`}>
+      <div className={`app ${inTelegram || getSession() ? '' : 'dev'}`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
@@ -119,7 +126,7 @@ export default function App() {
         </div>
       </nav>
 
-      {!inTelegram && (
+      {!inTelegram && !getSession() && (
         <button className="dev-pill" onClick={() => setDevOpen(true)}>
           <FlaskConical size={14} /> {me.user.first_name}
         </button>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Clock, FlaskConical, ShieldX, WifiOff } from 'lucide-react';
-import { api, setDevUser, type Me, type Role } from '../api';
+import { api, getSession, setDevUser, setSession, type Me, type Role } from '../api';
 import { inTelegram } from '../tg';
 import { Sheet, Spinner } from '../ui';
 import { ROLE_LABEL } from '../format';
@@ -34,6 +34,11 @@ export default function Gate({ kind, me, message, onRetry, onDev, devOpen, setDe
         Проверить ещё раз
       </button>
       {!inTelegram && (
+        <button className="btn ghost sm" onClick={() => { setSession(null); setDevUser(null); location.reload(); }}>
+          Выйти
+        </button>
+      )}
+      {!inTelegram && !getSession() && (
         <button className="btn ghost sm" onClick={onDev}>
           <FlaskConical size={16} /> Сменить тестового пользователя
         </button>

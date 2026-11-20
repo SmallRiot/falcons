@@ -13,6 +13,7 @@ import financeRoutes from './routes/finance.ts';
 import sharpeningRoutes from './routes/sharpening.ts';
 import adminRoutes from './routes/admin.ts';
 import devRoutes from './routes/dev.ts';
+import authRoutes from './routes/auth.ts';
 
 const app = Fastify({ logger: { level: 'warn' } });
 
@@ -22,6 +23,8 @@ if (config.devAuth) {
   console.warn('⚠️  DEV_AUTH=1 — вход без Telegram включён. Не используйте в проде.');
   await app.register(devRoutes);
 }
+
+await app.register(authRoutes);
 
 await app.register(async (api) => {
   api.addHook('preHandler', authenticate);

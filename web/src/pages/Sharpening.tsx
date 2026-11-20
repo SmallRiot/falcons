@@ -49,7 +49,6 @@ export default function Sharpening() {
   const accounts = useApi<Account[]>('/api/accounts');
   const [open, setOpen] = useState(false);
   const [payDebt, setPayDebt] = useState<SharpItem | null>(null);
-  const [note, setNote] = useState('');
   const { run, busy } = useAction();
 
   if (loading || !data) return <Spinner />;
@@ -164,6 +163,7 @@ export default function Sharpening() {
         amount={payDebt?.price ?? null}
         purpose={`Заточка — ${me.user.name}`}
         accounts={accs}
+        commentPlaceholder={null}
         onSubmit={async (file) => {
           const fd = new FormData();
           fd.append('file', file!);
@@ -182,21 +182,13 @@ export default function Sharpening() {
         purpose={`Заточка — ${me.user.name}`}
         accounts={accs}
         submitLabel="Отправить заявку"
-        extra={
-          <textarea
-            className="input"
-            placeholder="Пожелания: радиус, когда привезёшь коньки, размер…"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        }
-        onSubmit={async (file) => {
+        commentPlaceholder="Пожелания: радиус, когда привезёшь коньки… (необязательно)"
+        onSubmit={async (file, comment) => {
           const fd = new FormData();
-          fd.append('note', note);
+          fd.append('note', comment);
           fd.append('file', file!);
           return run(async () => {
             await api.post('/api/sharpening', fd);
-            setNote('');
             await Promise.all([reload(), refresh()]);
           }, 'Заявка отправлена сервис-менеджеру');
         }}

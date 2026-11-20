@@ -50,12 +50,14 @@ type Props = {
   extra?: React.ReactNode;
   /** админу можно отметить оплату без скрина */
   allowNoProof?: boolean;
+  /** подсказка в поле комментария; null — поля нет */
+  commentPlaceholder?: string | null;
   /** оплата картой по ссылке — последним пунктом */
   cardUrl?: string | null;
   onSubmit: (file: File | null, comment: string) => Promise<boolean>;
 };
 
-export default function PaySheet({ open, onClose, title, amount, purpose, accounts, submitLabel, extra, allowNoProof, cardUrl, onSubmit }: Props) {
+export default function PaySheet({ open, onClose, title, amount, purpose, accounts, submitLabel, extra, allowNoProof, cardUrl, commentPlaceholder, onSubmit }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
@@ -96,7 +98,15 @@ export default function PaySheet({ open, onClose, title, amount, purpose, accoun
       <div className="section-title">2 · Прикрепи скрин перевода{allowNoProof ? ' (админу — необязательно)' : ''}</div>
       {extra}
       <FilePick file={file} onChange={setFile} />
-      <input className="input" placeholder="Комментарий (необязательно)" value={comment} onChange={(e) => setComment(e.target.value)} />
+      {commentPlaceholder !== null && (
+        <textarea
+          className="input"
+          rows={2}
+          placeholder={commentPlaceholder ?? 'Комментарий (необязательно)'}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
+      )}
       <button className="btn block" disabled={!file || busy} onClick={() => submit(file)}>
         {busy ? 'Отправляю…' : (submitLabel ?? 'Отправить на проверку')}
       </button>

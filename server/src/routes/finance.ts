@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { requireActive, requireRole } from '../auth.ts';
 import { db, getSetting, nowIso, publicUser, setSetting, type UserRow } from '../db.ts';
-import { amountFor, computeRates, ensureDues, lockPeriod, type DueRow, type Period, type Plan } from '../finance.ts';
+import { amountFor, computeRates, ensureDues, lockPeriod, setPlan, type DueRow, type Period, type Plan } from '../finance.ts';
 import {
   notifyAdminsProof,
   notifyChoosePlanLate,
@@ -11,12 +11,12 @@ import {
   notifyDueRejected,
   notifyPollOpened,
   postDebtorsList,
+  refreshPollPost,
 } from '../telegram.ts';
 import { readUpload } from '../uploads.ts';
 import { squadIdsOf } from '../squads.ts';
 import { markSent, runReminders } from '../reminders.ts';
 
-const PLANS: Plan[] = ['full', 'partial', 'donation'];
 const getPeriod = (id: number) => db.prepare('SELECT * FROM periods WHERE id = ?').get(id) as Period | undefined;
 
 export default async function financeRoutes(app: FastifyInstance) {
@@ -46,18 +46,9 @@ export default async function financeRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const p = getPeriod(Number(req.params.id));
       if (!p) return reply.code(404).send({ error: 'Период не найден' });
-      if (!PLANS.includes(req.body?.plan)) return reply.code(400).send({ error: 'Неизвестный вариант' });
-      ensureDues(p.id);
-      const d = db.prepare('SELECT * FROM dues WHERE period_id = ? AND user_id = ?').get(p.id, req.user.id) as unknown as DueRow;
-      if (p.locked) {
-        // после старта сбора выбрать можно только тем, кто не успел; поменять — через админа
-        if (d.plan || d.custom_amount != null)
-          return reply.code(400).send({ error: 'Сбор уже идёт — поменять вариант может только админ' });
-        const amount = amountFor(p, { plan: req.body.plan, custom_amount: null, amount: null });
-        db.prepare('UPDATE dues SET plan = ?, amount = ? WHERE period_id = ? AND user_id = ?').run(req.body.plan, amount, p.id, req.user.id);
-        return { ok: true };
-      }
-      db.prepare('UPDATE dues SET plan = ? WHERE period_id = ? AND user_id = ?').run(req.body.plan, p.id, req.user.id);
+      const err = setPlan(p, req.user.id, req.body?.plan);
+      if (err) return reply.code(400).send({ error: err });
+      refreshPollPost(p.id);
       return { ok: true };
     },
   );
@@ -164,6 +155,7 @@ export default async function financeRoutes(app: FastifyInstance) {
           }
           void notifyCollectionStarted(p, rates);
         }
+        refreshPollPost(p.id);
         if (!b.locked && p.locked) db.prepare('UPDATE periods SET locked = 0 WHERE id = ?').run(p.id);
       }
       return { ok: true };
@@ -234,6 +226,7 @@ export default async function financeRoutes(app: FastifyInstance) {
         uid,
       );
     }
+    if (b.plan !== undefined) refreshPollPost(p.id);
     if (b.status && b.status !== d.status) {
       if (b.status === 'paid') {
         void notifyDuePaid(uid, p.month);

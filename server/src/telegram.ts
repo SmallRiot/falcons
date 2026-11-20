@@ -6,7 +6,9 @@ import { config } from './config.ts';
 import { db, displayName, type UserRow } from './db.ts';
 import { getEvent, goingCount, setSignup, type EventRow } from './signup.ts';
 import { eventSquadIds, squadsMap } from './squads.ts';
-import { h, kv, p, quote, table, toLegacyHtml, toPlain, type Block } from './rich.ts';
+import { h, kv, p, quote, toLegacyHtml, toPlain, type Block } from './rich.ts';
+import { renderLineupPng, type Slot } from './lineupImage.ts';
+import { setPlan, type Period, type Plan } from './finance.ts';
 
 type Button = { text: string; url?: string; callback_data?: string; web_app?: { url: string } };
 
@@ -74,6 +76,33 @@ export function sendMessage(chatId: string | number, text: string, buttons?: But
       ...keyboard(buttons),
     }),
   ) as Promise<{ message_id: number } | null>;
+}
+
+/** Фото (PNG) с подписью и кнопками — multipart sendPhoto. */
+export function sendPhoto(chatId: string | number, png: Buffer, caption: string, buttons?: Button[][]) {
+  const { to, tag } = route(chatId);
+  const fullCaption = (tag ? `<i>${esc(tag)}</i>\n\n` : '') + caption;
+  if (!to || !config.botToken) {
+    console.log(`\n[tg photo → ${to || 'командный чат'}]\n${stripHtml(fullCaption)}\n`);
+    return Promise.resolve(null);
+  }
+  return enqueue(async () => {
+    const form = new FormData();
+    form.set('chat_id', String(to));
+    form.set('caption', fullCaption.slice(0, 1024));
+    form.set('parse_mode', 'HTML');
+    if (buttons?.length) form.set('reply_markup', JSON.stringify({ inline_keyboard: buttons }));
+    form.set('photo', new Blob([new Uint8Array(png)], { type: 'image/png' }), 'lineup.png');
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${config.botToken}/sendPhoto`, { method: 'POST', body: form });
+      const json = (await res.json()) as { ok: boolean; result?: unknown; description?: string };
+      if (!json.ok) console.warn(`[tg:sendPhoto] ${json.description}`);
+      return json.result ?? null;
+    } catch (e) {
+      console.warn('[tg:sendPhoto] failed', e);
+      return null;
+    }
+  }) as Promise<{ message_id: number } | null>;
 }
 
 /** Rich-сообщение (таблицы, заголовки). Если Telegram его не примет — шлём обычный текст из тех же блоков. */
@@ -202,7 +231,6 @@ function eventBlocks(e: EventRow): Block[] {
     ['🗓 Когда', `${fmtDay(e.starts_at)}, ${fmtTime(e.starts_at)}`],
     ['⏱ Длительность', `${e.duration_min} мин`],
   ];
-  if (e.location) rows.push(['📍 Где', e.location]);
   rows.push(['👥 Идут', e.cancelled ? '—' : spots]);
   const blocks: Block[] = [h(title, 2), kv(rows)];
   if (e.notes) blocks.push(p(`📝 ${e.notes}`));
@@ -248,64 +276,40 @@ export function refreshEventPost(eventId: number) {
   );
 }
 
-/* ---------- пятёрки ---------- */
+/* ---------- пятёрки: картинкой хоккейной площадки ---------- */
 
 const ORD = ['', 'первой', 'второй', 'третьей', 'четвёртой'];
 const TEAM_GEN: Record<string, string> = { dark: 'тёмных', light: 'светлых', '': '' };
-const TEAM_TITLE: Record<string, string> = { dark: '⚫️ Тёмные', light: '⚪️ Светлые', '': '🦅 Состав' };
-const FWD = ['LW', 'C', 'RW'];
-const DEF = ['LD', 'RD'];
 
-interface LineupRow {
-  user_id: number;
-  team: string;
-  line: number;
-  slot: string;
-  first_name: string;
-  last_name: string | null;
+const lineupSlots = (eventId: number): Slot[] =>
+  (
+    db
+      .prepare(
+        'SELECT l.user_id, l.team, l.line, l.slot, u.first_name, u.last_name, u.number FROM lineups l JOIN users u ON u.id = l.user_id WHERE l.event_id = ?',
+      )
+      .all(eventId) as { user_id: number; team: string; line: number; slot: string; first_name: string; last_name: string | null; number: number | null }[]
+  ).map((r) => ({ user_id: r.user_id, team: r.team, line: r.line, slot: r.slot, name: shortName(r), number: r.number }));
+
+function lineupTitle(e: EventRow) {
+  const kind = e.type === 'game' ? 'ИГРА' : 'ТРЕНИРОВКА';
+  return `${kind} · ${dayWord(e.starts_at).toUpperCase()}, ${fmtTime(e.starts_at)}`;
 }
-const lineupRows = (eventId: number) =>
-  db
-    .prepare('SELECT l.user_id, l.team, l.line, l.slot, u.first_name, u.last_name FROM lineups l JOIN users u ON u.id = l.user_id WHERE l.event_id = ?')
-    .all(eventId) as unknown as LineupRow[];
 
-/** Таблица пятёрок одной команды: строки — звенья, колонки — позиции. */
-function teamTable(rows: LineupRow[], team: string, highlight?: number): Block[] {
-  const mine = rows.filter((r) => r.team === team);
-  const lines = Math.max(0, ...mine.map((r) => r.line));
-  const name = (line: number, slot: string) => {
-    const r = mine.find((x) => x.line === line && x.slot === slot);
-    return r ? `${r.user_id === highlight ? '⭐ ' : ''}${shortName(r)}` : '';
-  };
-  const out: Block[] = [];
-  if (lines > 0)
-    out.push(
-      table(
-        ['', 'ЛН', 'ЦН', 'ПН', 'ЛЗ', 'ПЗ'],
-        Array.from({ length: lines }, (_, i) => [`${i + 1}`, ...FWD.map((s) => name(i + 1, s)), ...DEF.map((s) => name(i + 1, s))]),
-        { align: ['center', 'center', 'center', 'center', 'center', 'center'] },
-      ),
-    );
-  const goalies = ['G1', 'G2'].map((s) => name(0, s)).filter(Boolean);
-  if (goalies.length) out.push(p(`🧤 Вратари: ${goalies.join(', ')}`));
-  return out;
+function renderFor(e: EventRow, highlight?: number) {
+  return renderLineupPng({
+    title: lineupTitle(e),
+    slots: lineupSlots(e.id),
+    highlightUserId: highlight,
+    opponent: e.type === 'game' ? e.title : null,
+  });
 }
 
 export function notifyLineupPublished(e: EventRow) {
-  const rows = lineupRows(e.id);
-  const teams = ['dark', 'light', ''].filter((t) => rows.some((r) => r.team === t));
-  const blocks: Block[] = [
-    h(`📋 Пятёрки · ${e.type === 'game' ? 'игра' : 'тренировка'} ${dayWord(e.starts_at)}, ${fmtTime(e.starts_at)}`, 2),
-  ];
-  for (const t of teams) {
-    if (teams.length > 1 || t) blocks.push(h(TEAM_TITLE[t], 3));
-    blocks.push(...teamTable(rows, t));
-  }
-  blocks.push(p('Каждому написал в личку, где он играет 👀'));
-  return sendRich(TEAM, blocks, [[{ text: '📋 Открыть в приложении', url: appLink(`e${e.id}`) }]]);
+  const caption = `📋 <b>Пятёрки готовы!</b> ${e.type === 'game' ? 'Игра' : 'Тренировка'} ${dayWord(e.starts_at)}, ${fmtTime(e.starts_at)}.\nКаждому написал в личку, где он играет 👀`;
+  return sendPhoto(TEAM, renderFor(e), caption, [[{ text: '📋 Открыть в приложении', url: appLink(`e${e.id}`) }]]);
 }
 
-export function lineupBlocks(e: EventRow, item: { user_id: number; team: string; line: number }): Block[] {
+export function lineupCaption(e: EventRow, item: { team: string; line: number }) {
   const team = TEAM_GEN[item.team] ?? '';
   const where =
     item.line === 0
@@ -315,97 +319,143 @@ export function lineupBlocks(e: EventRow, item: { user_id: number; team: string;
     e.type === 'game'
       ? pick(['Удачной игры! Порвём их 🥅🔥', 'Удачной игры, соколы! 🦅', 'Вперёд за победой! 🏆'])
       : pick(['Хорошей тренировки на льду! 🏒', 'Хорошего льда! ⛸', 'Покатаемся! 🏒💨']);
-  const blocks: Block[] = [h(`🦅 Ты ${dayWord(e.starts_at)} ${where}`, 2)];
-  if (item.line > 0) {
-    const rows = lineupRows(e.id).filter((r) => r.team === item.team && r.line === item.line);
-    const name = (slot: string) => {
-      const r = rows.find((x) => x.slot === slot);
-      return r ? `${r.user_id === item.user_id ? '⭐ ' : ''}${shortName(r)}` : '';
-    };
-    blocks.push(table(['ЛН', 'ЦН', 'ПН', 'ЛЗ', 'ПЗ'], [[...FWD, ...DEF].map(name)], { caption: 'Твоё звено', align: ['center', 'center', 'center', 'center', 'center'] }));
-  }
-  blocks.push(kv([['⏰ Начало', fmtTime(e.starts_at)], ...(e.location ? ([['📍 Где', e.location]] as [string, string][]) : [])]));
-  blocks.push(p(wish));
-  return blocks;
+  return `🦅 Ты ${dayWord(e.starts_at)} <b>${where}</b> — ты подсвечен на схеме.\n⏰ Начало в ${fmtTime(e.starts_at)}. ${wish}`;
 }
 
-export function notifyLineupPersonal(e: EventRow, items: { user_id: number; team: string; line: number }[]) {
-  return Promise.all(items.map((i) => dmRich(i.user_id, lineupBlocks(e, i), `e${e.id}`, [[{ text: '📋 Все пятёрки', url: appLink(`e${e.id}`) }]])));
+/** Каждому — его площадка с подсветкой. Картинка рисуется ~50 мс. */
+export async function notifyLineupPersonal(e: EventRow, items: { user_id: number; team: string; line: number }[]) {
+  const TEST_CAP = 3; // в тестовом режиме всё летит одному человеку — не заваливаем картинками
+  let skipped = 0;
+  items.forEach((i, idx) => {
+    const caption = lineupCaption(e, i);
+    db.prepare('INSERT INTO notifications(user_id, text, link) VALUES(?,?,?)').run(i.user_id, stripHtml(caption), `e${e.id}`);
+    if (config.testChatId && idx >= TEST_CAP) return void skipped++;
+    void sendPhoto(i.user_id, renderFor(e, i.user_id), caption, [[{ text: '📋 Открыть в приложении', url: appLink(`e${e.id}`) }]]);
+  });
+  if (skipped) void sendMessage(config.testChatId, `<i>🧪 тест · ещё ${skipped} личных схем не отправлено (лимит ${TEST_CAP}). В проде получит каждый.</i>`);
 }
 
 /* ---------- взносы ---------- */
 
-export function notifyPollOpened(per: { month: string; partial_ratio: number; donation_amount: number }) {
-  return sendRich(
-    TEAM,
+const PLAN_NAME: Record<string, string> = { full: '🔵 Полный', partial: '🟢 Частичный', donation: '💙 Донат', exempt: 'Освобождён' };
+
+interface PollPeriod {
+  id: number;
+  month: string;
+  partial_ratio: number;
+  donation_amount: number;
+  locked: number;
+  tg_message_id?: number | null;
+}
+
+function pollText(per: PollPeriod) {
+  const counts = Object.fromEntries(
+    (
+      db
+        .prepare(
+          `SELECT d.plan, COUNT(*) c FROM dues d JOIN users u ON u.id = d.user_id WHERE d.period_id = ? AND u.status = 'active' AND d.plan IS NOT NULL GROUP BY d.plan`,
+        )
+        .all(per.id) as { plan: string; c: number }[]
+    ).map((r) => [r.plan, r.c]),
+  );
+  const n = (k: string) => counts[k] ?? 0;
+  return [
+    `🗳 <b>Взносы на ${monthName(per.month)}</b>`,
+    '',
+    'Лёд, тренер, судьи — делим на всех. Выбери свой вариант кнопкой ниже:',
+    '',
+    `🔵 <b>Полный</b> — все тренировки + чемпионат · <b>${n('full')}</b>`,
+    `🟢 <b>Частичный</b> (${Math.round(per.partial_ratio * 100)}%) — до 1 тренировки в неделю + чемпионат · <b>${n('partial')}</b>`,
+    `💙 <b>Донат</b> (${per.donation_amount} ₾) — без чемпионата, поддержать команду · <b>${n('donation')}</b>`,
+    '',
+    per.locked ? '✅ Опрос закрыт — сбор начат, суммы пришли в личку.' : '🧮 Суммы посчитаем, когда все выберут, — и пришлём каждому лично.',
+  ].join('\n');
+}
+
+function pollButtons(per: PollPeriod): Button[][] {
+  const open = [[{ text: '🦅 Открыть в приложении', url: appLink('finance') }]];
+  if (per.locked) return open;
+  return [
     [
-      h(`🗳 Взносы на ${monthName(per.month)}`, 2),
-      p('Лёд, тренер, судьи — делим на всех. Выбери свой вариант:'),
-      table(
-        ['Вариант', 'Для кого', 'Сумма'],
-        [
-          ['🔵 Полный', 'все тренировки + чемпионат', 'посчитаем'],
-          [`🟢 Частичный · ${Math.round(per.partial_ratio * 100)}%`, 'до 1 тренировки в неделю + чемпионат', 'посчитаем'],
-          ['💙 Донат', 'без чемпионата, поддержать команду', `${per.donation_amount} ₾`],
-        ],
-        { align: ['left', 'left', 'right'] },
-      ),
-      p('🧮 Суммы посчитаем, когда все выберут, — и пришлём каждому лично.'),
+      { text: '🔵 Полный', callback_data: `plan:${per.id}:full` },
+      { text: '🟢 Частичный', callback_data: `plan:${per.id}:partial` },
+      { text: '💙 Донат', callback_data: `plan:${per.id}:donation` },
     ],
-    [[{ text: '🗳 Выбрать вариант', url: appLink('finance') }]],
+    ...open,
+  ];
+}
+
+export async function notifyPollOpened(per: PollPeriod) {
+  const msg = await toTeamChat(pollText(per), pollButtons(per));
+  if (msg?.message_id) db.prepare('UPDATE periods SET tg_message_id = ? WHERE id = ?').run(msg.message_id, per.id);
+}
+
+/** Обновить счётчики голосов в посте опроса (и убрать кнопки, когда сбор начат). */
+const pendingPoll = new Map<number, ReturnType<typeof setTimeout>>();
+export function refreshPollPost(periodId: number) {
+  if (!config.botToken || !teamTarget()) return;
+  clearTimeout(pendingPoll.get(periodId));
+  pendingPoll.set(
+    periodId,
+    setTimeout(() => {
+      pendingPoll.delete(periodId);
+      const per = db.prepare('SELECT * FROM periods WHERE id = ?').get(periodId) as PollPeriod | undefined;
+      if (!per?.tg_message_id) return;
+      void api('editMessageText', {
+        chat_id: teamTarget(),
+        message_id: per.tg_message_id,
+        text: (config.testChatId ? '<i>🧪 тест · 💬 в командный чат</i>\n\n' : '') + pollText(per),
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: pollButtons(per) },
+      });
+    }, 1500),
   );
 }
 
 type RatesInfo = { full: number; partial: number; donation: number; nFull?: number; nPartial?: number; nDonation?: number };
 
 export function notifyCollectionStarted(per: { month: string; due_date: string | null }, rates: RatesInfo) {
-  const n = (x?: number) => (x == null ? '' : String(x));
-  return sendRich(
-    TEAM,
+  return toTeamChat(
     [
-      h(`💰 Сбор за ${monthName(per.month)} открыт!`, 2),
-      table(
-        ['Вариант', 'Человек', 'К оплате'],
-        [
-          ['🔵 Полный', n(rates.nFull), `${rates.full} ₾`],
-          ['🟢 Частичный', n(rates.nPartial), `${rates.partial} ₾`],
-          ['💙 Донат', n(rates.nDonation), `${rates.donation} ₾`],
-        ],
-        { align: ['left', 'center', 'right'] },
-      ),
-      p(`Каждому в личку пришла его сумма. ${per.due_date ? `Оплати до ${new Date(per.due_date).getDate()} числа` : 'Оплати'} и прикрепи скрин 🧾`),
-    ],
+      `💰 <b>Сбор за ${monthName(per.month)} открыт!</b>`,
+      '',
+      `🔵 Полный — <b>${rates.full} ₾</b>`,
+      `🟢 Частичный — <b>${rates.partial} ₾</b>`,
+      `💙 Донат — <b>${rates.donation} ₾</b>`,
+      '',
+      `Каждому в личку пришла его сумма. ${per.due_date ? `Оплати до ${new Date(per.due_date).getDate()} числа` : 'Оплати'} и прикрепи скрин 🧾`,
+    ].join('\n'),
     [[{ text: '💳 Оплатить', url: appLink('finance') }]],
   );
 }
 
-const PLAN_NAME: Record<string, string> = { full: '🔵 Полный', partial: '🟢 Частичный', donation: '💙 Донат', exempt: 'Освобождён' };
-
 export function notifyDueAmount(userId: number, month: string, plan: string | null, amount: number) {
-  return dmRich(
+  return dm(
     userId,
     [
-      h(`💰 Сбор за ${monthName(month)} открыт`, 2),
-      kv([
-        ['Твой вариант', plan ? (PLAN_NAME[plan] ?? plan) : 'назначен админом'],
-        ['К оплате', `${amount} ₾`],
-      ]),
-      p('Переведи на счёт команды и прикрепи скрин — в приложении всё в пару тапов 👇'),
-    ],
+      `💰 <b>Сбор за ${monthName(month)} открыт</b>`,
+      '',
+      plan ? `Твой вариант: ${PLAN_NAME[plan] ?? plan}` : 'Сумма назначена админом',
+      `К оплате: <b>${amount} ₾</b>`,
+      '',
+      'Переведи на счёт команды и прикрепи скрин — в приложении всё в пару тапов 👇',
+    ].join('\n'),
     'finance',
   );
 }
 
 /** Список должников в командный чат (кнопка в консоли). */
 export function postDebtorsList(month: string, rows: { name: string; amount: number }[]) {
-  const total = rows.reduce((s, r) => s + r.amount, 0);
-  return sendRich(
-    TEAM,
+  const total = rows.reduce((x, r) => x + r.amount, 0);
+  return toTeamChat(
     [
-      h(`📣 Взносы за ${monthName(month)}: ждём оплату`, 2),
-      table(['#', 'Игрок', 'Сумма'], rows.map((r, i) => [i + 1, r.name, `${r.amount} ₾`]), { align: ['center', 'left', 'right'], caption: `Итого: ${total} ₾` }),
-      p('Переведите, пожалуйста, и прикрепите скрин в приложении 🙏 Лёд сам себя не оплатит 🧊'),
-    ],
+      `📣 <b>Взносы за ${monthName(month)}: ждём оплату</b>`,
+      '',
+      ...rows.map((r, i) => `${i + 1}. ${esc(r.name)} — <b>${r.amount} ₾</b>`),
+      '',
+      `Итого: <b>${total} ₾</b>`,
+      'Переведите, пожалуйста, и прикрепите скрин в приложении 🙏 Лёд сам себя не оплатит 🧊',
+    ].join('\n'),
     [[{ text: '💳 Оплатить', url: appLink('finance') }]],
   );
 }
@@ -474,13 +524,14 @@ export function notifySharpening(userId: number, ev: SharpEvent, opts: { amount?
 
 export function reminderDues(userId: number, name: string, debts: { month: string; amount: number }[]) {
   const total = debts.reduce((x, d) => x + d.amount, 0);
-  return dmRich(
+  const months = debts.map((d) => monthName(d.month)).join(', ');
+  return dm(
     userId,
-    [
-      h(pick([`⏰ ${name}, напоминалка от Falcons`, `🦅 ${name}, висит взнос`, `💸 ${name}, вежливо стучимся`]), 2),
-      table(['Месяц', 'Сумма'], [...debts.map((d) => [monthName(d.month), `${d.amount} ₾`]), ['Итого', `${total} ₾`]], { align: ['left', 'right'] }),
-      p(pick(['Лёд сам себя не оплатит 🧊 Переведи и прикрепи скрин 👇', 'Один перевод + один скрин — и ты свободен 🙌', 'Закроем, чтобы спокойно кататься? 🏒'])),
-    ],
+    pick([
+      `⏰ <b>Напоминалка от Falcons</b>\n\n${esc(name)}, за тобой взнос за ${months} — <b>${total} ₾</b>.\nЛёд сам себя не оплатит 🧊\n\nПереведи и прикрепи скрин 👇`,
+      `🦅 ${esc(name)}, привет! Висит взнос за ${months}: <b>${total} ₾</b>.\nЗакроем, чтобы спокойно кататься? 🏒`,
+      `💸 ${esc(name)}, вежливо стучимся: <b>${total} ₾</b> за ${months}.\nОдин перевод + один скрин — и ты свободен 🙌`,
+    ]),
     'finance',
   );
 }
@@ -501,7 +552,7 @@ export const reminderPlan = (userId: number, month: string) =>
 
 export function reminderRsvp(userId: number, e: EventRow) {
   const kind = e.type === 'game' ? '🥅 Игра' : '🏒 Тренировка';
-  return dm(userId, `${kind} ${dayWord(e.starts_at)} в ${fmtTime(e.starts_at)}${e.location ? ` · 📍 ${esc(e.location)}` : ''}\n\nТы ещё не отметился — идёшь?`, `e${e.id}`, [
+  return dm(userId, `${kind} ${dayWord(e.starts_at)} в ${fmtTime(e.starts_at)}\n\nТы ещё не отметился — идёшь?`, `e${e.id}`, [
     [
       { text: '✅ Иду', callback_data: `rsvp:${e.id}:in` },
       { text: '❌ Не иду', callback_data: `rsvp:${e.id}:out` },
@@ -566,6 +617,16 @@ async function handleUpdate(u: Update) {
     if (err) return answer(cq.id, err, true);
     refreshEventPost(e.id);
     return answer(cq.id, b === 'in' ? pick(['Записал! До встречи на льду 🏒', 'Ты в деле! 💪', 'Отлично, ждём! 🦅']) : 'Понял, в другой раз 👋');
+  }
+
+  if (action === 'plan') {
+    const per = db.prepare('SELECT * FROM periods WHERE id = ?').get(Number(a)) as Period | undefined;
+    if (!per) return answer(cq.id, 'Опрос не найден');
+    if (!actor || actor.status !== 'active') return answer(cq.id, 'Сначала открой приложение Falcons и дождись доступа 🦅', true);
+    const err = setPlan(per, actor.id, b as Plan);
+    if (err) return answer(cq.id, err, true);
+    refreshPollPost(per.id);
+    return answer(cq.id, `Записал: ${PLAN_NAME[b] ?? b}. Сумму пришлю, когда начнём сбор 🧮`);
   }
 
   if (action === 'approve' || action === 'reject') {

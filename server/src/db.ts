@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS periods (
   locked          INTEGER NOT NULL DEFAULT 0,    -- 1 = сбор начат: суммы зафиксированы, неоплата = долг
   locked_full     REAL,                          -- ставки на момент старта сбора
   locked_partial  REAL,
+  tg_message_id   INTEGER,                       -- пост опроса в командном чате
   due_date        TEXT,
   created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -156,6 +157,21 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 `);
+
+/** Миграции для уже существующей базы: добавляем колонки, которых нет (CREATE TABLE IF NOT EXISTS их не добавит). */
+function addColumn(table: string, column: string, def: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+}
+addColumn('periods', 'tg_message_id', 'INTEGER');
+addColumn('periods', 'locked_full', 'REAL');
+addColumn('periods', 'locked_partial', 'REAL');
+addColumn('events', 'tg_message_id', 'INTEGER');
+addColumn('events', 'score_us', 'INTEGER');
+addColumn('events', 'score_them', 'INTEGER');
+addColumn('signups', 'attended', 'INTEGER');
+addColumn('sharpenings', 'payment', "TEXT NOT NULL DEFAULT 'pending'");
+addColumn('lineups', 'team', "TEXT NOT NULL DEFAULT ''");
 
 export const nowIso = () => new Date().toISOString();
 

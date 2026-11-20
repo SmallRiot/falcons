@@ -102,6 +102,26 @@ export function lockPeriod(period: Period) {
   return rates;
 }
 
+/**
+ * Выбор варианта игроком — из приложения или кнопкой в чате. Возвращает текст ошибки или null.
+ * До старта сбора менять можно сколько угодно; после — только если ещё не выбирал.
+ */
+export function setPlan(period: Period, userId: number, plan: Plan): string | null {
+  if (!['full', 'partial', 'donation'].includes(plan)) return 'Неизвестный вариант';
+  ensureDues(period.id);
+  const d = db.prepare('SELECT * FROM dues WHERE period_id = ? AND user_id = ?').get(period.id, userId) as DueRow | undefined;
+  if (!d) return 'Доступ ещё не открыт';
+  if (period.locked) {
+    if (d.plan || d.custom_amount != null) return 'Сбор уже идёт — поменять вариант может только админ';
+    const amount = amountFor(period, { plan, custom_amount: null, amount: null });
+    db.prepare('UPDATE dues SET plan = ?, amount = ? WHERE period_id = ? AND user_id = ?').run(plan, amount, period.id, userId);
+    return null;
+  }
+  if (d.status === 'paid' || d.status === 'pending') return 'Оплата уже отправлена — поменять вариант может только админ';
+  db.prepare('UPDATE dues SET plan = ? WHERE period_id = ? AND user_id = ?').run(plan, period.id, userId);
+  return null;
+}
+
 /** Создаёт строки dues для всех активных игроков, у кого их нет. */
 export function ensureDues(periodId: number) {
   db.prepare(

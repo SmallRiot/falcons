@@ -63,7 +63,8 @@ export default async function eventRoutes(app: FastifyInstance) {
     const edge = new Date(Date.now() - 3 * 3600e3).toISOString();
     const rows = db
       .prepare(
-        `SELECT * FROM events e WHERE starts_at ${past ? '<' : '>='} ? ${all ? '' : `AND ${VISIBLE_SQL}`}
+        // отменённые в «Предстоящих» не показываем никому — только в прошедших, для истории
+        `SELECT * FROM events e WHERE starts_at ${past ? '<' : '>='} ? ${past ? '' : 'AND cancelled = 0'} ${all ? '' : `AND ${VISIBLE_SQL}`}
          ORDER BY starts_at ${past ? 'DESC' : 'ASC'} LIMIT 80`,
       )
       .all(...(all ? [edge] : [edge, req.user.id])) as unknown as EventRow[];

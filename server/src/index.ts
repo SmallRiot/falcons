@@ -5,7 +5,7 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { config } from './config.ts';
 import { authenticate } from './auth.ts';
-import { startPolling } from './telegram.ts';
+import { resolveBotUsername, startPolling } from './telegram.ts';
 import { startReminders } from './reminders.ts';
 import meRoutes from './routes/me.ts';
 import eventRoutes from './routes/events.ts';
@@ -48,6 +48,8 @@ if (existsSync(webDist)) {
   );
 }
 
+await resolveBotUsername();
+if (config.testChatId) console.warn(`🧪 TEST_CHAT_ID задан — все сообщения бота уходят на ${config.testChatId}`);
 await app.listen({ port: config.port, host: '0.0.0.0' });
 console.log(`🦅 Falcons API на http://localhost:${config.port}`);
 void startPolling();

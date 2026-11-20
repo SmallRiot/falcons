@@ -26,6 +26,8 @@ export const config = {
   teamChatId: process.env.TEAM_CHAT_ID ?? '',
   adminIds: list(process.env.ADMIN_IDS).map(Number),
   botPolling: process.env.BOT_POLLING === '1',
+  /** Тестовый режим: все сообщения бота уходят на этот chat id. */
+  testChatId: process.env.TEST_CHAT_ID ?? '',
   tz: 'Asia/Tbilisi',
 };
 

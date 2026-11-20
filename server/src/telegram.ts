@@ -29,14 +29,50 @@ async function api(method: string, body: Record<string, unknown>) {
   }
 }
 
+/* Очередь отправки: Telegram режет частые сообщения в один чат (~1/сек), поэтому шлём по одному. */
+let queue: Promise<unknown> = Promise.resolve();
+const GAP_MS = 1100;
+
+/** Куда реально слать: в тестовом режиме — всё тестировщику. */
+const TEAM = 'team';
+function route(chatId: string | number) {
+  if (!config.testChatId) return { to: chatId === TEAM ? config.teamChatId : chatId, label: '' };
+  let label = '💬 в командный чат';
+  if (chatId !== TEAM && String(chatId) !== String(config.teamChatId)) {
+    const u = db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(Number(chatId)) as
+      | { first_name: string; last_name: string | null }
+      | undefined;
+    label = `👤 в личку: ${u ? esc([u.first_name, u.last_name].filter(Boolean).join(' ')) : chatId}`;
+  }
+  return { to: config.testChatId, label: `<i>🧪 тест · ${label}</i>\n\n` };
+}
+
 export function sendMessage(chatId: string | number, text: string, buttons?: Button[][]) {
-  return api('sendMessage', {
-    chat_id: chatId,
-    text,
-    parse_mode: 'HTML',
-    link_preview_options: { is_disabled: true },
-    ...(buttons ? { reply_markup: { inline_keyboard: buttons } } : {}),
-  }) as Promise<{ message_id: number } | null>;
+  const { to, label } = route(chatId);
+  if (!to) {
+    console.log(`\n[tg → командный чат (TEAM_CHAT_ID не задан)]\n${stripHtml(text)}\n`);
+    return Promise.resolve(null);
+  }
+  const job = queue.then(async () => {
+    const r = await api('sendMessage', {
+      chat_id: to,
+      text: label + text,
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true },
+      ...(buttons ? { reply_markup: { inline_keyboard: buttons } } : {}),
+    });
+    if (config.botToken) await new Promise((res) => setTimeout(res, GAP_MS));
+    return r;
+  });
+  queue = job.catch(() => undefined);
+  return job as Promise<{ message_id: number } | null>;
+}
+
+/** Если BOT_USERNAME не задан — узнаём у Telegram (нужно для ссылок t.me/<бот>). */
+export async function resolveBotUsername() {
+  if (!config.botToken || config.botUsername) return;
+  const me = (await api('getMe', {})) as { username?: string } | null;
+  if (me?.username) config.botUsername = me.username;
 }
 
 /* ---------- утилиты ---------- */
@@ -94,12 +130,11 @@ function idsWithRole(role: string): number[] {
 }
 
 function toTeamChat(text: string, buttons?: Button[][]) {
-  if (!config.teamChatId) {
-    console.log(`\n[tg → командный чат (TEAM_CHAT_ID не задан)]\n${stripHtml(text)}\n`);
-    return Promise.resolve(null);
-  }
-  return sendMessage(config.teamChatId, text, buttons);
+  return sendMessage(TEAM, text, buttons);
 }
+
+/** Чат, где лежит пост события (в тестовом режиме — у тестировщика). */
+const teamTarget = () => config.testChatId || config.teamChatId;
 
 /* ---------- события ---------- */
 
@@ -149,7 +184,7 @@ export async function notifyEventCreated(e: EventRow) {
 /** Обновляет счётчик в посте события в командном чате. */
 const pendingRefresh = new Map<number, ReturnType<typeof setTimeout>>();
 export function refreshEventPost(eventId: number) {
-  if (!config.botToken || !config.teamChatId) return;
+  if (!config.botToken || !teamTarget()) return;
   clearTimeout(pendingRefresh.get(eventId));
   pendingRefresh.set(
     eventId,
@@ -158,9 +193,9 @@ export function refreshEventPost(eventId: number) {
       const e = getEvent(eventId);
       if (!e?.tg_message_id) return;
       void api('editMessageText', {
-        chat_id: config.teamChatId,
+        chat_id: teamTarget(),
         message_id: e.tg_message_id,
-        text: eventPost(e),
+        text: (config.testChatId ? '<i>🧪 тест · 💬 в командный чат</i>\n\n' : '') + eventPost(e),
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_markup: { inline_keyboard: eventButtons(e) },

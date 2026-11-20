@@ -7,9 +7,12 @@
  * Не пишем ночью: только с 10:00 до 22:00 по Тбилиси.
  */
 import { config } from './config.ts';
+
+/** В тестовом режиме не заваливаем тестировщика: не больше N напоминаний за прогон. */
+const TEST_CAP = 5;
 import { db, getSetting, nowIso } from './db.ts';
 import { debtsOf } from './finance.ts';
-import { reminderDues, reminderPlan, reminderRsvp, reminderSharpening, monthName } from './telegram.ts';
+import { sendMessage, reminderDues, reminderPlan, reminderRsvp, reminderSharpening, monthName } from './telegram.ts';
 import { getEvent } from './signup.ts';
 import { eventAudience } from './squads.ts';
 
@@ -45,6 +48,13 @@ export async function runReminders(force = false) {
   const every = force ? 0 : Number(getSetting('remind_every_hours', '60'));
   const active = db.prepare(`SELECT id, first_name FROM users WHERE status = 'active'`).all() as { id: number; first_name: string }[];
   let sent = 0;
+  let skipped = 0;
+  let delivered = 0;
+  const budget = () => {
+    if (!config.testChatId || delivered < TEST_CAP) return ++delivered > 0;
+    skipped++;
+    return false;
+  };
 
   // 1. долги по взносам
   for (const u of active) {
@@ -53,7 +63,7 @@ export async function runReminders(force = false) {
     const key = `debt:dues:${u.id}`;
     if (!isDue(key, every)) continue;
     const total = debts.reduce((s, d) => s + d.amount, 0);
-    await reminderDues(u.id, u.first_name, total, debts.map((d) => monthName(d.month)));
+    if (budget()) await reminderDues(u.id, u.first_name, total, debts.map((d) => monthName(d.month)));
     markSent(key);
     sent++;
   }
@@ -62,7 +72,7 @@ export async function runReminders(force = false) {
   for (const d of sharpeningDebts()) {
     const key = `debt:sharp:${d.user_id}`;
     if (!isDue(key, every)) continue;
-    await reminderSharpening(d.user_id, d.total);
+    if (budget()) await reminderSharpening(d.user_id, d.total);
     markSent(key);
     sent++;
   }
@@ -79,7 +89,7 @@ export async function runReminders(force = false) {
     for (const u of undecided) {
       const key = `plan:${p.id}:${u.id}`;
       if (!isDue(key, every)) continue;
-      await reminderPlan(u.id, p.month);
+      if (budget()) await reminderPlan(u.id, p.month);
       markSent(key);
       sent++;
     }
@@ -107,13 +117,18 @@ export async function runReminders(force = false) {
     for (const u of silent) {
       const key = `rsvp:${e.id}:${u.id}`;
       if (!isDue(key, 24 * 365)) continue;
-      await reminderRsvp(u.id, getEvent(e.id)!);
+      if (budget()) await reminderRsvp(u.id, getEvent(e.id)!);
       markSent(key);
       sent++;
     }
   }
-  if (sent) console.log(`[reminders] отправлено ${sent}`);
-  return sent;
+  if (skipped)
+    void sendMessage(
+      config.testChatId,
+      `<i>🧪 тест · ещё ${skipped} напоминаний не отправлено, чтобы не спамить (лимит ${TEST_CAP} за раз). В проде уйдут все.</i>`,
+    );
+  if (sent) console.log(`[reminders] отправлено ${sent - skipped}${skipped ? `, пропущено в тесте ${skipped}` : ''}`);
+  return sent - skipped;
 }
 
 export function startReminders() {

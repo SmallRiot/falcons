@@ -402,3 +402,5 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .dp-chip { height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .dp-chip.on { background: var(--falcon-soft); border-color: var(--falcon); color: var(--falcon); }
 .dp-foot { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
+/* «Назад» в браузере — как нативная кнопка в шапке Telegram */
+.dev-back { position: fixed; top: 10px; left: 10px; z-index: 40; height: 30px; padding: 0 12px 0 6px; border-radius: 15px; border: 0; background: var(--surface); color: var(--falcon); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12); font: inherit; font-size: 14px; font-weight: 650; display: flex; align-items: center; gap: 2px; cursor: pointer; }

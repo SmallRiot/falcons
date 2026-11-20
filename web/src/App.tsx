@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { CalendarDays, Home as HomeIcon, Scissors, User, Wallet, AlertTriangle, FlaskConical, ShieldCheck, Receipt, Users, LayoutGrid, ArrowLeftRight } from 'lucide-react';
+import { CalendarDays, Home as HomeIcon, Scissors, User, Wallet, AlertTriangle, FlaskConical, ShieldCheck, Receipt, Users, LayoutGrid, ArrowLeftRight, ChevronLeft } from 'lucide-react';
 import { api, ApiError, getDevUser, type Me } from '@shared/api';
 import { inTelegram, startParam, tg } from '@shared/tg';
 import { can, MeCtx, Sheet, Spinner, Toaster } from '@shared/ui';
@@ -88,18 +88,24 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.user.id, hasDebt]);
 
-  // системная кнопка «Назад» в Telegram
+  // «Назад»: нативная кнопка Telegram в шапке; в браузере — такая же сверху слева.
+  // Если открыли сразу по ссылке и истории нет — на главную текущего режима.
+  const isRoot = ROOTS.includes(loc.pathname);
+  const goBack = useCallback(() => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) nav(-1);
+    else nav(mode === 'staff' ? '/manage' : '/', { replace: true });
+  }, [nav, mode]);
   useEffect(() => {
     if (!tg) return;
-    const isRoot = ROOTS.includes(loc.pathname);
-    const back = () => nav(-1);
-    if (isRoot) tg.BackButton.hide();
-    else {
-      tg.BackButton.show();
-      tg.BackButton.onClick(back);
+    if (isRoot) {
+      tg.BackButton.hide();
+      return;
     }
-    return () => tg!.BackButton.offClick(back);
-  }, [loc.pathname, nav]);
+    tg.BackButton.show();
+    tg.BackButton.onClick(goBack);
+    return () => tg!.BackButton.offClick(goBack);
+  }, [isRoot, goBack]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -180,6 +186,11 @@ export default function App() {
         </div>
       </nav>
 
+      {!inTelegram && !isRoot && (
+        <button className="dev-back" onClick={goBack}>
+          <ChevronLeft size={18} /> Назад
+        </button>
+      )}
       {!inTelegram && (
         <button className="dev-pill" onClick={() => setDevOpen(true)}>
           <FlaskConical size={14} /> {me.user.first_name}

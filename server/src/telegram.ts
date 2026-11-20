@@ -461,6 +461,18 @@ export function postDebtorsList(month: string, rows: { name: string; amount: num
   );
 }
 
+/** Админ поменял человеку вариант или сумму (новичок посреди месяца, освобождение, своя сумма). */
+export function notifyDueSetByAdmin(userId: number, month: string, plan: string | null, amount: number | null, locked: boolean) {
+  if (plan === 'exempt' && (amount ?? 0) === 0)
+    return dm(userId, `🙌 Ты освобождён от взноса за ${monthName(month)}. Ничего платить не нужно.`, 'finance');
+  if (!locked) return;
+  return dm(
+    userId,
+    `💰 Взнос за ${monthName(month)}: ${plan ? PLAN_NAME[plan] ?? plan : 'своя сумма'} — ${amount ?? 0} ₾.\nПереведи и прикрепи скрин в приложении 👇`,
+    'finance',
+  );
+}
+
 export function notifyChoosePlanLate(userId: number, month: string) {
   return dm(userId, `🗳 Сбор за ${monthName(month)} уже начался, а ты не выбрал вариант. Выбери — и сразу увидишь сумму 👇`, 'finance');
 }

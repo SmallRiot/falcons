@@ -9,6 +9,7 @@ import {
   notifyDueAmount,
   notifyDuePaid,
   notifyDueRejected,
+  notifyDueSetByAdmin,
   notifyPollOpened,
   postDebtorsList,
   refreshPollPost,
@@ -230,6 +231,12 @@ export default async function financeRoutes(app: FastifyInstance) {
         p.id,
         uid,
       );
+    }
+    if (b.plan !== undefined || b.custom_amount !== undefined) {
+      const nd = db.prepare('SELECT plan, custom_amount, amount, status FROM dues WHERE period_id=? AND user_id=?').get(p.id, uid) as unknown as DueRow;
+      const changed = nd.plan !== d.plan || nd.custom_amount !== d.custom_amount;
+      if (changed && nd.status !== 'paid')
+        void notifyDueSetByAdmin(uid, p.month, nd.custom_amount != null ? null : nd.plan, p.locked ? nd.amount : nd.custom_amount, !!p.locked);
     }
     if (b.plan !== undefined) refreshPollPost(p.id);
     if (b.status && b.status !== d.status) {

@@ -44,8 +44,9 @@ export default function Finance() {
     });
 
   const price = (plan: Plan) => (plan === 'full' ? r.full : plan === 'partial' ? r.partial : r.donation);
+  const exempt = !!due && due.plan === 'exempt' && due.custom_amount == null;
   const chosen = !!due && (!!due.plan || due.custom_amount != null);
-  const canPay = p.locked && chosen && (due!.status === 'unpaid' || due!.status === 'rejected');
+  const canPay = p.locked && chosen && !exempt && (due!.status === 'unpaid' || due!.status === 'rejected');
   const canChoose = !p.locked || !chosen;
   // оплатить можно и прошлый долг
   const debtTarget = debts.find((d) => d.period_id !== p.id);
@@ -102,7 +103,15 @@ export default function Finance() {
       </div>
 
       <div className="section-title">Мой вариант</div>
-      {due?.custom_amount != null ? (
+      {exempt ? (
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 40 }}>🙌</div>
+          <div style={{ fontSize: 20, fontWeight: 800 }}>Ты освобождён от взноса</div>
+          <div className="muted small" style={{ marginTop: 4 }}>
+            За {fmt.month(p.month).toLowerCase()} платить не нужно — так решил админ. Если это ошибка, напиши ему.
+          </div>
+        </div>
+      ) : due?.custom_amount != null ? (
         <div className="card">
           <div className="muted small">Админ назначил индивидуальную сумму</div>
           <div className="big-amount">{fmt.gel(due.custom_amount)}</div>
@@ -136,7 +145,7 @@ export default function Finance() {
         </div>
       )}
 
-      {due && chosen && p.locked && (
+      {due && chosen && p.locked && !exempt && (
         <div className="card">
           <div className="between">
             <div>
@@ -187,7 +196,9 @@ export default function Finance() {
                   {h.period.locked ? fmt.gel(h.due?.amount) : '—'}
                 </span>
                 {h.due &&
-                  (h.period.locked ? (
+                  (h.due.plan === 'exempt' && h.due.custom_amount == null ? (
+                    <span className="chip ok">Освобождён</span>
+                  ) : h.period.locked ? (
                     <span className={`chip ${DUE_STATUS[h.due.status].tone}`}>{DUE_STATUS[h.due.status].label}</span>
                   ) : (
                     <span className="chip info">Опрос, сбора не было</span>

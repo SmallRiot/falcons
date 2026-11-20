@@ -109,7 +109,9 @@ export default function Home() {
               <div>
                 <div className="muted small">{fmt.month(current.period.month)}</div>
                 <div style={{ fontSize: 22, fontWeight: 800 }} className="num">
-                  {!current.due?.plan && current.due?.custom_amount == null
+                  {current.due?.plan === 'exempt' && current.due.custom_amount == null
+                    ? 'Освобождён 🙌'
+                    : !current.due?.plan && current.due?.custom_amount == null
                     ? 'Выбери вариант'
                     : current.period.locked
                       ? fmt.gel(current.due?.amount)
@@ -117,10 +119,10 @@ export default function Home() {
                 </div>
                 <div className="muted small">
                   {current.due?.plan ? PLAN_LABEL[current.due.plan] : 'Взнос не выбран'}
-                  {!current.period.locked && current.due?.plan ? ' · сумма придёт, когда начнётся сбор' : ''}
+                  {!current.period.locked && current.due?.plan && current.due.plan !== 'exempt' ? ' · сумма придёт, когда начнётся сбор' : ''}
                 </div>
               </div>
-              {current.due && current.period.locked && (
+              {current.due && current.period.locked && current.due.plan !== 'exempt' && (
                 <span className={`chip ${DUE_STATUS[current.due.status].tone}`}>{DUE_STATUS[current.due.status].label}</span>
               )}
             </div>

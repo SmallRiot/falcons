@@ -87,6 +87,30 @@ npm run dev               # API :8787 + мини-приложение :5180 + к
 
 Прод: `npm run build && npm start` — сервер отдаёт и API, и собранный фронт на одном порту. Данные лежат в `DATA_DIR` (база + скрины) — эту папку и надо бэкапить.
 
+## Прод: https://appka.gihl.ge
+
+| | Адрес |
+|---|---|
+| Мини-приложение (ссылка для BotFather `/newapp`) | https://appka.gihl.ge |
+| Веб-консоль (админ, тренер) | https://appka.gihl.ge/console/ |
+
+**Выкладка — по git-тегу:**
+```bash
+git tag 0.0.2 && git push origin 0.0.2
+```
+GitHub Actions (`.github/workflows/deploy.yml`) отправляет архив тега на сервер, там `deploy/deploy.sh`:
+собирает Docker-образ → останавливает старую версию → бэкапит базу в `/opt/falcons/backups` → запускает новую →
+проверяет `/healthz`; если не поднялась — откатывает на предыдущий тег.
+
+Сервер (31.57.13.187, рядом живут другие сайты):
+- контейнер `falcons` слушает только `127.0.0.1:8787` (мини-приложение + API) и `127.0.0.1:8788` (консоль);
+- nginx: `/etc/nginx/sites-available/appka.gihl.ge` + `snippets/falcons-app.conf` (копии — в `deploy/`), `/console/` → 8788, остальное → 8787;
+- HTTPS: Cloudflare + сертификат Let's Encrypt на сервере (продлевается сам, nginx перезагружается хуком);
+- данные: `/opt/falcons/data` (база + фото + скрины), настройки: `/opt/falcons/.env` (DEV_AUTH=0);
+- выкладывает пользователь `falcons`, его SSH-ключ (секрет `DEPLOY_SSH_KEY` в GitHub) умеет только запускать `deploy.sh`.
+
+Посмотреть, что крутится: `ssh root@31.57.13.187 'cat /opt/falcons/current; docker ps --filter name=falcons'`.
+
 ## Безопасность
 
 - Вход только по подписанному `initData` от Telegram (HMAC с токеном бота), новый пользователь попадает в «ожидают доступа».

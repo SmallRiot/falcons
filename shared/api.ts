@@ -197,6 +197,7 @@ export interface FinanceData {
   }[];
   accounts: Account[];
   sharpeningPrice: number;
+  cardPayUrl: string | null;
 }
 
 export interface Notification {

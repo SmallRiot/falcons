@@ -12,9 +12,13 @@ export default function AdminAccounts() {
   const fin = useApi<FinanceData>('/api/finance');
   const [edit, setEdit] = useState<(typeof EMPTY & { id?: number }) | null>(null);
   const [price, setPrice] = useState('');
+  const [cardUrl, setCardUrl] = useState('');
   const { busy, run } = useAction();
   useEffect(() => {
-    if (fin.data) setPrice(String(fin.data.sharpeningPrice));
+    if (fin.data) {
+      setPrice(String(fin.data.sharpeningPrice));
+      setCardUrl(fin.data.cardPayUrl ?? '');
+    }
   }, [fin.data]);
 
   if (loading) return <Spinner />;
@@ -61,6 +65,15 @@ export default function AdminAccounts() {
           </div>
         );
       })}
+
+      <div className="section-title">Оплата взноса картой по ссылке</div>
+      <div className="card vstack" style={{ gap: 8 }}>
+        <input className="input" value={cardUrl} placeholder="https://egreve.bog.ge/…" onChange={(e) => setCardUrl(e.target.value)} />
+        <div className="muted small">Кнопка «Оплатить картой по ссылке» — последней, под счетами. Пусто — кнопки нет.</div>
+        <button className="btn secondary" disabled={busy} onClick={() => run(() => api.put('/api/admin/settings', { dues_card_url: cardUrl }), 'Ссылка сохранена')}>
+          Сохранить
+        </button>
+      </div>
 
       <div className="section-title">Цена заточки</div>
       <div className="card hstack">

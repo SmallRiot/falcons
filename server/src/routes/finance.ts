@@ -43,7 +43,13 @@ export default async function financeRoutes(app: FastifyInstance) {
       };
     });
     const accounts = db.prepare(`SELECT * FROM accounts ORDER BY sort, id`).all();
-    return { items, accounts, sharpeningPrice: Number(getSetting('sharpening_price', '20')) };
+    return {
+      items,
+      accounts,
+      sharpeningPrice: Number(getSetting('sharpening_price', '20')),
+      /** оплата взноса картой по ссылке (BoG e-greve и т.п.) — показывается последней */
+      cardPayUrl: getSetting('dues_card_url', '') || null,
+    };
   });
 
   app.post<{ Params: { id: string }; Body: { plan: Plan } }>(
@@ -345,8 +351,14 @@ export default async function financeRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.put<{ Body: { sharpening_price: number } }>('/api/admin/settings', admin, async (req) => {
-    if (req.body?.sharpening_price != null) setSetting('sharpening_price', String(Number(req.body.sharpening_price)));
+  app.put<{ Body: { sharpening_price?: number; dues_card_url?: string } }>('/api/admin/settings', admin, async (req, reply) => {
+    const b = req.body ?? {};
+    if (b.sharpening_price != null) setSetting('sharpening_price', String(Number(b.sharpening_price)));
+    if (b.dues_card_url !== undefined) {
+      const url = String(b.dues_card_url).trim();
+      if (url && !/^https:\/\/\S+$/.test(url)) return reply.code(400).send({ error: 'Ссылка должна начинаться с https://' });
+      setSetting('dues_card_url', url);
+    }
     return { ok: true };
   });
 }

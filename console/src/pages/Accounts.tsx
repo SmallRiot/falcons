@@ -13,9 +13,13 @@ export default function Accounts() {
   const fin = useApi<FinanceData>('/api/finance');
   const [edit, setEdit] = useState<(typeof EMPTY & { id?: number }) | null>(null);
   const [price, setPrice] = useState('');
+  const [cardUrl, setCardUrl] = useState('');
   const { busy, run } = useAction();
   useEffect(() => {
-    if (fin.data) setPrice(String(fin.data.sharpeningPrice));
+    if (fin.data) {
+      setPrice(String(fin.data.sharpeningPrice));
+      setCardUrl(fin.data.cardPayUrl ?? '');
+    }
   }, [fin.data]);
   if (loading) return <Spinner />;
 
@@ -41,7 +45,12 @@ export default function Accounts() {
               .map((a) => (
                 <div key={a.id} className={`bank-card ${BANK(bankFromIban(a.iban).code)}`} style={{ cursor: 'pointer' }} onClick={() => setEdit({ ...a, pay_url: a.pay_url ?? '', note: a.note ?? '' })}>
                   <div className="bk">
-                    <span>{bankFromIban(a.iban).name}</span>
+                    <span className="hstack" style={{ gap: 8 }}>
+                      {['TBC', 'BOG'].includes(bankFromIban(a.iban).code) && (
+                        <img className="bank-logo" src={`/banks/${bankFromIban(a.iban).code.toLowerCase()}.svg`} alt="" />
+                      )}
+                      {bankFromIban(a.iban).name}
+                    </span>
                     <span>GEL</span>
                   </div>
                   <div className="ib">{fmt.iban(a.iban)}</div>
@@ -59,6 +68,16 @@ export default function Accounts() {
           </div>
         </div>
       ))}
+      <div className="c-card pad" style={{ maxWidth: 520, marginBottom: 14 }}>
+        <h3>Оплата взноса картой по ссылке</h3>
+        <div className="muted small" style={{ marginBottom: 8 }}>Кнопка у игроков — последней, под счетами. Пусто — кнопки нет.</div>
+        <div className="hstack">
+          <input className="input" value={cardUrl} placeholder="https://egreve.bog.ge/…" onChange={(e) => setCardUrl(e.target.value)} />
+          <button className="btn secondary" disabled={busy} onClick={() => run(() => api.put('/api/admin/settings', { dues_card_url: cardUrl }), 'Ссылка сохранена')}>
+            Сохранить
+          </button>
+        </div>
+      </div>
       <div className="c-card pad" style={{ maxWidth: 420 }}>
         <h3>Цена заточки</h3>
         <div className="hstack">

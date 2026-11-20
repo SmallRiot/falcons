@@ -217,6 +217,7 @@ export default function Finance() {
         purpose={`Falcons ${payFor?.month ?? p.month} — ${me.user.name}`}
         accounts={accounts}
         allowNoProof={can(me, 'admin')}
+        cardUrl={data.cardPayUrl}
         onSubmit={async (file, comment) => {
           const fd = new FormData();
           fd.append('comment', comment);

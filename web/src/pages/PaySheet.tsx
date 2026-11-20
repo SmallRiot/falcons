@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Copy, ClipboardList } from 'lucide-react';
+import { Copy, ClipboardList, CreditCard } from 'lucide-react';
+import { openLink } from '@shared/tg';
 import type { Account } from '@shared/api';
 import { bankFromIban, fmt } from '@shared/format';
 import { copyText, CopyRow, FilePick, Sheet } from '@shared/ui';
 
+
+const BANK_LOGO: Record<string, string> = { TBC: '/banks/tbc.svg', BOG: '/banks/bog.svg' };
 
 export function BankCard({ acc, amount, purpose }: { acc: Account; amount?: number | null; purpose?: string }) {
   const all = [`Получатель: ${acc.holder}`, `IBAN: ${acc.iban}`, amount ? `Сумма: ${amount} GEL` : '', purpose ? `Назначение: ${purpose}` : '']
@@ -13,7 +16,10 @@ export function BankCard({ acc, amount, purpose }: { acc: Account; amount?: numb
   return (
     <div className={`bank-card ${['TBC', 'BOG', 'Liberty'].includes(bank.code) ? bank.code : 'other'}`}>
       <div className="bk">
-        <span>{bank.name}</span>
+        <span className="hstack" style={{ gap: 8 }}>
+          {BANK_LOGO[bank.code] && <img className="bank-logo" src={BANK_LOGO[bank.code]} alt="" />}
+          {bank.name}
+        </span>
         <span style={{ opacity: 0.8 }}>GEL</span>
       </div>
       <div className="ib">{fmt.iban(acc.iban)}</div>
@@ -44,10 +50,12 @@ type Props = {
   extra?: React.ReactNode;
   /** админу можно отметить оплату без скрина */
   allowNoProof?: boolean;
+  /** оплата картой по ссылке — последним пунктом */
+  cardUrl?: string | null;
   onSubmit: (file: File | null, comment: string) => Promise<boolean>;
 };
 
-export default function PaySheet({ open, onClose, title, amount, purpose, accounts, submitLabel, extra, allowNoProof, onSubmit }: Props) {
+export default function PaySheet({ open, onClose, title, amount, purpose, accounts, submitLabel, extra, allowNoProof, cardUrl, onSubmit }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
@@ -80,6 +88,11 @@ export default function PaySheet({ open, onClose, title, amount, purpose, accoun
         {amount != null && <CopyRow label="Сумма" value={`${amount} GEL`} copy={String(amount)} />}
         <CopyRow label="Назначение платежа" value={purpose} copy={purpose} />
       </div>
+      {cardUrl && (
+        <button className="btn secondary block" onClick={() => openLink(cardUrl)}>
+          <CreditCard size={18} /> Оплатить картой по ссылке
+        </button>
+      )}
 
       <div className="section-title">2 · Прикрепи скрин перевода{allowNoProof ? ' (админу — необязательно)' : ''}</div>
       {extra}

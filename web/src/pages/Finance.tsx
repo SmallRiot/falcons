@@ -131,7 +131,8 @@ export default function Finance() {
           ))}
           {!p.locked && (
             <div className="muted small" style={{ padding: '0 4px' }}>
-              🧮 Суммы посчитаем, когда все выберут. Как только админ начнёт сбор — бот пришлёт тебе твою сумму.
+              🧮 Суммы посчитаем, когда все выберут. Как только админ начнёт сбор — бот пришлёт тебе твою сумму, а здесь
+              появится кнопка «Оплатить»: реквизиты в один тап и место для скрина перевода.
             </div>
           )}
         </div>
@@ -185,9 +186,14 @@ export default function Finance() {
                   <div className="meta">{h.due?.plan ? PLAN_LABEL[h.due.plan] : '—'}</div>
                 </div>
                 <span className="num" style={{ fontWeight: 700 }}>
-                  {fmt.gel(h.due?.amount)}
+                  {h.period.locked ? fmt.gel(h.due?.amount) : '—'}
                 </span>
-                {h.due && <span className={`chip ${DUE_STATUS[h.due.status].tone}`}>{DUE_STATUS[h.due.status].label}</span>}
+                {h.due &&
+                  (h.period.locked ? (
+                    <span className={`chip ${DUE_STATUS[h.due.status].tone}`}>{DUE_STATUS[h.due.status].label}</span>
+                  ) : (
+                    <span className="chip info">Опрос, сбора не было</span>
+                  ))}
               </div>
             ))}
           </div>

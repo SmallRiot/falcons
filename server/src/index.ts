@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
@@ -15,6 +15,7 @@ import adminRoutes from './routes/admin.ts';
 import devRoutes from './routes/dev.ts';
 import authRoutes from './routes/auth.ts';
 import consoleRoutes from './routes/console.ts';
+import { avatarsDir } from './profile.ts';
 
 /**
  * Два фронта — два порта, одно API и одна база:
@@ -35,6 +36,16 @@ async function buildServer(staticDir: string | null) {
     await api.register(sharpeningRoutes);
     await api.register(adminRoutes);
     await api.register(consoleRoutes);
+  });
+  // фото игроков — без входа (их показывают <img>), имя файла случайное
+  app.get<{ Params: { name: string } }>('/api/avatars/:name', async (req, reply) => {
+    const name = path.basename(req.params.name);
+    const file = path.join(avatarsDir, name);
+    if (!existsSync(file)) return reply.code(404).send({ error: 'Нет фото' });
+    const ext = path.extname(name);
+    reply.header('content-type', ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg');
+    reply.header('cache-control', 'public, max-age=31536000, immutable');
+    return reply.send(createReadStream(file));
   });
   app.get('/healthz', async () => ({ ok: true }));
   if (staticDir && existsSync(staticDir)) {

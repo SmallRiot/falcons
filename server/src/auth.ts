@@ -95,7 +95,10 @@ const getUser = db.prepare('SELECT * FROM users WHERE id = ?');
 export function upsertFromTelegram(tg: TgUser): UserRow {
   const existing = getUser.get(tg.id) as UserRow | undefined;
   if (existing) {
-    db.prepare('UPDATE users SET username = ?, photo_url = COALESCE(?, photo_url) WHERE id = ?').run(
+    // своё фото (загруженное в приложении) аватаркой из Telegram не перетираем
+    db.prepare(
+      `UPDATE users SET username = ?, photo_url = CASE WHEN photo_url LIKE '/api/avatars/%' THEN photo_url ELSE COALESCE(?, photo_url) END WHERE id = ?`,
+    ).run(
       tg.username ?? null,
       tg.photo_url ?? null,
       tg.id,

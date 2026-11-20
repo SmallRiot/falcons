@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireActive } from '../auth.ts';
+import { removeAvatar, saveAvatar, updateProfile, type ProfileBody } from '../profile.ts';
 import { db, hasRole, profileComplete, publicUser, rolesOf, validBirthDate } from '../db.ts';
 import { debtsOf } from '../finance.ts';
 import { sharpeningDebts } from '../reminders.ts';
@@ -47,33 +48,17 @@ export default async function meRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.patch<{
-    Body: { number?: number | null; position?: string | null; first_name?: string; last_name?: string | null; birth_date?: string | null };
-  }>('/api/me', { preHandler: requireActive }, async (req, reply) => {
-    const b = req.body ?? {};
-    const u = req.user;
-    // меняем только присланные поля
-    const pos = b.position === undefined ? u.position : b.position && ['F', 'D', 'G'].includes(b.position) ? b.position : null;
-    const num =
-      b.number === undefined ? u.number : b.number == null || b.number === ('' as unknown) ? null : Math.max(0, Math.min(99, Number(b.number)));
-    const first = b.first_name === undefined ? u.first_name : b.first_name.trim() || u.first_name;
-    const last = b.last_name === undefined ? u.last_name : b.last_name?.trim() || null;
-    let birth = u.birth_date;
-    if (b.birth_date !== undefined) {
-      birth = b.birth_date ? validBirthDate(b.birth_date) : null;
-      if (b.birth_date && !birth) return reply.code(400).send({ error: 'Проверь дату рождения' });
-    }
-    db.prepare('UPDATE users SET number = ?, position = ?, first_name = ?, last_name = ?, birth_date = ? WHERE id = ?').run(
-      num,
-      pos,
-      first,
-      last,
-      birth,
-      u.id,
-    );
+  app.patch<{ Body: ProfileBody }>('/api/me', { preHandler: requireActive }, async (req, reply) => {
+    const err = updateProfile(req.user, req.body ?? {});
+    if (err) return reply.code(400).send({ error: err });
     return { ok: true };
   });
 
+  app.post('/api/me/photo', { preHandler: requireActive }, async (req) => ({ photo_url: await saveAvatar(req, req.user.id) }));
+  app.delete('/api/me/photo', { preHandler: requireActive }, async (req) => {
+    removeAvatar(req.user.id);
+    return { ok: true };
+  });
 
   app.get('/api/me/stats', { preHandler: requireActive }, async (req) => {
     const uid = req.user.id;

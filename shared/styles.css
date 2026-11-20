@@ -404,3 +404,8 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .dp-foot { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
 /* «Назад» в браузере — как нативная кнопка в шапке Telegram */
 .dev-back { position: fixed; top: 10px; left: 10px; z-index: 40; height: 30px; padding: 0 12px 0 6px; border-radius: 15px; border: 0; background: var(--surface); color: var(--falcon); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12); font: inherit; font-size: 14px; font-weight: 650; display: flex; align-items: center; gap: 2px; cursor: pointer; }
+
+/* ===== фото игрока ===== */
+.photo-edit { display: flex; align-items: center; gap: 16px; }
+.photo-edit-av { position: relative; border: 0; padding: 0; background: none; border-radius: 50%; cursor: pointer; }
+.photo-edit-cam { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 13px; background: var(--falcon); color: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid var(--surface); }

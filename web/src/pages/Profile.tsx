@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CalendarCheck, ChevronRight, Coins, Flame, Landmark, Receipt, Scissors, Shield, Trophy, Users } from 'lucide-react';
 import { api, setDevUser } from '@shared/api';
 import { inTelegram } from '@shared/tg';
+import { PhotoEdit } from '@shared/PhotoEdit';
 import { birthday, fmt, plural, POS_LABEL, ROLE_LABEL } from '@shared/format';
 import { Avatar, can, Segmented, Sheet, SquadChip, useAction, useApi, useMe } from '@shared/ui';
 
@@ -165,6 +166,7 @@ function EditSheet({ open, onClose, onSaved }: { open: boolean; onClose: () => v
   return (
     <Sheet open={open} onClose={onClose} title="Профиль">
       <div className="form">
+        <PhotoEdit user={me.user} endpoint="/api/me/photo" onChange={onSaved} />
         <div className="form-row">
           <label className="field">
             <span>Имя</span>

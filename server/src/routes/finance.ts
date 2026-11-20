@@ -30,10 +30,15 @@ export default async function financeRoutes(app: FastifyInstance) {
         | DueRow
         | undefined;
       const rates = computeRates(p);
+      const locked = !!p.locked;
+      // Игрокам не показываем, сколько собираем: без бюджета и общей суммы.
+      // До старта сбора нет и ставок — только расклад голосов.
+      const { budget: _b, ...period } = p;
+      const { total: _t, ...pub } = rates;
       return {
-        period: { ...p, locked: !!p.locked },
-        rates,
-        due: d ? { ...d, amount: amountFor(p, d, rates) } : null,
+        period: { ...period, locked },
+        rates: locked ? pub : { ...pub, full: null, partial: null },
+        due: d ? { ...d, amount: locked ? amountFor(p, d, rates) : null } : null,
       };
     });
     const accounts = db.prepare(`SELECT * FROM accounts ORDER BY sort, id`).all();

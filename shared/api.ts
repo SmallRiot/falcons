@@ -189,8 +189,10 @@ export interface Account {
 }
 export interface FinanceData {
   items: {
-    period: Period;
-    rates: Rates;
+    /** игроку бюджет сбора не отдаётся */
+    period: Omit<Period, 'budget'>;
+    /** до старта сбора ставок нет (null) */
+    rates: Omit<Rates, 'total' | 'full' | 'partial'> & { full: number | null; partial: number | null };
     due: { plan: Plan | null; amount: number | null; custom_amount: number | null; status: DueStatus; comment: string | null; proof: string | null; submitted_at: string | null } | null;
   }[];
   accounts: Account[];

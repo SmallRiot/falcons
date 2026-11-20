@@ -81,10 +81,8 @@ export default function Finance() {
       <div className="card">
         <div className="between">
           <div>
-            <div className="muted small">Бюджет · {fmt.month(p.month)}</div>
-            <div style={{ fontSize: 24, fontWeight: 800 }} className="num">
-              {fmt.gel(p.budget)}
-            </div>
+            <div className="muted small">Взнос</div>
+            <div style={{ fontSize: 24, fontWeight: 800 }}>{fmt.month(p.month)}</div>
           </div>
           {p.locked ? (
             <span className="chip ok">

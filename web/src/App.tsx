@@ -20,6 +20,7 @@ import AdminFinance from './pages/AdminFinance';
 import AdminAccounts from './pages/AdminAccounts';
 import Service from './pages/Service';
 import Notifications from './pages/Notifications';
+import AdminSquads from './pages/AdminSquads';
 
 const ROOTS = ['/', '/events', '/finance', '/sharpening', '/profile'];
 
@@ -103,6 +104,7 @@ export default function App() {
           <Route path="/admin/accounts" element={<AdminAccounts />} />
           <Route path="/service" element={<Service />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/admin/squads" element={<AdminSquads />} />
           <Route path="*" element={<Home />} />
         </Routes>
       </div>

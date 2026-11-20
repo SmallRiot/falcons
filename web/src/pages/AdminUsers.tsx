@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Search, Users } from 'lucide-react';
 import { api, type PublicUser, type Role } from '../api';
 import { fmt, POS_SHORT, ROLE_LABEL } from '../format';
-import { Avatar, Empty, Jersey, Segmented, Sheet, Spinner, useAction, useApi, useMe } from '../ui';
+import { Avatar, Empty, Jersey, Segmented, Sheet, Spinner, SquadChip, SquadPicker, useAction, useApi, useMe } from '../ui';
 
-type AdminUser = PublicUser & { roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; debt: number; created_at: string };
+type AdminUser = PublicUser & { squads: number[]; roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; debt: number; created_at: string };
 
 export default function AdminUsers() {
   const { me, refresh } = useMe();
@@ -20,7 +20,8 @@ export default function AdminUsers() {
     .filter((u) => u.status === tab)
     .filter((u) => !q || `${u.name} ${u.username ?? ''} ${u.number ?? ''}`.toLowerCase().includes(q.toLowerCase()));
 
-  const patch = (u: AdminUser, body: Partial<Pick<AdminUser, 'status' | 'roles' | 'signup_blocked'>>, ok: string) =>
+  const squadsById = new Map((me.squads ?? []).map((s) => [s.id, s]));
+  const patch = (u: AdminUser, body: Partial<Pick<AdminUser, 'status' | 'roles' | 'signup_blocked' | 'squads'>>, ok: string) =>
     run(async () => {
       await api.patch(`/api/admin/users/${u.id}`, body);
       await Promise.all([reload(), refresh()]);
@@ -62,6 +63,7 @@ export default function AdminUsers() {
                 </div>
               </div>
               <div className="chips" style={{ justifyContent: 'flex-end' }}>
+                {u.squads.map((id) => squadsById.get(id) && <SquadChip key={id} squad={squadsById.get(id)!} />)}
                 {u.roles.map((r) => (
                   <span key={r} className="chip info">
                     {ROLE_LABEL[r]}
@@ -115,6 +117,8 @@ export default function AdminUsers() {
               </div>
             ) : (
               <>
+                <div className="section-title">Составы на игры</div>
+                <SquadPicker squads={me.squads ?? []} value={open.squads} onChange={(v) => patch(open, { squads: v }, 'Составы обновлены')} />
                 <div className="section-title">Роли</div>
                 <div className="list">
                   {(['admin', 'coach', 'service'] as Role[]).map((r) => (

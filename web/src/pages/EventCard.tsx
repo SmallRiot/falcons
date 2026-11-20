@@ -3,7 +3,7 @@ import { Check, Clock, MapPin, X } from 'lucide-react';
 import { api, type EventSummary } from '../api';
 import { fmt } from '../format';
 import { haptic } from '../tg';
-import { Avatar, toastErr, useMe } from '../ui';
+import { Avatar, SquadChip, toastErr, useMe } from '../ui';
 import { useState } from 'react';
 
 export function typeLabel(e: { type: string; title: string | null }) {
@@ -63,6 +63,9 @@ export default function EventCard({ ev, onChange, compact }: { ev: EventSummary;
           <div className="t">
             {typeLabel(ev)}
             {ev.type === 'game' && <span className="chip game">Игра</span>}
+            {ev.squads.map((s) => (
+              <SquadChip key={s.id} squad={s} />
+            ))}
             {ev.lineup_published && <span className="chip info">Пятёрки</span>}
           </div>
           <div className="m">

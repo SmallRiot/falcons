@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Ban, Clock, LayoutGrid, MapPin, Pencil, StickyNote, Users } from 'lucide-react';
 import { api, type EventDetail as ED, type PublicUser, type Team } from '../api';
 import { fmt, POS_SHORT } from '../format';
-import { Avatar, Empty, Jersey, Segmented, Spinner, useAction, useApi, useMe } from '../ui';
+import { Avatar, Empty, Jersey, Segmented, Spinner, SquadChip, useAction, useApi, useMe } from '../ui';
 import { SignupButtons, typeLabel } from './EventCard';
 import Lines, { ORD, TEAM_GEN } from './Lines';
 
@@ -33,7 +33,15 @@ export default function EventDetail() {
           <div>
             <div className="chips" style={{ marginBottom: 8 }}>
               <span className={`chip ${ev.type === 'game' ? 'game' : 'info'}`}>{ev.type === 'game' ? 'Игра' : 'Тренировка'}</span>
+              {ev.squads.map((s) => (
+                <SquadChip key={s.id} squad={s} full />
+              ))}
               {ev.cancelled && <span className="chip bad">Отменено</span>}
+              {ev.score_us != null && ev.score_them != null && (
+                <span className={`chip ${ev.score_us > ev.score_them ? 'ok' : ev.score_us < ev.score_them ? 'bad' : ''}`}>
+                  {ev.score_us}:{ev.score_them}
+                </span>
+              )}
             </div>
             <h1 style={{ fontSize: 24, fontWeight: 800 }}>{typeLabel(ev)}</h1>
           </div>

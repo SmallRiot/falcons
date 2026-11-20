@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, ImagePlus, X } from 'lucide-react';
-import { api, fetchFileUrl, type Me } from './api';
+import { api, fetchFileUrl, type Me, type Squad } from './api';
 import { haptic } from './tg';
 
 /* ---------- контекст «я» ---------- */
@@ -264,5 +264,36 @@ export function ProofImage({ name }: { name: string }) {
     <a href={url} target="_blank" rel="noreferrer">
       <img className="proof-img" src={url} alt="Скрин оплаты" />
     </a>
+  );
+}
+
+export function SquadChip({ squad, full }: { squad: Pick<Squad, 'short' | 'name' | 'color'>; full?: boolean }) {
+  return (
+    <span className="chip" style={{ background: `${squad.color}22`, color: squad.color }}>
+      {full ? squad.name : squad.short}
+    </span>
+  );
+}
+
+/** Выбор нескольких составов чипами. */
+export function SquadPicker({ squads, value, onChange }: { squads: Squad[]; value: number[]; onChange: (v: number[]) => void }) {
+  return (
+    <div className="chips">
+      {squads.map((s) => {
+        const on = value.includes(s.id);
+        return (
+          <button
+            key={s.id}
+            type="button"
+            className="chip"
+            style={{ border: 0, height: 34, padding: '0 14px', background: on ? s.color : 'var(--surface-2)', color: on ? '#fff' : 'var(--ink-2)' }}
+            onClick={() => onChange(on ? value.filter((x) => x !== s.id) : [...value, s.id])}
+          >
+            {s.name}
+            {s.division ? ` · ${s.division} див.` : ''}
+          </button>
+        );
+      })}
+    </div>
   );
 }

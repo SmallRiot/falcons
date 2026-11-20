@@ -75,8 +75,18 @@ export interface PublicUser {
   position: 'F' | 'D' | 'G' | null;
 }
 
+export interface Squad {
+  id: number;
+  name: string;
+  short: string;
+  color: string;
+  division: number | null;
+  sort: number;
+}
+
 export interface Me {
-  user: PublicUser & { roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean };
+  user: PublicUser & { roles: Role[]; status: 'pending' | 'active' | 'rejected'; signup_blocked: boolean; squads?: number[] };
+  squads?: Squad[];
   debts?: { period_id: number; month: string; amount: number; status: string; comment: string | null }[];
   sharpeningDebt?: { count: number; total: number } | null;
   badges?: { pendingUsers?: number; proofs?: number; sharpenings?: number; unread?: number };
@@ -93,6 +103,9 @@ export interface EventSummary {
   notes: string | null;
   cancelled: boolean;
   lineup_published: boolean;
+  squads: Pick<Squad, 'id' | 'short' | 'name' | 'color'>[];
+  score_us: number | null;
+  score_them: number | null;
   going: number;
   out: number;
   my: 'in' | 'out' | null;

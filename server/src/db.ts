@@ -20,6 +20,23 @@ CREATE TABLE IF NOT EXISTS users (
   created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
+-- составы клуба (например, одна команда первого дивизиона и две второго)
+CREATE TABLE IF NOT EXISTS squads (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  name     TEXT NOT NULL,
+  short    TEXT NOT NULL,                        -- метка в таблицах: «Д1», «Про»…
+  color    TEXT NOT NULL DEFAULT '#2b88cf',
+  division INTEGER,
+  sort     INTEGER NOT NULL DEFAULT 0
+);
+
+-- игрок может быть сразу в нескольких составах
+CREATE TABLE IF NOT EXISTS user_squads (
+  user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  squad_id INTEGER NOT NULL REFERENCES squads(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, squad_id)
+);
+
 CREATE TABLE IF NOT EXISTS events (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   type         TEXT NOT NULL,                    -- training | game
@@ -32,14 +49,24 @@ CREATE TABLE IF NOT EXISTS events (
   cancelled    INTEGER NOT NULL DEFAULT 0,
   lineup_published INTEGER NOT NULL DEFAULT 0,
   tg_message_id INTEGER,                         -- пост в командном чате (обновляем счётчик)
+  score_us     INTEGER,                          -- счёт игры
+  score_them   INTEGER,
   created_by   INTEGER,
   created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- для каких составов событие; нет строк = для всего клуба
+CREATE TABLE IF NOT EXISTS event_squads (
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  squad_id INTEGER NOT NULL REFERENCES squads(id) ON DELETE CASCADE,
+  PRIMARY KEY (event_id, squad_id)
 );
 
 CREATE TABLE IF NOT EXISTS signups (
   event_id   INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status     TEXT NOT NULL,                      -- in | out
+  attended   INTEGER,                            -- факт от тренера: 1 был, 0 не был, NULL = как записался
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (event_id, user_id)
 );

@@ -3,11 +3,15 @@ import { requireActive } from '../auth.ts';
 import { db, hasRole, publicUser, rolesOf } from '../db.ts';
 import { debtsOf } from '../finance.ts';
 import { sharpeningDebts } from '../reminders.ts';
+import { allSquads, squadIdsOf } from '../squads.ts';
 
 export default async function meRoutes(app: FastifyInstance) {
   app.get('/api/me', async (req) => {
     const u = req.user;
-    const base = { user: { ...publicUser(u), roles: rolesOf(u), status: u.status, signup_blocked: !!u.signup_blocked } };
+    const base = {
+      user: { ...publicUser(u), roles: rolesOf(u), status: u.status, signup_blocked: !!u.signup_blocked, squads: squadIdsOf(u.id) },
+      squads: allSquads(),
+    };
     if (u.status !== 'active') return base;
 
     const badges: Record<string, number> = {};

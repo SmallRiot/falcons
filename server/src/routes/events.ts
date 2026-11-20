@@ -3,6 +3,9 @@ import { requireActive, requireRole } from '../auth.ts';
 import { db, hasRole, nowIso, publicUser, type UserRow } from '../db.ts';
 import { notifyEventCreated, notifyLineupPersonal, notifyLineupPublished, refreshEventPost } from '../telegram.ts';
 import { setSignup, type EventRow } from '../signup.ts';
+import { canSeeEvent, eventSquadIds, setEventSquads, squadsMap, VISIBLE_SQL } from '../squads.ts';
+
+type EventBody = Partial<EventRow> & { notify?: boolean; squad_ids?: number[] };
 
 
 const SLOTS = ['LW', 'C', 'RW', 'LD', 'RD'];
@@ -42,25 +45,33 @@ function summarize(e: EventRow, userId: number) {
        WHERE s.event_id=? AND s.status='in' ORDER BY s.created_at LIMIT 5`,
     )
     .all(e.id);
-  return { ...e, cancelled: !!e.cancelled, lineup_published: !!e.lineup_published, going, out, my: mine?.status ?? null, myReserve, avatars };
+  const sq = squadsMap();
+  const squads = eventSquadIds(e.id)
+    .map((id) => sq.get(id))
+    .filter(Boolean)
+    .map((s) => ({ id: s!.id, short: s!.short, name: s!.name, color: s!.color }));
+  return { ...e, squads, cancelled: !!e.cancelled, lineup_published: !!e.lineup_published, going, out, my: mine?.status ?? null, myReserve, avatars };
 }
 
 export default async function eventRoutes(app: FastifyInstance) {
-  app.get<{ Querystring: { scope?: string } }>('/api/events', { preHandler: requireActive }, async (req) => {
+  /** По умолчанию — только события моих составов; тренер и админ могут попросить все (?all=1). */
+  app.get<{ Querystring: { scope?: string; all?: string } }>('/api/events', { preHandler: requireActive }, async (req) => {
     const past = req.query.scope === 'past';
+    const all = req.query.all === '1' && hasRole(req.user, 'coach', 'admin');
     // событие считается «текущим» ещё 3 часа после начала
     const edge = new Date(Date.now() - 3 * 3600e3).toISOString();
     const rows = db
       .prepare(
-        `SELECT * FROM events WHERE starts_at ${past ? '<' : '>='} ? ORDER BY starts_at ${past ? 'DESC' : 'ASC'} LIMIT 60`,
+        `SELECT * FROM events e WHERE starts_at ${past ? '<' : '>='} ? ${all ? '' : `AND ${VISIBLE_SQL}`}
+         ORDER BY starts_at ${past ? 'DESC' : 'ASC'} LIMIT 80`,
       )
-      .all(edge) as unknown as EventRow[];
+      .all(...(all ? [edge] : [edge, req.user.id])) as unknown as EventRow[];
     return rows.map((e) => summarize(e, req.user.id));
   });
 
   app.get<{ Params: { id: string } }>('/api/events/:id', { preHandler: requireActive }, async (req, reply) => {
     const e = db.prepare('SELECT * FROM events WHERE id = ?').get(Number(req.params.id)) as EventRow | undefined;
-    if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
+    if (!e || !canSeeEvent(req.user, e.id)) return reply.code(404).send({ error: 'Событие не найдено' });
     const ps = participants(e.id);
     const going = ps.filter((p) => p.signup_status === 'in');
     const cap = e.capacity ?? Infinity;
@@ -83,7 +94,7 @@ export default async function eventRoutes(app: FastifyInstance) {
     };
   });
 
-  app.post<{ Body: Partial<EventRow> & { notify?: boolean } }>(
+  app.post<{ Body: EventBody }>(
     '/api/events',
     { preHandler: requireRole('coach', 'admin') },
     async (req, reply) => {
@@ -106,12 +117,14 @@ export default async function eventRoutes(app: FastifyInstance) {
           req.user.id,
         );
       const e = db.prepare('SELECT * FROM events WHERE id = ?').get(r.lastInsertRowid) as unknown as EventRow;
+      // тренировки общие для всего клуба, составы указываются только у игр
+      setEventSquads(e.id, type === 'game' ? (b.squad_ids ?? []).map(Number) : []);
       if (b.notify !== false) void notifyEventCreated(e);
       return e;
     },
   );
 
-  app.patch<{ Params: { id: string }; Body: Partial<EventRow> }>(
+  app.patch<{ Params: { id: string }; Body: EventBody }>(
     '/api/events/:id',
     { preHandler: requireRole('coach', 'admin') },
     async (req, reply) => {
@@ -120,7 +133,8 @@ export default async function eventRoutes(app: FastifyInstance) {
       if (!e) return reply.code(404).send({ error: 'Событие не найдено' });
       const b = { ...e, ...req.body };
       db.prepare(
-        `UPDATE events SET type=?, title=?, starts_at=?, duration_min=?, location=?, capacity=?, notes=?, cancelled=? WHERE id=?`,
+        `UPDATE events SET type=?, title=?, starts_at=?, duration_min=?, location=?, capacity=?, notes=?, cancelled=?,
+         score_us=?, score_them=? WHERE id=?`,
       ).run(
         b.type === 'game' ? 'game' : 'training',
         b.title || null,
@@ -130,8 +144,12 @@ export default async function eventRoutes(app: FastifyInstance) {
         b.capacity ? Number(b.capacity) : null,
         b.notes || null,
         b.cancelled ? 1 : 0,
+        b.score_us == null || (b.score_us as unknown) === '' ? null : Number(b.score_us),
+        b.score_them == null || (b.score_them as unknown) === '' ? null : Number(b.score_them),
         id,
       );
+      if (b.type !== 'game') setEventSquads(id, []);
+      else if (req.body.squad_ids) setEventSquads(id, req.body.squad_ids.map(Number));
       refreshEventPost(id);
       return { ok: true };
     },

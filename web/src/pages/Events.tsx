@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CalendarX, Plus } from 'lucide-react';
 import type { EventSummary } from '../api';
 import { fmt } from '../format';
-import { can, Empty, Segmented, Spinner, useApi, useMe } from '../ui';
+import { can, Empty, Segmented, Spinner, SquadChip, useApi, useMe } from '../ui';
 import EventCard, { DateTile, typeLabel } from './EventCard';
 
 export default function Events() {
@@ -11,8 +11,16 @@ export default function Events() {
   const nav = useNavigate();
   const [scope, setScope] = useState<'upcoming' | 'past'>('upcoming');
   const [type, setType] = useState<'all' | 'training' | 'game'>('all');
-  const { data, loading, setData } = useApi<EventSummary[]>(`/api/events?scope=${scope}`, [scope]);
-  const list = (data ?? []).filter((e) => type === 'all' || e.type === type);
+  const staff = can(me, 'coach', 'admin');
+  // «mine» — тренировки + игры моих составов; число — игры конкретного состава; «all» — всё (для тренера и админа)
+  const [squad, setSquad] = useState<'mine' | 'all' | number>('mine');
+  const { data, loading, setData } = useApi<EventSummary[]>(`/api/events?scope=${scope}${staff ? '&all=1' : ''}`, [scope, staff]);
+  const mySquads = me.user.squads ?? [];
+  const isMine = (e: EventSummary) => !e.squads.length || e.squads.some((s) => mySquads.includes(s.id));
+  const list = (data ?? [])
+    .filter((e) => type === 'all' || e.type === type)
+    .filter((e) => (squad === 'all' ? true : squad === 'mine' ? isMine(e) : e.squads.some((s) => s.id === squad)));
+  const squadOptions = (me.squads ?? []).filter((s) => staff || mySquads.includes(s.id));
   const update = (e: EventSummary) => setData((l) => l?.map((x) => (x.id === e.id ? e : x)) ?? null);
 
   return (
@@ -34,6 +42,28 @@ export default function Events() {
           </button>
         ))}
       </div>
+      {(squadOptions.length > 1 || staff) && (
+        <div className="chips">
+          <button className={`chip ${squad === 'mine' ? 'info' : ''}`} style={{ border: 0, height: 30, padding: '0 12px' }} onClick={() => setSquad('mine')}>
+            Мои
+          </button>
+          {squadOptions.map((s) => (
+            <button
+              key={s.id}
+              className="chip"
+              style={{ border: 0, height: 30, padding: '0 12px', background: squad === s.id ? s.color : `${s.color}1f`, color: squad === s.id ? '#fff' : s.color }}
+              onClick={() => setSquad(s.id)}
+            >
+              {s.short}
+            </button>
+          ))}
+          {staff && (
+            <button className={`chip ${squad === 'all' ? 'info' : ''}`} style={{ border: 0, height: 30, padding: '0 12px' }} onClick={() => setSquad('all')}>
+              Весь клуб
+            </button>
+          )}
+        </div>
+      )}
       {loading ? (
         <Spinner />
       ) : !list.length ? (
@@ -46,9 +76,15 @@ export default function Events() {
             <button key={e.id} className="row" onClick={() => nav(`/events/${e.id}`)}>
               <DateTile iso={e.starts_at} game={e.type === 'game'} />
               <div className="grow">
-                <div className="title">{typeLabel(e)}</div>
+                <div className="title hstack" style={{ gap: 6 }}>
+                  {typeLabel(e)}
+                  {e.squads.map((s) => (
+                    <SquadChip key={s.id} squad={s} />
+                  ))}
+                </div>
                 <div className="meta">
                   {fmt.time(e.starts_at)} · {e.going} было
+                  {e.score_us != null && e.score_them != null ? ` · ${e.score_us}:${e.score_them}` : ''}
                 </div>
               </div>
               {e.cancelled ? (

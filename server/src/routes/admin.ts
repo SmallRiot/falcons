@@ -6,6 +6,7 @@ import { uploadsDir } from '../config.ts';
 import { db, hasRole, publicUser, rolesOf, type Role, type UserRow } from '../db.ts';
 import { debtsOf } from '../finance.ts';
 import { notifyAccessGranted, notifySignupBlocked } from '../telegram.ts';
+import { allSquads, setUserSquads, squadIdsOf, type Squad } from '../squads.ts';
 
 const ROLES: Role[] = ['admin', 'coach', 'service'];
 const MIME: Record<string, string> = {
@@ -30,13 +31,14 @@ export default async function adminRoutes(app: FastifyInstance) {
         roles: rolesOf(u),
         status: u.status,
         signup_blocked: !!u.signup_blocked,
+        squads: squadIdsOf(u.id),
         created_at: u.created_at,
         debt: debts.reduce((s, d) => s + d.amount, 0),
       };
     });
   });
 
-  app.patch<{ Params: { id: string }; Body: { status?: UserRow['status']; roles?: Role[]; signup_blocked?: boolean } }>(
+  app.patch<{ Params: { id: string }; Body: { status?: UserRow['status']; roles?: Role[]; signup_blocked?: boolean; squads?: number[] } }>(
     '/api/admin/users/:id',
     admin,
     async (req, reply) => {
@@ -50,6 +52,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       const roles = b.roles ? b.roles.filter((r) => ROLES.includes(r)).join(',') : u.roles;
       const blocked = b.signup_blocked !== undefined ? (b.signup_blocked ? 1 : 0) : u.signup_blocked;
       db.prepare('UPDATE users SET status=?, roles=?, signup_blocked=? WHERE id=?').run(status, roles, blocked, id);
+      if (b.squads) setUserSquads(id, b.squads.map(Number));
       if (status === 'active' && u.status !== 'active') void notifyAccessGranted(id);
       if (blocked && !u.signup_blocked)
         void notifySignupBlocked(id);
@@ -78,7 +81,31 @@ export default async function adminRoutes(app: FastifyInstance) {
   /** Список игроков команды (для тренера и всех участников). */
   app.get('/api/roster', { preHandler: requireActive }, async () =>
     (db.prepare(`SELECT * FROM users WHERE status='active' ORDER BY first_name`).all() as unknown as UserRow[]).map(
-      (u) => ({ ...publicUser(u), roles: rolesOf(u) }),
+      (u) => ({ ...publicUser(u), roles: rolesOf(u), squads: squadIdsOf(u.id) }),
     ),
   );
+
+  /* ---------- составы ---------- */
+
+  app.get('/api/squads', { preHandler: requireActive }, async () => allSquads());
+
+  const cleanSquad = (b: Partial<Squad>) =>
+    [b.name?.trim() ?? '', b.short?.trim().slice(0, 8) ?? '', /^#[0-9a-f]{6}$/i.test(b.color ?? '') ? b.color! : '#2b88cf', b.division ? Number(b.division) : null, Number(b.sort ?? 0)] as const;
+
+  app.post<{ Body: Partial<Squad> }>('/api/admin/squads', admin, async (req, reply) => {
+    const v = cleanSquad(req.body ?? {});
+    if (!v[0] || !v[1]) return reply.code(400).send({ error: 'Название и короткая метка обязательны' });
+    db.prepare('INSERT INTO squads(name, short, color, division, sort) VALUES(?,?,?,?,?)').run(...v);
+    return { ok: true };
+  });
+  app.put<{ Params: { id: string }; Body: Partial<Squad> }>('/api/admin/squads/:id', admin, async (req, reply) => {
+    const v = cleanSquad(req.body ?? {});
+    if (!v[0] || !v[1]) return reply.code(400).send({ error: 'Название и короткая метка обязательны' });
+    db.prepare('UPDATE squads SET name=?, short=?, color=?, division=?, sort=? WHERE id=?').run(...v, Number(req.params.id));
+    return { ok: true };
+  });
+  app.delete<{ Params: { id: string } }>('/api/admin/squads/:id', admin, async (req) => {
+    db.prepare('DELETE FROM squads WHERE id = ?').run(Number(req.params.id));
+    return { ok: true };
+  });
 }

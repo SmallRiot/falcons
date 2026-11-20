@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarCheck, ChevronRight, Coins, Flame, Landmark, Receipt, Scissors, Trophy, Users } from 'lucide-react';
+import { CalendarCheck, ChevronRight, Coins, Flame, Landmark, Receipt, Scissors, Shield, Trophy, Users } from 'lucide-react';
 import { api } from '../api';
 import { fmt, plural, POS_LABEL, ROLE_LABEL } from '../format';
-import { Avatar, can, Segmented, Sheet, useAction, useApi, useMe } from '../ui';
+import { Avatar, can, Segmented, Sheet, SquadChip, useAction, useApi, useMe } from '../ui';
 
 interface Stats {
   trainingsTotal: number;
@@ -38,6 +38,13 @@ export default function Profile() {
             {u.number != null ? `#${u.number}` : 'без номера'} · {u.position ? POS_LABEL[u.position] : 'позиция не указана'}
           </div>
         </div>
+        {!!u.squads?.length && (
+          <div className="chips" style={{ justifyContent: 'center' }}>
+            {(me.squads ?? []).filter((s) => u.squads!.includes(s.id)).map((s) => (
+              <SquadChip key={s.id} squad={s} full />
+            ))}
+          </div>
+        )}
         {u.roles.length > 0 && (
           <div className="chips" style={{ justifyContent: 'center' }}>
             {u.roles.map((r) => (
@@ -97,6 +104,7 @@ export default function Profile() {
                 <MenuRow icon={<Users size={20} />} title="Люди и роли" count={b.pendingUsers} onClick={() => nav('/admin/users')} />
                 <MenuRow icon={<Receipt size={20} />} title="Взносы и проверка оплат" count={b.proofs} onClick={() => nav('/admin/finance')} />
                 <MenuRow icon={<Landmark size={20} />} title="Счета для оплаты" onClick={() => nav('/admin/accounts')} />
+                <MenuRow icon={<Shield size={20} />} title="Составы" onClick={() => nav('/admin/squads')} />
               </>
             )}
             {can(me, 'service', 'admin') && (

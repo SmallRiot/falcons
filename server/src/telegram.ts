@@ -5,6 +5,7 @@
 import { config } from './config.ts';
 import { db, displayName, type UserRow } from './db.ts';
 import { getEvent, goingCount, setSignup, type EventRow } from './signup.ts';
+import { eventSquadIds, squadsMap } from './squads.ts';
 
 type Button = { text: string; url?: string; callback_data?: string; web_app?: { url: string } };
 
@@ -104,9 +105,11 @@ function toTeamChat(text: string, buttons?: Button[][]) {
 
 function eventPost(e: EventRow) {
   const going = goingCount(e.id);
+  const sq = squadsMap();
+  const squads = eventSquadIds(e.id).map((id) => sq.get(id)?.name).filter(Boolean).join(' + ');
   const head =
     e.type === 'game'
-      ? `🥅 <b>ИГРА${e.title ? ` · ${esc(e.title)}` : ''}</b>`
+      ? `🥅 <b>ИГРА${squads ? ` · ${esc(squads)}` : ''}${e.title ? ` · ${esc(e.title)}` : ''}</b>`
       : `🏒 <b>ТРЕНИРОВКА${e.title ? ` · ${esc(e.title)}` : ''}</b>`;
   const spots = e.capacity
     ? going >= e.capacity

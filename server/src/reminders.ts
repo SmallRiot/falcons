@@ -11,6 +11,7 @@ import { db, getSetting, nowIso } from './db.ts';
 import { debtsOf } from './finance.ts';
 import { reminderDues, reminderPlan, reminderRsvp, reminderSharpening, monthName } from './telegram.ts';
 import { getEvent } from './signup.ts';
+import { eventAudience } from './squads.ts';
 
 const lastSent = db.prepare('SELECT sent_at FROM notify_log WHERE key = ?');
 const markStmt = db.prepare(
@@ -95,12 +96,14 @@ export async function runReminders(force = false) {
     starts_at: string;
   }[];
   for (const e of soon) {
+    const audience = new Set(eventAudience(e.id));
     const silent = db
       .prepare(
         `SELECT id FROM users WHERE status = 'active' AND signup_blocked = 0
          AND id NOT IN (SELECT user_id FROM signups WHERE event_id = ?)`,
       )
-      .all(e.id) as { id: number }[];
+      .all(e.id)
+      .filter((u) => audience.has((u as { id: number }).id)) as { id: number }[];
     for (const u of silent) {
       const key = `rsvp:${e.id}:${u.id}`;
       if (!isDue(key, 24 * 365)) continue;

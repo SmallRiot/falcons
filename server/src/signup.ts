@@ -1,4 +1,5 @@
 import { db, nowIso, type UserRow } from './db.ts';
+import { canSeeEvent } from './squads.ts';
 
 export interface EventRow {
   id: number;
@@ -12,6 +13,8 @@ export interface EventRow {
   cancelled: number;
   lineup_published: number;
   tg_message_id: number | null;
+  score_us: number | null;
+  score_them: number | null;
 }
 
 export const getEvent = (id: number) => db.prepare('SELECT * FROM events WHERE id = ?').get(id) as EventRow | undefined;
@@ -20,6 +23,7 @@ export const getEvent = (id: number) => db.prepare('SELECT * FROM events WHERE i
 export function setSignup(e: EventRow, user: UserRow, status: 'in' | 'out' | null): string | null {
   if (user.status !== 'active') return 'Доступ ещё не открыт — дождись одобрения админа';
   if (e.cancelled) return 'Событие отменено';
+  if (!canSeeEvent(user, e.id)) return 'Это событие другого состава';
   if (Date.parse(e.starts_at) < Date.now()) return 'Событие уже началось';
   if (status === 'in' && user.signup_blocked) return 'Запись закрыта — сначала закрой долг по взносам';
   if (!status) {

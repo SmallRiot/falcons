@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, type EventDetail } from '../api';
 import { fromLocalInput, toLocalInput } from '../format';
-import { Segmented, Spinner, useAction, useApi } from '../ui';
+import { Segmented, Spinner, SquadPicker, useAction, useApi, useMe } from '../ui';
 
 const LAST_KEY = 'falcons.lastEvent';
 
@@ -18,6 +18,7 @@ export default function EventForm() {
   const editing = !!id;
   const existing = useApi<EventDetail>(editing ? `/api/events/${id}` : null, [id]);
   const { busy, run } = useAction();
+  const { me } = useMe();
   const [f, setF] = useState(() => {
     let last: { location?: string; capacity?: string; time?: string } = {};
     try {
@@ -34,6 +35,9 @@ export default function EventForm() {
       capacity: last.capacity ?? '',
       notes: '',
       notify: true,
+      squad_ids: [] as number[],
+      score_us: '',
+      score_them: '',
     };
   });
 
@@ -49,6 +53,9 @@ export default function EventForm() {
       capacity: e.capacity ? String(e.capacity) : '',
       notes: e.notes ?? '',
       notify: false,
+      squad_ids: e.squads.map((s) => s.id),
+      score_us: e.score_us != null ? String(e.score_us) : '',
+      score_them: e.score_them != null ? String(e.score_them) : '',
     });
   }, [existing.data]);
 
@@ -66,6 +73,9 @@ export default function EventForm() {
         capacity: f.capacity ? Number(f.capacity) : null,
         notes: f.notes,
         notify: f.notify,
+        squad_ids: f.type === 'game' ? f.squad_ids : [],
+        score_us: f.score_us === '' ? null : Number(f.score_us),
+        score_them: f.score_them === '' ? null : Number(f.score_them),
       };
       try {
         localStorage.setItem(LAST_KEY, JSON.stringify({ location: f.location, capacity: f.capacity }));
@@ -95,6 +105,15 @@ export default function EventForm() {
             ['game', '🥅 Игра'],
           ]}
         />
+        {f.type === 'game' ? (
+          <div className="field">
+            <span>Какой состав играет</span>
+            <SquadPicker squads={me.squads ?? []} value={f.squad_ids} onChange={(v) => set('squad_ids', v)} />
+            {!f.squad_ids.length && <span className="small" style={{ color: 'var(--warn)' }}>Не выбран — игру увидят все</span>}
+          </div>
+        ) : (
+          <div className="muted small">Тренировки общие — их видят все составы.</div>
+        )}
         <label className="field">
           <span>Дата и время (Тбилиси)</span>
           <input className="input" type="datetime-local" value={f.when} onChange={(e) => set('when', e.target.value)} />
@@ -122,6 +141,18 @@ export default function EventForm() {
             <input className="input" inputMode="numeric" value={f.capacity} placeholder="без лимита" onChange={(e) => set('capacity', e.target.value)} />
           </label>
         </div>
+        {editing && f.type === 'game' && (
+          <div className="form-row">
+            <label className="field">
+              <span>Забили мы</span>
+              <input className="input" inputMode="numeric" value={f.score_us} onChange={(e) => set('score_us', e.target.value.replace(/\D/g, ''))} />
+            </label>
+            <label className="field">
+              <span>Пропустили</span>
+              <input className="input" inputMode="numeric" value={f.score_them} onChange={(e) => set('score_them', e.target.value.replace(/\D/g, ''))} />
+            </label>
+          </div>
+        )}
         <label className="field">
           <span>Заметка</span>
           <textarea className="input" value={f.notes} placeholder="Форма, что взять, сбор за 30 минут…" onChange={(e) => set('notes', e.target.value)} />

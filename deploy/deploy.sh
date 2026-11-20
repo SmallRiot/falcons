@@ -64,9 +64,12 @@ if [ -f "$REL/deploy/deploy.sh" ]; then
   install -m 755 "$REL/deploy/deploy.sh" "$BASE/deploy.sh.new" && mv "$BASE/deploy.sh.new" "$BASE/deploy.sh"
 fi
 
-# чистка: 5 последних релизов, образов и 30 последних бэкапов
-ls -1dt "$BASE"/releases/*/ | tail -n +6 | xargs -r rm -rf
-docker images falcons --format '{{.Tag}}' | grep -vx "$TAG" | grep -vx "${PREV:-none}" | tail -n +4 | xargs -r -I{} docker rmi "falcons:{}" >/dev/null 2>&1 || true
-ls -1t "$BASE"/backups/* 2>/dev/null | tail -n +31 | xargs -r rm -f
+# чистка: 5 последних релизов, 3 запасных образа и 30 последних бэкапов (ошибки уборки выкладку не валят)
+cleanup() {
+  ls -1dt "$BASE"/releases/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
+  docker images falcons --format '{{.Tag}}' | grep -vx -e "$TAG" -e "${PREV:-none}" | tail -n +4 | xargs -r -I{} docker rmi "falcons:{}" >/dev/null 2>&1
+  ls -1t "$BASE"/backups/ 2>/dev/null | tail -n +31 | sed "s|^|$BASE/backups/|" | xargs -r rm -f
+}
+cleanup || true
 
 echo "✔ $TAG в проде"

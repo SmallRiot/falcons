@@ -796,7 +796,7 @@ interface Update {
   /** бота добавили в чат / убрали из него */
   my_chat_member?: { chat: { id: number; type: string; title?: string }; new_chat_member: { status: string }; old_chat_member: { status: string } };
   message?: { message_thread_id?: number; is_topic_message?: boolean; chat: { id: number; type: string; title?: string }; from?: { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }; text?: string };
-  callback_query?: { id: string; from: { id: number }; data?: string; message?: { chat: { id: number }; message_id: number } };
+  callback_query?: { id: string; from: { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }; data?: string; message?: { chat: { id: number }; message_id: number } };
 }
 
 export async function startPolling() {
@@ -935,6 +935,19 @@ export async function handleUpdate(u: Update) {
   const actor = db.prepare('SELECT * FROM users WHERE id = ?').get(cq.from.id) as UserRow | undefined;
 
   const en = english(cq.from.id);
+  // Нажал «Иду»/опрос, но в приложение не заходил — сами заводим заявку по его Telegram и зовём админа.
+  const knock = async () => {
+    const { upsertFromTelegram } = await import('./auth.ts');
+    const u = actor ?? upsertFromTelegram(cq.from);
+    if (u.status === 'rejected') return answer(cq.id, en ? 'Access denied — contact the team admin.' : 'Доступ закрыт — напиши админу команды.', true);
+    return answer(
+      cq.id,
+      en
+        ? 'Sent your request to the admin 🦅 Once approved, this button will just work — no app needed.'
+        : 'Отправил админу заявку 🦅 Как только пустит — эта кнопка заработает, в приложение заходить не обязательно.',
+      true,
+    );
+  };
   if (action === 'rate') {
     const { ratePost } = await import('./aiBuddy.ts');
     const r = ratePost(Number(a), cq.from.id, Number(b));
@@ -947,7 +960,7 @@ export async function handleUpdate(u: Update) {
   if (action === 'rsvp') {
     const e = getEvent(Number(a));
     if (!e) return answer(cq.id, en ? 'Event not found' : 'Событие не найдено');
-    if (!actor) return answer(cq.id, en ? 'Open Falcons and wait for approval first 🦅' : 'Сначала открой приложение Falcons и дождись доступа 🦅', true);
+    if (!actor || actor.status !== 'active') return knock();
     const hadFee = !!myFee(e.id, actor.id);
     const err = setSignup(e, actor, b === 'in' ? 'in' : 'out');
     if (err) return answer(cq.id, en ? callbackErrors[err] ?? err : err, true);
@@ -963,7 +976,7 @@ export async function handleUpdate(u: Update) {
   if (action === 'plan') {
     const per = db.prepare('SELECT * FROM periods WHERE id = ?').get(Number(a)) as Period | undefined;
     if (!per) return answer(cq.id, en ? 'Poll not found' : 'Опрос не найден');
-    if (!actor || actor.status !== 'active') return answer(cq.id, en ? 'Open Falcons and wait for approval first 🦅' : 'Сначала открой приложение Falcons и дождись доступа 🦅', true);
+    if (!actor || actor.status !== 'active') return knock();
     const err = setPlan(per, actor.id, b as Plan);
     if (err) return answer(cq.id, en ? callbackErrors[err] ?? err : err, true);
     refreshPollPost(per.id);

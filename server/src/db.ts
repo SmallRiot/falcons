@@ -254,6 +254,27 @@ CREATE TABLE IF NOT EXISTS guest_fees (
   UNIQUE (event_id, user_id)
 );`);
 
+// журнал чата хранится всегда: id сообщения нужен, чтобы бот отвечал реплаем
+addColumn('chat_log', 'message_id', 'INTEGER');
+db.exec(`
+CREATE INDEX IF NOT EXISTS chat_log_user ON chat_log(user_id, id);
+-- бот-тролль: куплен на неделю за деньги, подкалывает одного человека по досье покупателя
+CREATE TABLE IF NOT EXISTS trolls (
+  order_id   INTEGER PRIMARY KEY REFERENCES prize_orders(id) ON DELETE CASCADE,
+  target_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  dossier    TEXT NOT NULL,
+  anon       INTEGER NOT NULL DEFAULT 0,
+  last_at    TEXT                                  -- последняя подколка
+);
+-- память бота: полезные факты из чата, раз в сутки их вытаскивает GigaChat
+CREATE TABLE IF NOT EXISTS ai_facts (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  fact        TEXT NOT NULL,
+  source      TEXT,                                -- кто сказал
+  said_at     TEXT,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);`);
+
 export const nowIso = () => new Date().toISOString();
 
 export function getSetting(key: string, fallback: string): string {

@@ -1,6 +1,6 @@
 import { t } from '@shared/i18n';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, CalendarPlus, ChevronRight, Landmark, Monitor, Receipt, Scissors, Gamepad2, Shield, Ticket, UserPlus, Users } from 'lucide-react';
+import { CalendarDays, CalendarPlus, ChevronRight, Landmark, Monitor, Receipt, Scissors, Bot, Gamepad2, Shield, Ticket, UserPlus, Users } from 'lucide-react';
 import type { EventSummary } from '@shared/api';
 import { fmt, ROLE_LABEL } from '@shared/format';
 import { can, useApi, useMe } from '@shared/ui';
@@ -83,6 +83,7 @@ export default function Manage() {
         {admin && <Row icon={<Receipt size={20} />} title={t('Взносы и проверка оплат')} count={b.proofs} onClick={() => nav('/admin/finance')} />}
         {admin && <Row icon={<Ticket size={20} />} title={t('Оплаты гостей')} count={b.fees} onClick={() => nav('/admin/fees')} />}
         {me.user.owner && <Row icon={<Gamepad2 size={20} />} title={t('Игра и магазин')} count={b.prizes} onClick={() => nav('/admin/arcade')} />}
+        {admin && <Row icon={<Bot size={20} />} title={t('Написать от бота')} onClick={() => nav('/admin/bot')} />}
         {service && <Row icon={<Scissors size={20} />} title={t('Очередь заточки')} count={b.sharpenings} onClick={() => nav('/service')} />}
         {admin && <Row icon={<Shield size={20} />} title={t('Составы')} onClick={() => nav('/admin/squads')} />}
         {admin && <Row icon={<Landmark size={20} />} title={t('Счета для оплаты')} onClick={() => nav('/admin/accounts')} />}

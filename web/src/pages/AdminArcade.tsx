@@ -6,7 +6,7 @@ import { fmt } from '@shared/format';
 import { ShopAdmin } from '@shared/ShopAdmin';
 import { GrantPoints } from '@shared/GrantPoints';
 import { ORDER_STATUS, PROVIDER_NAME, pts, type ArcadeStats } from '@shared/arcadeStats';
-import { ask, Avatar, Empty, Nick, ProofImage, Segmented, Spinner, useAction, useApi } from '@shared/ui';
+import { ask, Avatar, Empty, Nick, ProofImage, Segmented, Spinner, toast, useAction, useApi } from '@shared/ui';
 
 /** Админ: аналитика «Ледового дропа» и заказы из магазина (выдать / отменить). */
 export default function AdminArcade() {
@@ -88,7 +88,7 @@ export default function AdminArcade() {
                   </div>
                   <div className="meta">
                     {o.title}
-                    {o.option ? ` · ${o.option}` : ''} · {o.currency === 'gel' ? `${o.price} ₾` : pts(o.price)} · {fmt.dateShort(o.created_at)}
+                    {o.option ? ` · ${o.option}` : ''} · {o.currency === 'gel' ? (o.price ? `${o.price} ₾` : 'X ₾') : pts(o.price)} · {fmt.dateShort(o.created_at)}
                   </div>
                 </div>
                 <span className={`chip ${ORDER_STATUS[o.status]?.[1] ?? ''}`}>{t(ORDER_STATUS[o.status]?.[0] ?? o.status)}</span>
@@ -115,7 +115,7 @@ export default function AdminArcade() {
                       </button>
                     )}
                     {o.status === 'awaiting' && (
-                      <button className="btn ok sm" disabled={busy} onClick={() => setStatus(o.id, 'approved', t('Рамка включена навсегда'))}>
+                      <button className="btn ok sm" disabled={busy} onClick={() => setStatus(o.id, 'approved', o.item === 'troll' ? t('Тролль выпущен в чат 🧌') : t('Рамка включена навсегда'))}>
                         {t('Деньги пришли')}
                       </button>
                     )}
@@ -197,6 +197,7 @@ function AiTab({ ai, onVkid, busy }: { ai: ArcadeStats['ai']; onVkid: () => void
   const score = (avg: number | null, votes: number) => (votes ? `${avg!.toFixed(2)} / 3 · ${votes} ${t('гол.')}` : t('нет оценок'));
   return (
     <>
+      <MemoryPanel />
       <div className="card tight">
         <div className="kv"><span>GigaChat</span><span>{ai.gigachat ? t('подключён') : t('не настроен')}</span></div>
         <div className="kv"><span>{t('Сообщений в чате за сутки')}</span><span>{ai.chatToday}</span></div>
@@ -241,6 +242,92 @@ function AiTab({ ai, onVkid, busy }: { ai: ArcadeStats['ai']; onVkid: () => void
           </div>
         </>
       )}
+    </>
+  );
+}
+
+type Memory = {
+  facts: { id: number; fact: string; source: string | null; said_at: string | null }[];
+  totalChat: number;
+  unread: number;
+  trolls: { order_id: number; dossier: string; anon: number; expires_at: string; last_at: string | null; target: { id: number; name: string } | null; buyer: { name: string } | null }[];
+};
+
+/** Тролли в работе и память бота: факты из чата (раз в сутки ночью), удалить ошибочное, разобрать сейчас. */
+function MemoryPanel() {
+  const { data, reload } = useApi<Memory>('/api/admin/ai/memory');
+  const { busy, run } = useAction();
+  if (!data) return <Spinner />;
+  return (
+    <>
+      <div className="section-title">🧌 {t('Тролли в работе')}</div>
+      {data.trolls.length ? (
+        <div className="list">
+          {data.trolls.map((tr) => (
+            <div key={tr.order_id} className="row" style={{ alignItems: 'flex-start' }}>
+              <div className="grow">
+                <div className="title">{tr.target?.name ?? '—'}</div>
+                <div className="meta">
+                  {t('до')} {fmt.dateShort(tr.expires_at)} · {tr.anon ? t('анонимно') : `${t('заказал')} ${tr.buyer?.name ?? '—'}`}
+                  {tr.last_at ? ` · ${t('последний вкид')} ${fmt.dateShort(tr.last_at)}` : ''}
+                </div>
+                <div className="small" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{tr.dossier}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="muted small">{t('Сейчас никого не троллят')}</div>
+      )}
+
+      <div className="section-title">🧠 {t('Память бота')}</div>
+      <div className="card tight">
+        <div className="kv"><span>{t('Сообщений в журнале')}</span><span>{data.totalChat.toLocaleString('ru-RU')}</span></div>
+        <div className="kv"><span>{t('Ещё не разобрано')}</span><span>{data.unread.toLocaleString('ru-RU')}</span></div>
+        <div className="kv"><span>{t('Фактов')}</span><span>{data.facts.length}</span></div>
+        <div className="muted small" style={{ marginTop: 6 }}>{t('Каждую ночь GigaChat читает новую переписку и выписывает полезное. Тегнули бота — отвечает по этой памяти.')}</div>
+      </div>
+      <button
+        className="btn secondary block"
+        disabled={busy || !data.unread}
+        onClick={() =>
+          run(async () => {
+            const r = await api.post<{ added: number; dropped: number; read: number }>('/api/admin/ai/memory');
+            await reload();
+            toast(`${t('Прочитал')} ${r.read}, ${t('фактов')} +${r.added}${r.dropped ? ` −${r.dropped}` : ''}`);
+          })
+        }
+      >
+        🧠 {t('Разобрать чат сейчас')}
+      </button>
+      {data.facts.length > 0 && (
+        <div className="list">
+          {data.facts.map((f) => (
+            <div key={f.id} className="row" style={{ alignItems: 'flex-start' }}>
+              <div className="grow">
+                <div className="small">{f.fact}</div>
+                <div className="meta">
+                  {f.source ?? '—'}
+                  {f.said_at ? ` · ${fmt.dateShort(f.said_at)}` : ''}
+                </div>
+              </div>
+              <button
+                className="btn ghost sm"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await api.del(`/api/admin/ai/facts/${f.id}`);
+                    await reload();
+                  }, t('Факт удалён'))
+                }
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="section-title">{t('Вкиды и оценки')}</div>
     </>
   );
 }

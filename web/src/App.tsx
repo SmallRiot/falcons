@@ -28,6 +28,8 @@ import Manage from './pages/Manage';
 import AdminFees from './pages/AdminFees';
 import AdminArcade from './pages/AdminArcade';
 import FrameForever from './pages/FrameForever';
+import Troll from './pages/Troll';
+import AdminBot from './pages/AdminBot';
 import Shop from './pages/Shop';
 import SquadMembers from './pages/SquadMembers';
 
@@ -175,6 +177,8 @@ export default function App() {
       <Route path="/admin/fees" element={<AdminFees />} />
       <Route path="/admin/arcade" element={<AdminArcade />} />
       <Route path="/frame-forever" element={<FrameForever />} />
+      <Route path="/troll" element={<Troll />} />
+      <Route path="/admin/bot" element={<AdminBot />} />
       <Route path="/shop" element={<Shop />} />
       <Route path="/manage/squads" element={<SquadMembers />} />
       <Route path="/manage" element={isStaff ? <Manage /> : <Home />} />

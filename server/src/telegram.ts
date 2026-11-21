@@ -679,6 +679,15 @@ export function notifyOwnerForeverFrame(u: UserRow, design: string) {
   return dm(config.ownerId, `🖼 <b>${esc(displayName(u))}</b> оплатил(а) особую рамку навсегда (${esc(design)}). Проверь скрин и подтверди в «Игра и магазин».`, 'admin-arcade');
 }
 
+export function notifyOwnerTroll(u: UserRow, target: UserRow, anon: boolean) {
+  if (!config.ownerId) return Promise.resolve(null);
+  return dm(config.ownerId, `🧌 <b>${esc(displayName(u))}</b> оплатил(а) бота-тролля на <b>${esc(displayName(target))}</b>${anon ? ' (анонимно)' : ''}. Проверь скрин и подтверди в «Игра и магазин».`, 'admin-arcade');
+}
+
+export function notifyTrollStarted(userId: number, target: UserRow, until: string) {
+  return dm(userId, `🧌 Оплата пришла — тролль выпущен на <b>${esc(displayName(target))}</b> до ${new Date(until).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}. Смотри в командном чате 🍿`, 'profile');
+}
+
 /** Игроку: физический приз выдан / заказ отменён. */
 export function notifyPrizeStatus(userId: number, title: string, status: 'issued' | 'cancelled', refund?: number) {
   return dm(
@@ -700,6 +709,42 @@ export function notifyPointsGranted(userId: number, points: number, note: string
   );
 }
 export const teamChatIdNow = () => teamChatId();
+
+/** Топики группы, куда админ может написать от бота. */
+export const BOT_TOPICS = { general: 'Общий', trainings: 'Тренировки', games: 'Игры', dues: 'Взносы' } as const;
+export type BotTopic = keyof typeof BOT_TOPICS;
+const TOPIC_CHAT: Record<BotTopic, string> = { general: TEAM, trainings: TEAM_TRAININGS, games: TEAM_GAMES, dues: TEAM_DUES };
+
+/**
+ * Сообщение бота в группу: в топик или реплаем на конкретное сообщение (тогда в его топик).
+ * Всё, что бот написал, тоже ложится в журнал чата — тролль и память видят и свои реплики.
+ */
+export async function botSay(text: string, where: { topic?: BotTopic; replyTo?: { messageId: number; threadId: number | null } }) {
+  const chat = teamChatId();
+  if (!chat) {
+    console.log(`\n[tg → командный чат (TEAM_CHAT_ID не задан)]\n${text}\n`);
+    return null;
+  }
+  let res: { message_id?: number; message_thread_id?: number } | null;
+  if (where.replyTo && !config.testChatId) {
+    const thread = where.replyTo.threadId ?? undefined;
+    res = (await enqueue(() =>
+      api('sendMessage', {
+        chat_id: chat,
+        ...inThread(thread),
+        text: esc(text),
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+        reply_parameters: { message_id: where.replyTo!.messageId, allow_sending_without_reply: true },
+      }),
+    )) as typeof res;
+  } else {
+    res = (await sendMessage(where.replyTo ? TEAM : TOPIC_CHAT[where.topic ?? 'general'], esc(text))) as typeof res;
+  }
+  const { logChatMessage } = await import('./aiBuddy.ts');
+  logChatMessage({ chatId: chat, threadId: res?.message_thread_id ?? where.replyTo?.threadId ?? undefined, userId: null, name: 'Бот', text, messageId: res?.message_id });
+  return res;
+}
 
 const AI_SIGN: Record<string, string> = {
   gigachat: '🇷🇺 <i>Поздравляет отечественный производитель — GigaChat</i>',
@@ -795,7 +840,7 @@ interface Update {
   update_id: number;
   /** бота добавили в чат / убрали из него */
   my_chat_member?: { chat: { id: number; type: string; title?: string }; new_chat_member: { status: string }; old_chat_member: { status: string } };
-  message?: { message_thread_id?: number; is_topic_message?: boolean; chat: { id: number; type: string; title?: string }; from?: { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }; text?: string };
+  message?: { message_id: number; message_thread_id?: number; is_topic_message?: boolean; reply_to_message?: { message_id: number; from?: { id: number; is_bot?: boolean; username?: string } }; chat: { id: number; type: string; title?: string }; from?: { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }; text?: string };
   callback_query?: { id: string; from: { id: number }; data?: string; message?: { chat: { id: number }; message_id: number } };
 }
 
@@ -869,7 +914,14 @@ export async function handleUpdate(u: Update) {
   // переписка командной группы → короткий журнал для нейронки (только текст)
   if (m?.text && m.from && !m.from.is_bot && String(m.chat.id) === String(teamChatId()) && !m.text.startsWith('/')) {
     const { logChatMessage } = await import('./aiBuddy.ts');
-    logChatMessage({ chatId: m.chat.id, threadId: m.message_thread_id, userId: m.from.id, name: m.from.first_name || 'Игрок', text: m.text });
+    const name = m.from.first_name || 'Игрок';
+    logChatMessage({ chatId: m.chat.id, threadId: m.is_topic_message ? m.message_thread_id : undefined, userId: m.from.id, name, text: m.text, messageId: m.message_id });
+    // бот-тролль и ответы по тегу — в фоне, чтобы не держать очередь апдейтов
+    const toBot =
+      (!!config.botUsername && m.text.toLowerCase().includes('@' + config.botUsername.toLowerCase())) ||
+      (!!m.reply_to_message?.from?.is_bot && (!config.botUsername || m.reply_to_message.from.username === config.botUsername));
+    const msg = { userId: m.from.id, name, text: m.text, messageId: m.message_id, threadId: m.is_topic_message ? m.message_thread_id : undefined, toBot };
+    void import('./troll.ts').then((t) => t.onTeamMessage(msg)).catch((e) => console.warn('[troll] failed', e));
   }
   if (m?.text) {
     const cmd = m.text.split(/[\s@]/)[0];

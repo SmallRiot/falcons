@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import { requireActive, requireOwner } from '../auth.ts';
-import { db, nowIso, publicUser, resetStyleCache, type UserRow } from '../db.ts';
+import { requireActive, requireOwner, requireRole } from '../auth.ts';
+import { db, displayName, nowIso, publicUser, resetStyleCache, type UserRow } from '../db.ts';
 import { arcadePlayers, buyPrize, catalog, FOREVER, FRAME_DESIGNS, grantPoints, setShopOverride, withStore, type PrizeOrder, type ShopOverride } from '../prizes.ts';
 import { readUpload } from '../uploads.ts';
 
 const FOREVER_PRICE = 50; // ₾
-import { notifyOwnerForeverFrame, notifyPrizeStatus } from '../telegram.ts';
+import { botSay, BOT_TOPICS, notifyOwnerForeverFrame, notifyOwnerTroll, notifyPrizeStatus, notifyTrollStarted, teamChatIdNow, type BotTopic } from '../telegram.ts';
+import { activeTrolls, allFacts, runDailyMemory, TROLL_DAYS, TROLL_PRICE } from '../troll.ts';
 import { aiStats, runDailyVkid } from '../aiBuddy.ts';
 
 export default async function arcadeRoutes(app: FastifyInstance) {
@@ -100,6 +101,33 @@ export default async function arcadeRoutes(app: FastifyInstance) {
     return { ok: true, id: Number(r.lastInsertRowid) };
   });
   app.get('/api/frames/forever', player, () => ({ price: FOREVER_PRICE, designs: FRAME_DESIGNS }));
+
+  /** Бот-тролль на неделю — за деньги переводом: цель, досье, анонимно или нет → скрин → владелец подтверждает. */
+  app.get('/api/troll', player, (req) => ({
+    price: TROLL_PRICE,
+    days: TROLL_DAYS,
+    players: (db.prepare(`SELECT * FROM users WHERE status = 'active' AND id != ? ORDER BY first_name`).all(req.user.id) as unknown as UserRow[]).map(publicUser),
+    active: activeTrolls().map((t) => ({ target_id: t.target_id, expires_at: t.expires_at })),
+  }));
+  app.post('/api/troll', player, async (req, reply) => {
+    const { file, fields } = await readUpload(req);
+    const target = db.prepare(`SELECT * FROM users WHERE id = ? AND status = 'active'`).get(Number(fields.target)) as UserRow | undefined;
+    const dossier = (fields.dossier ?? '').trim();
+    const anon = fields.anon === '1';
+    if (!target) return reply.code(400).send({ error: 'Выбери, кого троллить' });
+    if (target.id === req.user.id) return reply.code(400).send({ error: 'Себя троллить — это к психологу 🙃' });
+    if (dossier.length < 10) return reply.code(400).send({ error: 'Расскажи про него хоть пару строк — за что цеплять' });
+    if (dossier.length > 2000) return reply.code(400).send({ error: 'Досье слишком длинное — до 2000 символов' });
+    if (!file) return reply.code(400).send({ error: 'Прикрепи скрин перевода' });
+    const title = `Бот-тролль на ${displayName(target)}`;
+    const r = db
+      .prepare(`INSERT INTO prize_orders(user_id, item, title, kind, price, option, status, proof, currency) VALUES(?, 'troll', ?, 'troll', ?, ?, 'awaiting', ?, 'gel')`)
+      .run(req.user.id, title, TROLL_PRICE, anon ? 'анонимно' : 'от своего имени', file);
+    const orderId = Number(r.lastInsertRowid);
+    db.prepare('INSERT INTO trolls(order_id, target_id, dossier, anon) VALUES(?,?,?,?)').run(orderId, target.id, dossier, anon ? 1 : 0);
+    void notifyOwnerTroll(req.user, target, anon);
+    return { ok: true, id: orderId };
+  });
 
   /* ---------- призы игрока ---------- */
 
@@ -222,6 +250,22 @@ export default async function arcadeRoutes(app: FastifyInstance) {
     const st = req.body?.status;
     if (st === 'approved') {
       if (o.status !== 'awaiting') return reply.code(400).send({ error: 'Этот заказ не ждёт подтверждения' });
+      if (o.item === 'troll') {
+        const tr = db.prepare('SELECT * FROM trolls WHERE order_id = ?').get(o.id) as { target_id: number; anon: number } | undefined;
+        const target = tr && (db.prepare('SELECT * FROM users WHERE id = ?').get(tr.target_id) as UserRow | undefined);
+        if (!tr || !target) return reply.code(400).send({ error: 'Цель тролля не найдена' });
+        // уже идёт тролль на него — неделя добавляется к концу
+        const until = activeTrolls(tr.target_id).reduce((m, t) => Math.max(m, Date.parse(t.expires_at)), Date.now());
+        const expires = new Date(until + TROLL_DAYS * 864e5).toISOString();
+        db.prepare(`UPDATE prize_orders SET status = 'active', expires_at = ?, done_at = ? WHERE id = ?`).run(expires, nowIso(), o.id);
+        const buyer = db.prepare('SELECT * FROM users WHERE id = ?').get(o.user_id) as UserRow | undefined;
+        void botSay(
+          `🧌 На ${displayName(target)}${target.username ? ` (@${target.username})` : ''} спущен бот-тролль на неделю.\n${tr.anon || !buyer ? 'Заказчик пожелал остаться неизвестным 🤫' : `Заказал: ${displayName(buyer)}`}`,
+          { topic: 'general' },
+        );
+        void notifyTrollStarted(o.user_id, target, expires);
+        return { ok: true };
+      }
       db.prepare(`UPDATE prize_orders SET status = 'active', expires_at = ?, done_at = ? WHERE id = ?`).run(FOREVER, nowIso(), o.id);
       resetStyleCache();
       void notifyPrizeStatus(o.user_id, o.title, 'issued');
@@ -239,4 +283,62 @@ export default async function arcadeRoutes(app: FastifyInstance) {
     } else return reply.code(400).send({ error: 'Неизвестный статус' });
     return { ok: true };
   });
+
+  /* ---------- память бота и тролли (владелец) ---------- */
+  app.get('/api/admin/ai/memory', admin, () => ({
+    facts: allFacts(),
+    totalChat: (db.prepare('SELECT COUNT(*) c FROM chat_log').get() as { c: number }).c,
+    unread: (
+      db
+        .prepare(`SELECT COUNT(*) c FROM chat_log WHERE id > COALESCE((SELECT CAST(value AS INTEGER) FROM settings WHERE key = 'memory_last_id'), 0)`)
+        .get() as { c: number }
+    ).c,
+    trolls: activeTrolls().map((t) => {
+      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(t.target_id) as UserRow | undefined;
+      const b = db.prepare('SELECT * FROM users WHERE id = ?').get(t.buyer_id) as UserRow | undefined;
+      return { ...t, target: u ? publicUser(u) : null, buyer: b ? publicUser(b) : null };
+    }),
+  }));
+  app.post('/api/admin/ai/memory', admin, async () => runDailyMemory(true));
+  app.delete<{ Params: { id: string } }>('/api/admin/ai/facts/:id', admin, (req) => {
+    db.prepare('DELETE FROM ai_facts WHERE id = ?').run(Number(req.params.id));
+    return { ok: true };
+  });
+
+  /* ---------- написать в группу от имени бота (все админы) ---------- */
+  const anyAdmin = { preHandler: requireRole('admin') };
+  app.get('/api/admin/bot/chat', anyAdmin, () => ({
+    topics: BOT_TOPICS,
+    connected: !!teamChatIdNow(),
+    messages: (
+      db
+        .prepare('SELECT id, user_id, name, text, at, thread_id FROM chat_log WHERE chat_id = ? AND message_id IS NOT NULL ORDER BY id DESC LIMIT 40')
+        .all(String(teamChatIdNow())) as { id: number }[]
+    ),
+  }));
+  app.post<{ Body: { text: string; topic?: BotTopic; replyTo?: number } }>(
+    '/api/admin/bot/say',
+    {
+      ...anyAdmin,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['text'],
+          properties: { text: { type: 'string', minLength: 1, maxLength: 3000 }, topic: { type: 'string', enum: Object.keys(BOT_TOPICS) }, replyTo: { type: 'integer' } },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!teamChatIdNow()) return reply.code(400).send({ error: 'Бот не подключён к командному чату' });
+      let replyTo: { messageId: number; threadId: number | null } | undefined;
+      if (req.body.replyTo) {
+        const m = db.prepare('SELECT message_id, thread_id FROM chat_log WHERE id = ?').get(req.body.replyTo) as { message_id: number | null; thread_id: number | null } | undefined;
+        if (!m?.message_id) return reply.code(400).send({ error: 'Это сообщение не найти' });
+        replyTo = { messageId: m.message_id, threadId: m.thread_id };
+      }
+      const r = await botSay(req.body.text.trim(), { topic: req.body.topic ?? 'general', replyTo });
+      if (!r && teamChatIdNow()) return reply.code(502).send({ error: 'Telegram не принял сообщение' });
+      return { ok: true };
+    },
+  );
 }

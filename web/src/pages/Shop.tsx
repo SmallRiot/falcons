@@ -166,6 +166,27 @@ export default function Shop() {
       <div className="section-title">{t('Ачивки')}</div>
       <div className="ach-grid">{nicks.map(nickCard)}</div>
 
+      <div className="section-title">{t('Бот-тролль')}</div>
+      <div className="lux-card wide">
+        <div className="lux-stage frame-stage">
+          <span style={{ fontSize: 54, lineHeight: 1 }}>🧌</span>
+          <div>
+            <div className="lux-title light">{t('Бот-тролль на неделю')}</div>
+            <div className="lux-sub light">{t('Выбери жертву и напиши досье — бот неделю будет подкалывать его в командном чате. Сам решает, когда влезть. Можно анонимно.')}</div>
+          </div>
+        </div>
+        <div className="lux-body">
+          <div className="lux-tags n1">
+            <button className="lux-tag forever" onClick={() => nav('/troll')}>
+              <span className="lux-term">🧌 {t('Неделя')}</span>
+              <span className="lux-val">
+                X<small>₾</small>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {cover && (
         <>
           <div className="section-title">{t('Обложка профиля')}</div>

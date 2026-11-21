@@ -10,24 +10,23 @@ import { aiPostButtons, postAiToChat, postShoutOut, teamChatIdNow } from './tele
  * Под постом — оценка «🔥 / 🙂 / 🥶», по ней ведём статистику нейронок.
  */
 
-const KEEP_DAYS = 3;
 const CONTEXT = 100;
 
-/** Сообщение группы → короткий журнал (только текст, без медиа). */
-export function logChatMessage(m: { chatId: number; threadId?: number; userId?: number; name: string; text: string }) {
+/** Сообщение группы → журнал (только текст, без медиа). Храним всегда: из него тролль берёт контекст, а память — факты. */
+export function logChatMessage(m: { chatId: number | string; threadId?: number; userId?: number | null; name: string; text: string; messageId?: number }) {
   if (!m.text.trim() || m.text.startsWith('/')) return;
-  db.prepare('INSERT INTO chat_log(chat_id, thread_id, user_id, name, text, at) VALUES(?,?,?,?,?,?)').run(
+  db.prepare('INSERT INTO chat_log(chat_id, thread_id, user_id, name, text, at, message_id) VALUES(?,?,?,?,?,?,?)').run(
     String(m.chatId),
     m.threadId ?? null,
     m.userId ?? null,
     m.name.slice(0, 40),
-    m.text.slice(0, 500),
+    m.text.slice(0, 1000),
     new Date().toISOString(),
+    m.messageId ?? null,
   );
-  if (Math.random() < 0.02) db.prepare('DELETE FROM chat_log WHERE at < ?').run(new Date(Date.now() - KEEP_DAYS * 864e5).toISOString());
 }
 
-function recentChat(limit = CONTEXT, since?: string) {
+export function recentChat(limit = CONTEXT, since?: string) {
   const chat = teamChatIdNow();
   if (!chat) return [];
   const rows = db
@@ -35,7 +34,7 @@ function recentChat(limit = CONTEXT, since?: string) {
     .all(...((since ? [String(chat), since, limit] : [String(chat), limit]) as (string | number)[])) as { name: string; text: string; at: string }[];
   return rows.reverse();
 }
-const transcript = (rows: { name: string; text: string }[]) => rows.map((r) => `${r.name}: ${r.text.replace(/\s+/g, ' ')}`).join('\n');
+export const transcript = (rows: { name: string; text: string }[]) => rows.map((r) => `${r.name}: ${r.text.replace(/\s+/g, ' ')}`).join('\n');
 
 const SYSTEM = `Ты — весёлый бот любительской хоккейной команды Falcons из Тбилиси. Пишешь короткие хоккейные шутки-комплименты в командный чат.
 Правила:

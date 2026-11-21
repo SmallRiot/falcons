@@ -162,7 +162,7 @@ function Stat({ icon, v, l, sub }: { icon: React.ReactNode; v: React.ReactNode; 
 type Prize = { id: number; item: string; title: string; kind: string; price: number; option: string | null; status: string; created_at: string; expires_at: string | null; done_at: string | null };
 const PRIZE_ICON: Record<string, string> = {
   'nick-grad': '🌈', 'frame-month': '🖼', 'frame-season': '🖼', 'frame-forever': '💎',
-  'hockey-stick-150': '🏒', 'skate-sharpening': '⛸', 'hockey-tape': '🎗', 'nick-fire': '🔥', 'nick-color': '🎨', 'avatar-frame': '🏅', 'shout-out': '📣', 'nick-emoji': '😎',
+  'hockey-stick-150': '🏒', 'skate-sharpening': '⛸', 'hockey-tape': '🎗', 'nick-fire': '🔥', 'nick-color': '🎨', 'avatar-frame': '🏅', 'shout-out': '📣', 'nick-emoji': '😎', troll: '🧌',
 };
 
 /** Призы из магазина игры: что действует, что можно потратить, что ждёт выдачи. */
@@ -172,12 +172,13 @@ function MyPrizes() {
   if (!data?.length) return null;
   const now = Date.now();
   const live = data.filter((p) =>
-    p.status === 'awaiting' || (p.kind === 'cosmetic' ? p.status === 'active' && p.expires_at && Date.parse(p.expires_at) > now : p.status === 'active' || p.status === 'new'),
+    p.status === 'awaiting' || (p.kind === 'cosmetic' || p.kind === 'troll' ? p.status === 'active' && p.expires_at && Date.parse(p.expires_at) > now : p.status === 'active' || p.status === 'new'),
   );
   const past = data.filter((p) => !live.includes(p)).slice(0, 6);
   const line = (p: Prize) => {
     if (p.status === 'awaiting') return t('ждёт проверки оплаты');
     if (p.kind === 'cosmetic') return p.expires_at?.startsWith('9999') ? t('навсегда') : t('до') + ' ' + fmt.dateShort(p.expires_at!);
+    if (p.kind === 'troll') return p.status === 'active' && p.expires_at && Date.parse(p.expires_at) > Date.now() ? t('троллит до') + ' ' + fmt.dateShort(p.expires_at) : t('неделя прошла');
     if (p.kind === 'voucher') return p.status === 'active' ? t('можно потратить') : t('потрачен');
     if (p.kind === 'physical') return p.status === 'new' ? t('админ уже знает — ждёт выдачи') : t('выдан');
     return t('бот поздравил в чате');

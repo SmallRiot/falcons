@@ -16,17 +16,17 @@ export const items = [
   { id: 'hockey-stick-150', name: 'Клюшка стоимостью до $150', price: 100_000, icon: '🏒', kind: 'physical' },
   { id: 'skate-sharpening', name: 'Заточка коньков', price: 500, icon: '⛸️', kind: 'voucher' },
   { id: 'hockey-tape', name: 'Хоккейная лента', price: 500, icon: '◉', kind: 'physical' },
-  // ачивки-ники: пилотный месяц — по 30, цена на витрине скрыта и открывается при покупке
-  { id: 'nick-grad', name: 'Градиентный ник на месяц', price: 30, hidden: true, icon: '🌈', kind: 'cosmetic', period: 'month',
+  // ачивки на срок: месяц — 30, неделя — 10 (weekPrice)
+  { id: 'nick-grad', name: 'Градиентный ник на месяц', price: 30, weekPrice: 10, icon: '🌈', kind: 'cosmetic', period: 'month',
     options: ['sunset', 'gold', 'neon', 'aurora', 'blood'] },
-  { id: 'profile-cover', name: 'Обложка профиля на месяц', price: 30, hidden: true, icon: '🖼', kind: 'cosmetic', period: 'month' },
-  { id: 'nick-fire', name: 'Огненный ник на месяц', price: 30, hidden: true, icon: '🔥', kind: 'cosmetic', period: 'month' },
-  { id: 'nick-color', name: 'Цветной ник на месяц', price: 30, hidden: true, icon: '🎨', kind: 'cosmetic', period: 'month',
+  { id: 'profile-cover', name: 'Обложка профиля на месяц', price: 30, weekPrice: 10, icon: '🖼', kind: 'cosmetic', period: 'month' },
+  { id: 'nick-fire', name: 'Огненный ник на месяц', price: 30, weekPrice: 10, icon: '🔥', kind: 'cosmetic', period: 'month' },
+  { id: 'nick-color', name: 'Цветной ник на месяц', price: 30, weekPrice: 10, icon: '🎨', kind: 'cosmetic', period: 'month',
     options: ['#ff5a5f', '#ff9f1c', '#ffd23f', '#3ddc84', '#2ec4ff', '#7b61ff', '#ff4fd8'] },
-  { id: 'nick-emoji', name: 'Эмодзи у ника на месяц', price: 30, hidden: true, icon: '😎', kind: 'cosmetic', period: 'month',
+  { id: 'nick-emoji', name: 'Эмодзи у ника на месяц', price: 30, weekPrice: 10, icon: '😎', kind: 'cosmetic', period: 'month',
     options: ['🔥', '🏒', '🥅', '🦅', '⚡', '👑', '🎯', '🧊'] },
-  // особая рамка аватарки на выбор: месяц — 30, до конца сезона — 150 (навсегда — за 50 ₾ в приложении)
-  { id: 'frame-month', name: 'Особая рамка на месяц', price: 30, icon: '🖼', kind: 'cosmetic', period: 'month',
+  // особая рамка аватарки на выбор: месяц — 30, до конца сезона — 150 (навсегда — за лари в приложении)
+  { id: 'frame-month', name: 'Особая рамка на месяц', price: 30, weekPrice: 10, icon: '🖼', kind: 'cosmetic', period: 'month',
     options: ['torch', 'gold', 'ice', 'neon', 'fire', 'falcons', 'rainbow'] },
   { id: 'frame-season', name: 'Особая рамка до конца сезона', price: 150, icon: '🖼', kind: 'cosmetic', period: 'season',
     options: ['torch', 'gold', 'ice', 'neon', 'fire', 'falcons', 'rainbow'] },
@@ -145,9 +145,14 @@ export function openStore(dir) {
   }
   /** Покупка: можно брать повторно. Возвращает запись покупки (её id уходит в заказы клуба). */
   /** price — цена из настроек владельца (если он поменял); без неё — из каталога. */
-  function buy(id, option = null, priceOverride = null) {
-    const base = items.find(i => i.id === id);
+  /** term: 'week' — та же ачивка на 7 дней по weekPrice (только у ачивок на месяц). */
+  function buy(id, option = null, priceOverride = null, term = null) {
+    let base = items.find(i => i.id === id);
     if (!base) throw Error('Неизвестный предмет.');
+    if (term === 'week') {
+      if (!base.weekPrice) throw Error('На неделю эту ачивку не взять.');
+      base = { ...base, price: base.weekPrice, days: 7, period: 'week', name: base.name.replace('на месяц', 'на неделю') };
+    } else if (term != null) throw Error('Неизвестный срок.');
     const item = Number.isSafeInteger(priceOverride) && priceOverride > 0 ? { ...base, price: priceOverride } : base;
     if (item.options && !item.options.includes(option)) throw Error('Выбери вариант.');
     if (!item.options) option = null;
@@ -163,6 +168,16 @@ export function openStore(dir) {
   /** Вернуть очки за заказ (админ отменил). */
   function refund(points) {
     db.prepare('UPDATE wallet SET balance=balance+?').run(Math.round(points * units));
+  }
+  /** Начисление от владельца (отрицательное — списать; ниже нуля баланс не уйдёт). */
+  function grant(points) {
+    if (!Number.isFinite(points) || points === 0) throw Error('Сколько начислить?');
+    return transaction(() => {
+      const delta = Math.round(points * units);
+      if (wallet().balance + delta < 0) throw Error('Столько у игрока нет.');
+      db.prepare('UPDATE wallet SET balance=balance+?').run(delta);
+      return wallet().balance / units;
+    });
   }
   /** Сводка для аналитики админа. */
   function stats() {
@@ -185,5 +200,5 @@ export function openStore(dir) {
       purchases: db.prepare('SELECT item, price, option, at FROM purchases ORDER BY id').all(),
     };
   }
-  return { state, goal, drop, buy, refund, stats, activate, collect, close: () => db.close() };
+  return { state, goal, drop, buy, refund, grant, stats, activate, collect, close: () => db.close() };
 }

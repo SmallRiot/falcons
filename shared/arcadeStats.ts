@@ -33,6 +33,8 @@ export interface ArcadeStats {
     purchases: number;
     spent: number;
   }[];
+  members: { user: PublicUser; balance: number }[];
+  grants: { user_id: number; user: PublicUser; points: number; note: string | null; at: string }[];
   ai: {
     gigachat: boolean;
     chatToday: number;

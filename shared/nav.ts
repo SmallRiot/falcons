@@ -8,6 +8,7 @@ export function startRoute(p: string): string | null {
     'admin-fees': '/admin/fees',
     'admin-arcade': '/admin/arcade',
     profile: '/profile',
+    shop: '/shop',
     events: '/events',
     service: '/service',
     sharpening: '/sharpening',

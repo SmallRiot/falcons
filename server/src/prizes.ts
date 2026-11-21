@@ -3,7 +3,7 @@ import { readdirSync, existsSync } from 'node:fs';
 import { items as CATALOG, openStore } from '../../arcade/store.mjs';
 import { config } from './config.ts';
 import { db, getSetting, resetStyleCache, setSetting, type UserRow } from './db.ts';
-import { notifyAdminsPrize, postShoutOut } from './telegram.ts';
+import { notifyAdminsPrize, notifyPointsGranted, postShoutOut } from './telegram.ts';
 import { type PlayerFacts } from './compliment.ts';
 import { POS_NAME_RU } from './posNames.ts';
 
@@ -22,8 +22,9 @@ export interface ArcadeStore {
   activate(): void;
   collect(): void;
   drop(commitment: string, nonce: string, stake: number, source?: string): unknown;
-  buy(id: string, option?: string | null, price?: number | null): { purchaseId: number; item: unknown; option: string | null; at: string };
+  buy(id: string, option?: string | null, price?: number | null, term?: string | null): { purchaseId: number; item: unknown; option: string | null; at: string };
   refund(points: number): void;
+  grant(points: number): number;
   stats(): ArcadeStats;
   close(): void;
 }
@@ -43,10 +44,10 @@ export type PrizeOrder = {
 };
 
 /** Покупка в магазине: списать очки в игре → заказ в базе клуба → эффект приза → уведомить админов. */
-export function buyPrize(user: UserRow, itemId: string, option: string | null) {
+export function buyPrize(user: UserRow, itemId: string, option: string | null, term: 'week' | null = null) {
   const ov = shopOverrides()[itemId];
   if (ov?.off) throw new Error('Эта ачивка сейчас не продаётся — загляни позже');
-  const p = withStore(user.id, (s) => s.buy(itemId, option, ov?.price ?? null));
+  const p = withStore(user.id, (s) => s.buy(itemId, option, (term === 'week' ? ov?.weekPrice : ov?.price) ?? null, term));
   const item = p.item as { id: string; name: string; price: number; kind: string; days?: number; period?: string };
   const now = new Date();
   let status = 'new';
@@ -55,7 +56,7 @@ export function buyPrize(user: UserRow, itemId: string, option: string | null) {
   if (item.kind === 'shout') status = 'done';
   if (item.kind === 'cosmetic') {
     status = 'active';
-    // срок: месяц или до конца сезона; новое оформление того же вида перекрывает прежнее (последнее — главное)
+    // срок: неделя, месяц или до конца сезона; новое оформление того же вида перекрывает прежнее (последнее — главное)
     expires = item.period === 'season' ? seasonEnd().toISOString() : new Date(now.getTime() + (item.days ?? 30) * 864e5).toISOString();
   }
   const r = db
@@ -125,7 +126,7 @@ export const FOREVER = '9999-12-31T00:00:00.000Z';
 export const FRAME_DESIGNS = ['torch', 'gold', 'ice', 'neon', 'fire', 'falcons', 'rainbow'];
 
 /* ---------- управление магазином (только владелец): цена, скрытая цена, в продаже ---------- */
-export type ShopOverride = { price?: number; hidden?: boolean; off?: boolean };
+export type ShopOverride = { price?: number; weekPrice?: number; hidden?: boolean; off?: boolean };
 export function shopOverrides(): Record<string, ShopOverride> {
   try {
     return JSON.parse(getSetting('shop_overrides', '{}')) as Record<string, ShopOverride>;
@@ -133,19 +134,27 @@ export function shopOverrides(): Record<string, ShopOverride> {
     return {};
   }
 }
-type CatalogItem = { id: string; name: string; price: number; hidden?: boolean; kind: string; options?: string[] };
+type CatalogItem = { id: string; name: string; price: number; weekPrice?: number; hidden?: boolean; kind: string; options?: string[] };
 /** Каталог с правками владельца. includeOff — для админки (видно и снятое с продажи). */
 export function catalog(includeOff = false) {
   const ov = shopOverrides();
   return (CATALOG as CatalogItem[])
-    .map((i) => ({ ...i, price: ov[i.id]?.price ?? i.price, hidden: ov[i.id]?.hidden ?? !!i.hidden, off: !!ov[i.id]?.off, basePrice: i.price }))
+    .map((i) => ({ ...i, price: ov[i.id]?.price ?? i.price, weekPrice: i.weekPrice ? ov[i.id]?.weekPrice ?? i.weekPrice : undefined, baseWeekPrice: i.weekPrice, hidden: ov[i.id]?.hidden ?? !!i.hidden, off: !!ov[i.id]?.off, basePrice: i.price }))
     .filter((i) => includeOff || !i.off);
 }
 export function setShopOverride(id: string, patch: ShopOverride) {
   if (!(CATALOG as CatalogItem[]).some((i) => i.id === id)) throw new Error('Нет такой ачивки');
   const all = shopOverrides();
   const next = { ...(all[id] ?? {}), ...patch };
-  if (next.price != null && !(Number.isSafeInteger(next.price) && next.price > 0)) throw new Error('Цена — целое число больше нуля');
+  for (const v of [next.price, next.weekPrice]) if (v != null && !(Number.isSafeInteger(v) && v > 0)) throw new Error('Цена — целое число больше нуля');
   all[id] = next;
   setSetting('shop_overrides', JSON.stringify(all));
+}
+
+/** Владелец начисляет (или списывает) очки игроку; запись — в журнал начислений, игроку — сообщение. */
+export function grantPoints(by: UserRow, user: UserRow, points: number, note: string | null) {
+  const balance = withStore(user.id, (s) => s.grant(points));
+  db.prepare('INSERT INTO point_grants(user_id, by_id, points, note, at) VALUES(?,?,?,?,?)').run(user.id, by.id, points, note, new Date().toISOString());
+  void notifyPointsGranted(user.id, points, note, balance);
+  return balance;
 }

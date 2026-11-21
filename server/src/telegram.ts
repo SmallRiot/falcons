@@ -210,6 +210,7 @@ const LINK_LABEL: Record<string, string> = {
   'admin-finance': '🧾 Проверить',
   'admin-users': '👥 Открыть',
   home: '🦅 Открыть Falcons',
+  shop: '🏆 Магазин ачивок',
 };
 function english(id: number): boolean {
   return db.prepare('SELECT language FROM users WHERE id = ?').get(id)?.language === 'en';
@@ -224,7 +225,7 @@ const eventEn = (e: EventRow) => {
 
 const linkLabelsEn: Record<string, string> = {
   finance: '💳 Pay dues', sharpening: '⛸ Skate sharpening', service: '⛸ Open queue',
-  'admin-finance': '🧾 Review payment', 'admin-users': '👥 View players', home: '🦅 Open Falcons',
+  'admin-finance': '🧾 Review payment', 'admin-users': '👥 View players', home: '🦅 Open Falcons', shop: '🏆 Achievements shop',
 };
 const linkButton = (link: string, userId: number): Button => ({ text: english(userId) ? linkLabelsEn[link] ?? '🦅 Open' : LINK_LABEL[link] ?? '🦅 Открыть', url: appLink(link) });
 
@@ -686,6 +687,16 @@ export function notifyPrizeStatus(userId: number, title: string, status: 'issued
       ? `🎁 Приз «${esc(title)}» выдан. Носи с удовольствием!`
       : `↩️ Заказ «${esc(title)}» отменён${refund ? ` — ${refund.toLocaleString('ru-RU')} очк. вернулись на баланс` : ''}.`,
     'profile',
+  );
+}
+export function notifyPointsGranted(userId: number, points: number, note: string | null, balance: number) {
+  const n = Math.abs(points).toLocaleString('ru-RU');
+  return dm(
+    userId,
+    (points > 0 ? `🎁 Тебе начислено <b>${n} очк.</b>` : `➖ С баланса списано <b>${n} очк.</b>`) +
+      (note ? `\n«${esc(note)}»` : '') +
+      `\nНа балансе: ${balance.toLocaleString('ru-RU')} очк. Загляни в магазин ачивок!`,
+    'shop',
   );
 }
 export const teamChatIdNow = () => teamChatId();

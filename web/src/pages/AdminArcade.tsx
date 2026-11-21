@@ -4,13 +4,14 @@ import { Gamepad2 } from 'lucide-react';
 import { api } from '@shared/api';
 import { fmt } from '@shared/format';
 import { ShopAdmin } from '@shared/ShopAdmin';
+import { GrantPoints } from '@shared/GrantPoints';
 import { ORDER_STATUS, PROVIDER_NAME, pts, type ArcadeStats } from '@shared/arcadeStats';
 import { ask, Avatar, Empty, Nick, ProofImage, Segmented, Spinner, useAction, useApi } from '@shared/ui';
 
 /** Админ: аналитика «Ледового дропа» и заказы из магазина (выдать / отменить). */
 export default function AdminArcade() {
   const { data, loading, reload } = useApi<ArcadeStats>('/api/admin/arcade');
-  const [tab, setTab] = useState<'orders' | 'shop' | 'players' | 'stats' | 'ai'>('orders');
+  const [tab, setTab] = useState<'orders' | 'shop' | 'grant' | 'players' | 'stats' | 'ai'>('orders');
   const { busy, run } = useAction();
   if (loading || !data) return <Spinner />;
   const T = data.totals;
@@ -58,16 +59,19 @@ export default function AdminArcade() {
         value={tab}
         onChange={setTab}
         options={[
-          ['orders', `${t('Заказы')} · ${T.orders}`],
+          ['orders', `${t('Заказы')} ${T.orders}`],
           ['shop', t('Магазин')],
+          ['grant', t('🎁 Очки')],
           ['players', t('Игроки')],
           ['stats', t('Цифры')],
-          ['ai', t('Нейронки')],
+          ['ai', t('ИИ')],
         ]}
       />
 
       {tab === 'shop' ? (
         <ShopAdmin />
+      ) : tab === 'grant' ? (
+        <GrantPoints data={data} onDone={reload} />
       ) : tab === 'ai' ? (
         <AiTab ai={data.ai} onVkid={() => run(async () => { await api.post('/api/admin/ai/vkid'); await reload(); }, t('Вкид отправлен в чат'))} busy={busy} />
       ) : tab === 'orders' ? (

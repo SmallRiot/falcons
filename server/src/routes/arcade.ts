@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { requireActive, requireOwner } from '../auth.ts';
 import { db, nowIso, publicUser, resetStyleCache, type UserRow } from '../db.ts';
-import { arcadePlayers, buyPrize, catalog, FOREVER, FRAME_DESIGNS, setShopOverride, withStore, type PrizeOrder, type ShopOverride } from '../prizes.ts';
+import { arcadePlayers, buyPrize, catalog, FOREVER, FRAME_DESIGNS, grantPoints, setShopOverride, withStore, type PrizeOrder, type ShopOverride } from '../prizes.ts';
 import { readUpload } from '../uploads.ts';
 
 const FOREVER_PRICE = 50; // ₾
@@ -63,15 +63,21 @@ export default async function arcadeRoutes(app: FastifyInstance) {
   );
 
   /** Покупка: заказ попадает в базу клуба, админу приходит уведомление, приз — в профиль игрока. */
-  app.post<{ Body: { id: string; option?: string } }>(
+  app.post<{ Body: { id: string; option?: string; term?: 'week' } }>(
     '/api/arcade/buy',
     {
       ...player,
-      schema: { body: { type: 'object', required: ['id'], properties: { id: { type: 'string', maxLength: 32 }, option: { type: 'string', maxLength: 16 } } } },
+      schema: {
+        body: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string', maxLength: 32 }, option: { type: 'string', maxLength: 16 }, term: { type: 'string', enum: ['week'] } },
+        },
+      },
     },
     (req, reply) => {
       try {
-        const order = buyPrize(req.user, req.body.id, req.body.option ?? null);
+        const order = buyPrize(req.user, req.body.id, req.body.option ?? null, req.body.term ?? null);
         return { state: withCatalog(withStore(req.user.id, (s) => s.state())), order };
       } catch (err) {
         return reply.code(400).send({ error: (err as Error).message });
@@ -147,6 +153,14 @@ export default async function arcadeRoutes(app: FastifyInstance) {
       },
       byItem: Object.entries(byItem).map(([item, v]) => ({ item, ...v })).sort((a, b) => b.points - a.points),
       players: players.sort((a, b) => b.balance - a.balance),
+      // все участники — кому можно начислить очки (у кого ещё нет кошелька — баланс 0)
+      members: [...users.values()]
+        .filter((u) => u.status === 'active')
+        .map((u) => ({ user: publicUser(u), balance: players.find((p) => p.user.id === u.id)?.balance ?? 0 }))
+        .sort((a, b) => String(a.user.name).localeCompare(String(b.user.name), 'ru')),
+      grants: (db.prepare('SELECT * FROM point_grants ORDER BY id DESC LIMIT 50').all() as { user_id: number; points: number; note: string | null; at: string }[]).map(
+        (g) => ({ ...g, user: users.has(g.user_id) ? publicUser(users.get(g.user_id)!) : { id: g.user_id, name: `id ${g.user_id}` } }),
+      ),
       orders,
       ai: aiStats(),
     };
@@ -159,6 +173,7 @@ export default async function arcadeRoutes(app: FastifyInstance) {
       const b = req.body ?? {};
       setShopOverride(req.params.id, {
         ...(b.price !== undefined ? { price: Number(b.price) } : {}),
+        ...(b.weekPrice !== undefined ? { weekPrice: Number(b.weekPrice) } : {}),
         ...(b.hidden !== undefined ? { hidden: !!b.hidden } : {}),
         ...(b.off !== undefined ? { off: !!b.off } : {}),
       });
@@ -167,6 +182,32 @@ export default async function arcadeRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: (err as Error).message });
     }
   });
+
+  /** Владелец начисляет очки игроку (минус — списать). */
+  app.post<{ Body: { userId: number; points: number; note?: string } }>(
+    '/api/admin/arcade/grant',
+    {
+      ...admin,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['userId', 'points'],
+          properties: { userId: { type: 'integer' }, points: { type: 'number', minimum: -100000, maximum: 100000 }, note: { type: 'string', maxLength: 120 } },
+        },
+      },
+    },
+    (req, reply) => {
+      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.body.userId) as UserRow | undefined;
+      if (!u || u.status !== 'active') return reply.code(404).send({ error: 'Игрок не найден' });
+      const points = Math.round(req.body.points * 5) / 5;
+      try {
+        const balance = grantPoints(req.user, u, points, req.body.note?.trim() || null);
+        return { ok: true, balance };
+      } catch (err) {
+        return reply.code(400).send({ error: (err as Error).message });
+      }
+    },
+  );
 
   /** Админ: вечерний вкид прямо сейчас (проверить, как пишет нейронка). */
   app.post('/api/admin/ai/vkid', admin, async () => {

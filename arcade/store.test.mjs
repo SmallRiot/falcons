@@ -96,3 +96,21 @@ test('welcome bonus stays separate, survives reopening and is collected only onc
     assert.equal(store.state().bonus.status,'collected');
   } finally {store.close();rmSync(dir,{recursive:true,force:true});}
 });
+
+test('week term and owner grants', () => {
+  const dir = mkdtempSync(tmpdir()+'/falcons-week-');
+  const store = openStore(dir);
+  try {
+    assert.throws(() => store.grant(-1), /нет/);
+    assert.equal(store.grant(25), 25);
+    const w = store.buy('nick-fire', null, null, 'week');
+    assert.equal(w.item.price, 10);
+    assert.equal(w.item.days, 7);
+    assert.match(w.item.name, /на неделю/);
+    assert.throws(() => store.buy('shout-out', null, null, 'week'), /неделю/);
+    assert.throws(() => store.buy('nick-fire', null, null, 'year'), /срок/);
+    assert.equal(store.buy('frame-month', 'torch', 12, 'week').item.price, 12);
+    assert.equal(store.state().balance, 3);
+    assert.equal(store.grant(-3), 0);
+  } finally { store.close(); rmSync(dir, {recursive:true, force:true}); }
+});

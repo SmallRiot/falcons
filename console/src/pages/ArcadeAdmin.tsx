@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '@shared/api';
 import { fmt } from '@shared/format';
 import { ShopAdmin } from '@shared/ShopAdmin';
+import { GrantPoints } from '@shared/GrantPoints';
 import { ORDER_STATUS, PROVIDER_NAME, pts, type ArcadeStats } from '@shared/arcadeStats';
 import { ask, Avatar, Nick, ProofImage, Segmented, Spinner, useAction, useApi } from '@shared/ui';
 import Drawer from '../Drawer';
@@ -9,11 +10,11 @@ import Drawer from '../Drawer';
 /** Консоль: аналитика «Ледового дропа» и заказы из магазина. */
 export default function ArcadeAdmin() {
   const { data, loading, reload } = useApi<ArcadeStats>('/api/admin/arcade');
-  const [tab, setTab] = useState<'orders' | 'shop' | 'players' | 'items' | 'ai'>('orders');
+  const [tab, setTab] = useState<'orders' | 'shop' | 'grant' | 'players' | 'items' | 'ai'>('orders');
   const { busy, run } = useAction();
+  const [proof, setProof] = useState<string | null>(null);
   if (loading || !data) return <Spinner />;
   const T = data.totals;
-  const [proof, setProof] = useState<string | null>(null);
   const setStatus = (id: number, status: 'issued' | 'cancelled' | 'approved', ok: string) =>
     run(async () => {
       await api.patch(`/api/admin/prizes/${id}`, { status });
@@ -58,6 +59,7 @@ export default function ArcadeAdmin() {
             options={[
               ['orders', `Заказы · ${T.orders}`],
               ['shop', 'Магазин'],
+              ['grant', 'Начислить'],
               ['players', `Игроки · ${T.players}`],
               ['items', 'Призы'],
               ['ai', 'Нейронки'],
@@ -69,6 +71,10 @@ export default function ArcadeAdmin() {
         {tab === 'shop' ? (
           <div style={{ padding: 16, maxWidth: 760 }}>
             <ShopAdmin />
+          </div>
+        ) : tab === 'grant' ? (
+          <div style={{ padding: 16, maxWidth: 560 }}>
+            <GrantPoints data={data} onDone={reload} />
           </div>
         ) : tab === 'ai' ? (
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>

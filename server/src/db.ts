@@ -228,6 +228,16 @@ CREATE TABLE IF NOT EXISTS prize_orders (
 );`);
 addColumn('prize_orders', 'proof', 'TEXT');
 addColumn('prize_orders', 'currency', "TEXT NOT NULL DEFAULT 'pts'");
+// начисления очков владельцем (журнал)
+db.exec(`
+CREATE TABLE IF NOT EXISTS point_grants (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  by_id    INTEGER NOT NULL,
+  points   REAL NOT NULL,
+  note     TEXT,
+  at       TEXT NOT NULL
+);`);
 // роль «гость»: цена за выход на лёд и оплаты за каждое событие
 addColumn('users', 'guest_price', 'REAL');
 db.exec(`

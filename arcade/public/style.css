@@ -183,3 +183,6 @@ dialog.shop form{float:none}
 .prize.forever .price{color:var(--sh-gold)}
 .reveal p{margin:0;color:var(--sh-ink)}
 .fr.frame-torch{box-shadow:0 0 0 2px #0f2029,0 0 0 4px #ff2d00,0 0 0 6px #ffb300,0 -6px 18px #ff6d00cc,0 0 22px #ff2d0099}
+.terms{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.terms .buy{margin-top:0;padding:12px 8px;font-size:.86rem}
+.terms .buy.ghost{background:transparent;border:1px solid var(--sh-gold);color:var(--sh-gold)}
+.terms .buy.ghost:disabled{border-color:#18303c;color:var(--sh-mute)}

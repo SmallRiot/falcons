@@ -367,10 +367,10 @@ function product(item, featured) {
   const btn = el('button', 'buy');
   btn.textContent = enough || item.hidden ? (times ? text('Взять ещё', 'Claim again') : text('Взять', 'Claim')) : text('Копим', 'Saving up');
   btn.disabled = busy || (!enough && !item.hidden);
-  const doBuy = async () => {
+  const doBuy = async (term) => {
     busy = true; render();
     try {
-      state = (await request('/buy', { id: item.id, option: picked[item.id] })).state;
+      state = (await request('/buy', { id: item.id, option: picked[item.id], ...(term ? { term } : {}) })).state;
       const k = item.kind;
       $('#shopmsg').textContent =
         k === 'cosmetic' ? text(`Готово! «${title}» уже действует — смотри в профиле.`, `Done! “${title}” is live — check your profile.`)
@@ -390,12 +390,22 @@ function product(item, featured) {
       ? text(`Цена — <b>${pts(item.price)}</b>. Берём?`, `It costs <b>${pts(item.price)}</b>. Claim it?`)
       : text(`Цена — <b>${pts(item.price)}</b>. Пока не хватает очков.`, `It costs <b>${pts(item.price)}</b>. Not enough points yet.`)) + '</p>';
     const row = el('div', 'reveal-row');
-    if (ok) { const yes = el('button', 'buy'); yes.textContent = text('Да, беру', 'Yes'); yes.onclick = doBuy; row.append(yes); }
+    if (ok) { const yes = el('button', 'buy'); yes.textContent = text('Да, беру', 'Yes'); yes.onclick = () => doBuy(); row.append(yes); }
     const no = el('button', 'buy ghost'); no.textContent = ok ? text('Нет', 'No') : text('Ок', 'OK'); no.onclick = () => { box.replaceWith(btn); };
     row.append(no); box.append(row);
     btn.replaceWith(box);
   };
-  body.append(btn);
+  // ачивка на неделю — дешевле: отдельная кнопка рядом с «месяцем»
+  if (item.weekPrice && !item.hidden) {
+    const row = el('div', 'terms');
+    const wk = el('button', 'buy ghost');
+    wk.textContent = text(`Неделя · ${pts(item.weekPrice)}`, `Week · ${pts(item.weekPrice)}`);
+    wk.disabled = busy || state.balance < item.weekPrice;
+    wk.onclick = () => doBuy('week');
+    btn.textContent = text(`Месяц · ${pts(item.price)}`, `Month · ${pts(item.price)}`);
+    row.append(wk, btn);
+    body.append(row);
+  } else body.append(btn);
   card.append(body);
   return card;
 }

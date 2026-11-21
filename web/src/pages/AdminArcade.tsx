@@ -257,6 +257,7 @@ type Memory = {
 function MemoryPanel() {
   const { data, reload } = useApi<Memory>('/api/admin/ai/memory');
   const { busy, run } = useAction();
+  const [edit, setEdit] = useState<{ id: number; text: string } | null>(null);
   if (!data) return <Spinner />;
   return (
     <>
@@ -271,8 +272,37 @@ function MemoryPanel() {
                   {t('до')} {fmt.dateShort(tr.expires_at)} · {tr.anon ? t('анонимно') : `${t('заказал')} ${tr.buyer?.name ?? '—'}`}
                   {tr.last_at ? ` · ${t('последний вкид')} ${fmt.dateShort(tr.last_at)}` : ''}
                 </div>
-                <div className="small" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{tr.dossier}</div>
+                {edit?.id === tr.order_id ? (
+                  <div className="vstack" style={{ gap: 6, marginTop: 6 }}>
+                    <textarea className="input" rows={4} maxLength={2000} value={edit.text} onChange={(e) => setEdit({ id: tr.order_id, text: e.target.value })} />
+                    <div className="btn-row">
+                      <button className="btn ghost sm" onClick={() => setEdit(null)}>
+                        {t('Отмена')}
+                      </button>
+                      <button
+                        className="btn ok sm"
+                        disabled={busy || edit.text.trim().length < 3}
+                        onClick={() =>
+                          run(async () => {
+                            await api.patch(`/api/admin/ai/trolls/${tr.order_id}`, { dossier: edit.text });
+                            setEdit(null);
+                            await reload();
+                          }, t('Досье обновлено'))
+                        }
+                      >
+                        {t('Сохранить')}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="small" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{tr.dossier}</div>
+                )}
               </div>
+              {edit?.id !== tr.order_id && (
+                <button className="btn ghost sm" onClick={() => setEdit({ id: tr.order_id, text: tr.dossier })}>
+                  ✏️
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -299,6 +299,15 @@ export default async function arcadeRoutes(app: FastifyInstance) {
       return { ...t, target: u ? publicUser(u) : null, buyer: b ? publicUser(b) : null };
     }),
   }));
+  app.patch<{ Params: { id: string }; Body: { dossier: string } }>(
+    '/api/admin/ai/trolls/:id',
+    { ...admin, schema: { body: { type: 'object', required: ['dossier'], properties: { dossier: { type: 'string', minLength: 3, maxLength: 2000 } } } } },
+    (req, reply) => {
+      const r = db.prepare('UPDATE trolls SET dossier = ? WHERE order_id = ?').run(req.body.dossier.trim(), Number(req.params.id));
+      if (!r.changes) return reply.code(404).send({ error: 'Тролль не найден' });
+      return { ok: true };
+    },
+  );
   app.post('/api/admin/ai/memory', admin, async () => runDailyMemory(true));
   app.delete<{ Params: { id: string } }>('/api/admin/ai/facts/:id', admin, (req) => {
     db.prepare('DELETE FROM ai_facts WHERE id = ?').run(Number(req.params.id));

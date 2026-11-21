@@ -232,7 +232,7 @@ function AiTab({ ai, onVkid, busy }: { ai: ArcadeStats['ai']; onVkid: () => void
               <div key={p.id} className="row" style={{ alignItems: 'flex-start' }}>
                 <div className="grow">
                   <div className="meta">
-                    {PROVIDER_NAME[p.provider] ?? p.provider} · {p.kind === 'shout' ? `${t('респект')} ${p.first_name ?? ''}` : t('вечерний вкид')} · {fmt.dateShort(p.created_at)} · {t('видел сообщений')} {p.context_n}
+                    {PROVIDER_NAME[p.provider] ?? p.provider} · {p.kind === 'shout' ? `${t('респект')} ${p.first_name ?? ''}` : p.kind === 'troll' ? `🧌 ${t('тролль')} ${p.first_name ?? ''}` : p.kind === 'answer' ? `💬 ${t('ответ')} ${p.first_name ?? ''}` : t('вечерний вкид')} · {fmt.dateShort(p.created_at)} · {t('видел сообщений')} {p.context_n}
                   </div>
                   <div className="small" style={{ marginTop: 4 }}>{p.text}</div>
                 </div>

@@ -719,7 +719,15 @@ const TOPIC_CHAT: Record<BotTopic, string> = { general: TEAM, trainings: TEAM_TR
  * Сообщение бота в группу: в топик или реплаем на конкретное сообщение (тогда в его топик).
  * Всё, что бот написал, тоже ложится в журнал чата — тролль и память видят и свои реплики.
  */
-export async function botSay(text: string, where: { topic?: BotTopic; replyTo?: { messageId: number; threadId: number | null } }) {
+/** Подпись под репликами нейронки в чате (тролль, ответы по тегу). */
+export const AI_MADE_SIGN = '🇷🇺 <i>Сделано на GigaChat</i>';
+
+export async function botSay(
+  text: string,
+  where: { topic?: BotTopic; replyTo?: { messageId: number; threadId: number | null } },
+  extra: { sign?: string; buttons?: Button[][] } = {},
+) {
+  const html = esc(text) + (extra.sign ? `\n\n${extra.sign}` : '');
   const chat = teamChatId();
   if (!chat) {
     console.log(`\n[tg → командный чат (TEAM_CHAT_ID не задан)]\n${text}\n`);
@@ -732,14 +740,15 @@ export async function botSay(text: string, where: { topic?: BotTopic; replyTo?: 
       api('sendMessage', {
         chat_id: chat,
         ...inThread(thread),
-        text: esc(text),
+        text: html,
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_parameters: { message_id: where.replyTo!.messageId, allow_sending_without_reply: true },
+        ...keyboard(extra.buttons),
       }),
     )) as typeof res;
   } else {
-    res = (await sendMessage(where.replyTo ? TEAM : TOPIC_CHAT[where.topic ?? 'general'], esc(text))) as typeof res;
+    res = (await sendMessage(where.replyTo ? TEAM : TOPIC_CHAT[where.topic ?? 'general'], html, extra.buttons)) as typeof res;
   }
   const { logChatMessage } = await import('./aiBuddy.ts');
   logChatMessage({ chatId: chat, threadId: res?.message_thread_id ?? where.replyTo?.threadId ?? undefined, userId: null, name: 'Бот', text, messageId: res?.message_id });

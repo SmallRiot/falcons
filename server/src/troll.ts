@@ -1,7 +1,7 @@
 import { config } from './config.ts';
 import { db, displayName, getSetting, setSetting, type UserRow } from './db.ts';
 import { gigachat, gigachatReady, GIGACHAT_MODEL } from './gigachat.ts';
-import { botSay, teamChatIdNow } from './telegram.ts';
+import { AI_MADE_SIGN, aiPostButtons, botSay, teamChatIdNow } from './telegram.ts';
 
 /**
  * Бот-тролль и память бота.
@@ -132,21 +132,24 @@ async function runTroll(targetId: number, forced: boolean) {
     const r = parseJson<{ go?: boolean; text?: string }>(raw);
     const text = r?.go && r.text ? clean(r.text) : forced && !r ? clean(raw) : '';
     if (!text) return;
-    const msg = await botSay(text, { replyTo: { messageId: last.message_id!, threadId: last.thread_id } });
-    db.prepare(`INSERT INTO ai_posts(provider, model, kind, user_id, text, context_n, chat_id, message_id) VALUES('gigachat', ?, 'troll', ?, ?, ?, ?, ?)`).run(
-      GIGACHAT_MODEL,
-      targetId,
-      text,
-      rows.length,
-      String(teamChatIdNow()),
-      msg?.message_id ?? null,
-    );
+    await sayRated(text, 'troll', targetId, rows.length, { messageId: last.message_id!, threadId: last.thread_id });
     db.prepare('UPDATE trolls SET last_at = ? WHERE target_id = ?').run(new Date().toISOString(), targetId);
   } catch (e) {
     console.warn('[troll] gigachat failed:', (e as Error).message);
   } finally {
     busy.delete(targetId);
   }
+}
+
+/** Реплика нейронки реплаем — с подписью «Сделано на GigaChat» и кнопками оценки, в статистику нейронок. */
+async function sayRated(text: string, kind: 'troll' | 'answer', userId: number, contextN: number, replyTo: { messageId: number; threadId: number | null }) {
+  const id = Number(
+    db
+      .prepare(`INSERT INTO ai_posts(provider, model, kind, user_id, text, context_n) VALUES('gigachat', ?, ?, ?, ?, ?)`)
+      .run(GIGACHAT_MODEL, kind, userId, text, contextN).lastInsertRowid,
+  );
+  const msg = await botSay(text, { replyTo }, { sign: AI_MADE_SIGN, buttons: aiPostButtons(id, { 3: 0, 2: 0, 1: 0 }) });
+  if (msg?.message_id) db.prepare('UPDATE ai_posts SET chat_id = ?, message_id = ? WHERE id = ?').run(String(teamChatIdNow()), msg.message_id, id);
 }
 
 /* ---------------- память ---------------- */
@@ -236,7 +239,7 @@ async function answerFromMemory(m: TeamMsg) {
       { temperature: 0.8, maxTokens: 400 },
     );
     const text = clean(raw);
-    if (text) await botSay(text, { replyTo: { messageId: m.messageId, threadId: m.threadId ?? null } });
+    if (text) await sayRated(text, 'answer', m.userId, rows.length, { messageId: m.messageId, threadId: m.threadId ?? null });
   } catch (e) {
     console.warn('[memory] answer failed:', (e as Error).message);
     await botSay('Что-то я завис 🤯 Спроси ещё раз чуть позже.', { replyTo: { messageId: m.messageId, threadId: m.threadId ?? null } });

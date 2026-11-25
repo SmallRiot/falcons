@@ -78,6 +78,7 @@ export default function Manage() {
       <div className="list">
         {coach && <Row icon={<CalendarPlus size={20} />} title={t('Создать тренировку или игру')} onClick={() => nav('/events/new')} />}
         {coach && <Row icon={<CalendarDays size={20} />} title={t('События и пятёрки')} onClick={() => nav('/events')} />}
+        {coach && <Row icon={<Users size={20} />} title={t('Люди: посещаемость и бонусы')} onClick={() => nav('/people')} />}
         {coach && <Row icon={<Users size={20} />} title={t('Игроки по составам')} onClick={() => nav('/manage/squads')} />}
         {admin && <Row icon={<Users size={20} />} title={t('Люди и роли')} count={b.pendingUsers} onClick={() => nav('/admin/users')} />}
         {admin && <Row icon={<Receipt size={20} />} title={t('Взносы и проверка оплат')} count={b.proofs} onClick={() => nav('/admin/finance')} />}

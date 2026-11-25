@@ -1,6 +1,6 @@
 import { t } from '@shared/i18n';
 import type { LineupItem, PublicUser, Team } from '@shared/api';
-import { Nick } from '@shared/ui';
+import { Nick, UserTags } from '@shared/ui';
 
 export const FWD = ['LW', 'C', 'RW'] as const;
 export const DEF = ['LD', 'RD'] as const;
@@ -43,6 +43,7 @@ export default function Lines({ team = '', lines, lineup, players, myId, selecte
             <span className="no">
               #{p.number ?? '–'} {p.last_name?.[0] ? `${p.last_name[0]}.` : ''}
             </span>
+            <UserTags user={p} compact />
           </>
         ) : (
           <span className="no">—</span>

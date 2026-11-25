@@ -387,6 +387,20 @@ export function SquadChip({ squad, full }: { squad: Pick<Squad, 'short' | 'name'
   );
 }
 
+/** Теги человека: составы клуба цветом состава и команда гостя. compact — маленькие, для пятёрок. */
+export function UserTags({ user, compact }: { user: { tags?: { label: string; color: string; guest?: boolean }[] }; compact?: boolean }) {
+  if (!user.tags?.length) return null;
+  return (
+    <span className={`utags ${compact ? 'compact' : ''}`}>
+      {user.tags.map((tg) => (
+        <span key={tg.label} className={`utag ${tg.guest ? 'guest' : ''}`} style={{ background: `${tg.color}22`, color: tg.color }} title={tg.guest ? `Гость · ${tg.label}` : tg.label}>
+          {tg.guest && tg.label !== 'Гость' ? `↗ ${tg.label}` : tg.label}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /** Выбор нескольких составов чипами. */
 export function SquadPicker({ squads, value, onChange }: { squads: Squad[]; value: number[]; onChange: (v: number[]) => void }) {
   return (

@@ -610,3 +610,13 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .lux-card .cover-demo { border-radius: 0; background: #0d1c24; color: #eef5f8; }
 .lux-card.row-card { flex-direction: row; align-items: center; gap: 4px; padding-right: 12px; }
 .lux-card.row-card .lux-tags { width: 110px; flex: none; margin: 0; }
+
+/* теги людей: составы и команда гостя */
+.utags { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
+.utag { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 750; line-height: 1; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+.utag.guest { border: 1px dashed currentColor; }
+.utags.compact { gap: 3px; }
+.utags.compact .utag { height: 15px; padding: 0 4px; font-size: 9.5px; border-radius: 4px; max-width: 72px; }
+.pchip .utags { margin-left: 2px; }
+.pchip.sel .utag { background: rgba(255, 255, 255, 0.22) !important; color: #fff !important; }
+.slot .utags { justify-content: center; max-width: 100%; overflow: hidden; flex-wrap: nowrap; }

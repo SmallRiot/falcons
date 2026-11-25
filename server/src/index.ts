@@ -17,6 +17,7 @@ import devRoutes from './routes/dev.ts';
 import authRoutes from './routes/auth.ts';
 import consoleRoutes from './routes/console.ts';
 import feeRoutes from './routes/fees.ts';
+import peopleRoutes from './routes/people.ts';
 import { avatarsDir } from './profile.ts';
 
 /**
@@ -45,6 +46,7 @@ async function buildServer(staticDir: string | null) {
     await api.register(adminRoutes);
     await api.register(consoleRoutes);
     await api.register(feeRoutes);
+    await api.register(peopleRoutes);
   });
   // фото игроков — без входа (их показывают <img>), имя файла случайное
   app.get<{ Params: { name: string } }>('/api/avatars/:name', async (req, reply) => {

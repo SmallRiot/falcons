@@ -12,11 +12,13 @@ export function GuestAdd({ eventId, already, onAdded }: { eventId: number; alrea
   const recent = useApi<PublicUser[]>('/api/guests');
   const [name, setName] = useState('');
   const [pos, setPos] = useState<'F' | 'D' | 'G'>('F');
+  const [club, setClub] = useState('');
   const { busy, run } = useAction();
-  const add = (body: { name?: string; guest_id?: number; position?: string }, who: string) =>
+  const add = (body: { name?: string; guest_id?: number; position?: string; club?: string }, who: string) =>
     run(async () => {
       await api.post(`/api/events/${eventId}/guests`, body);
       setName('');
+      setClub('');
       await Promise.all([onAdded(), recent.reload()]);
     }, t('{0} записан', who));
   const quick = (recent.data ?? []).filter((g) => !already.includes(g.id));
@@ -31,8 +33,12 @@ export function GuestAdd({ eventId, already, onAdded }: { eventId: number; alrea
           value={name}
           placeholder={t('Например: Олег Смирнов')}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && name.trim().length > 1 && add({ name, position: pos }, name.trim())}
+          onKeyDown={(e) => e.key === 'Enter' && name.trim().length > 1 && add({ name, position: pos, club }, name.trim())}
         />
+      </label>
+      <label className="field">
+        <span>{t('Из какой команды')}</span>
+        <input className="input" maxLength={40} value={club} placeholder={t('Например: Барсы. Пусто — просто гость')} onChange={(e) => setClub(e.target.value)} />
       </label>
       <div className="field">
         <span>{t('Позиция')}</span>
@@ -46,7 +52,7 @@ export function GuestAdd({ eventId, already, onAdded }: { eventId: number; alrea
           ]}
         />
       </div>
-      <button className="btn block" disabled={busy || name.trim().length < 2} onClick={() => add({ name, position: pos }, name.trim())}>
+      <button className="btn block" disabled={busy || name.trim().length < 2} onClick={() => add({ name, position: pos, club }, name.trim())}>
         <UserPlus size={18} /> {t('Записать гостя')}
       </button>
       {quick.length > 0 && (
@@ -55,7 +61,7 @@ export function GuestAdd({ eventId, already, onAdded }: { eventId: number; alrea
           <div className="chips">
             {quick.map((g) => (
               <button key={g.id} className="chip" style={{ border: 0, height: 34, padding: '0 12px' }} disabled={busy} onClick={() => add({ guest_id: g.id }, g.name)}>
-                + {g.name}
+                + {g.name}{g.tags?.find((x) => x.guest && x.label !== 'Гость') ? ` · ${g.tags.find((x) => x.guest)!.label}` : ''}
               </button>
             ))}
           </div>

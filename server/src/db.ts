@@ -275,6 +275,9 @@ CREATE TABLE IF NOT EXISTS ai_facts (
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );`);
 
+// гость может быть из другой команды — её название показываем тегом в пятёрках и списках
+addColumn('users', 'club', 'TEXT');
+
 export const nowIso = () => new Date().toISOString();
 
 export function getSetting(key: string, fallback: string): string {
@@ -299,6 +302,7 @@ export interface UserRow {
   roles: string;
   status: 'pending' | 'active' | 'rejected' | 'guest';
   guest_price?: number | null;
+  club?: string | null;
   cover_url?: string | null;
   signup_blocked: number;
   created_at: string;
@@ -356,7 +360,21 @@ export function publicUser(u: UserRow) {
     birth_date: u.birth_date ?? null,
     /** гость без Telegram, записанный админом/тренером на событие */
     guest: u.status === 'guest',
+    /** теги: составы клуба и (для гостей) их команда — чтобы в пятёрках сразу видеть, кто откуда */
+    tags: tagsOf(u),
   };
+}
+
+export type UserTag = { label: string; color: string; guest?: boolean };
+export const GUEST_COLOR = '#8a63d2';
+export function tagsOf(u: Pick<UserRow, 'id' | 'status' | 'roles'> & { club?: string | null }): UserTag[] {
+  const sq = db
+    .prepare('SELECT s.short, s.color FROM user_squads us JOIN squads s ON s.id = us.squad_id WHERE us.user_id = ? ORDER BY s.sort, s.id')
+    .all(u.id) as { short: string; color: string }[];
+  const tags: UserTag[] = sq.map((s) => ({ label: s.short, color: s.color }));
+  const isGuest = u.status === 'guest' || (u.roles ?? '').split(',').includes('guest');
+  if (isGuest) tags.push({ label: u.club?.trim() ? u.club.trim() : 'Гость', color: GUEST_COLOR, guest: true });
+  return tags;
 }
 
 /** Профиль заполнен: имя, фамилия и дата рождения. Иначе после одобрения просим заполнить. */

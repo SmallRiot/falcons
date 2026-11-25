@@ -30,6 +30,8 @@ import AdminArcade from './pages/AdminArcade';
 import FrameForever from './pages/FrameForever';
 import Troll from './pages/Troll';
 import AdminBot from './pages/AdminBot';
+import People from './pages/People';
+import Person from './pages/Person';
 import Shop from './pages/Shop';
 import SquadMembers from './pages/SquadMembers';
 
@@ -179,6 +181,8 @@ export default function App() {
       <Route path="/frame-forever" element={<FrameForever />} />
       <Route path="/troll" element={<Troll />} />
       <Route path="/admin/bot" element={<AdminBot />} />
+      <Route path="/people" element={<People />} />
+      <Route path="/people/:id" element={<Person />} />
       <Route path="/shop" element={<Shop />} />
       <Route path="/manage/squads" element={<SquadMembers />} />
       <Route path="/manage" element={isStaff ? <Manage /> : <Home />} />
@@ -206,7 +210,7 @@ export default function App() {
               <Tab to="/manage" icon={<LayoutGrid size={22} />} label={t('Обзор')} />
               )}
               {can(me, 'admin', 'coach') && <Tab to="/events" icon={<CalendarDays size={22} />} label={t('События')} />}
-              {can(me, 'admin') && <Tab to="/admin/users" icon={<Users size={22} />} label={t('Люди')} dot={me.badges?.pendingUsers || undefined} />}
+              {can(me, 'admin', 'coach') && <Tab to="/people" icon={<Users size={22} />} label={t('Люди')} dot={(can(me, 'admin') && me.badges?.pendingUsers) || undefined} />}
               {can(me, 'admin') && <Tab to="/admin/finance" icon={<Receipt size={22} />} label={t('Взносы')} dot={me.badges?.proofs || undefined} />}
               {!serviceOnly && can(me, 'admin', 'service') && <Tab to="/service" icon={<Scissors size={22} />} label={t('Заточка')} dot={me.badges?.sharpenings || undefined} />}
             </>

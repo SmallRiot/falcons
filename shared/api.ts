@@ -110,7 +110,10 @@ export interface PublicUser {
   style?: NickStyle | null;
   /** обложка профиля (ачивка) */
   cover_url?: string | null;
+  /** составы клуба и команда гостя — теги в пятёрках и списках */
+  tags?: UserTag[];
 }
+export type UserTag = { label: string; color: string; guest?: boolean };
 export type NickStyle = { color?: string; fire?: boolean; grad?: string; emoji?: string; frame?: string | boolean; dev?: boolean; cover?: boolean };
 
 export interface Squad {

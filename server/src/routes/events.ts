@@ -218,7 +218,7 @@ export default async function eventRoutes(app: FastifyInstance) {
     (db.prepare(`SELECT * FROM users WHERE status = 'guest' ORDER BY created_at DESC LIMIT 30`).all() as unknown as UserRow[]).map(publicUser),
   );
 
-  app.post<{ Params: { id: string }; Body: { name?: string; guest_id?: number; position?: string } }>(
+  app.post<{ Params: { id: string }; Body: { name?: string; guest_id?: number; position?: string; club?: string } }>(
     '/api/events/:id/guests',
     { preHandler: requireRole('coach', 'admin') },
     async (req, reply) => {
@@ -248,6 +248,8 @@ export default async function eventRoutes(app: FastifyInstance) {
           db.prepare(`INSERT INTO users(id, first_name, last_name, position, status) VALUES(?,?,?,?, 'guest')`).run(gid, first, last, pos);
         }
       }
+      const club = (b.club ?? '').trim().slice(0, 40);
+      if (club) db.prepare('UPDATE users SET club = ? WHERE id = ?').run(club, gid);
       db.prepare(
         `INSERT INTO signups(event_id, user_id, status, created_at) VALUES(?,?, 'in', ?)
          ON CONFLICT(event_id,user_id) DO UPDATE SET status='in'`,

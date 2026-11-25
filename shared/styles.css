@@ -455,6 +455,14 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
   background: linear-gradient(90deg, #9df3ca, #2ec4ff); -webkit-text-fill-color: #062018;
 }
 
+/* значки у ника от владельца: БОСС, ВИНО, ПИВО… */
+.u-badge {
+  display: inline-flex; align-items: center; gap: 2px; margin-left: 5px; padding: 1px 6px; border-radius: 6px; vertical-align: 2px;
+  font: 800 10px/1.5 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: .04em; white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+}
+.slot .u-badge, .pchip .u-badge { display: none; }
+
 /* градиентные ники (ачивки) и твой DEV-ник — тот же мятно-голубой, что плашка DEV */
 .nick-grad { -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; background-size: 200% 100%; animation: nick-shine 4s linear infinite; }
 .nick-grad-dev { background-image: linear-gradient(90deg, #2bd9a0, #2ec4ff, #2bd9a0); }
@@ -620,3 +628,13 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
 .pchip .utags { margin-left: 2px; }
 .pchip.sel .utag { background: rgba(255, 255, 255, 0.22) !important; color: #fff !important; }
 .slot .utags { justify-content: center; max-width: 100%; overflow: hidden; flex-wrap: nowrap; }
+
+/* выдача значков владельцем */
+.badge-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge-opt { border: 2px solid transparent; background: var(--surface-2, #f1f4f7); border-radius: 10px; padding: 5px 6px; cursor: pointer; }
+.badge-opt.on { border-color: var(--falcon); background: var(--surface); }
+
+/* фото игроков в пятёрках */
+.pchip .avatar.sm { width: 26px; height: 26px; font-size: 10px; }
+.pchip.sel .avatar { box-shadow: 0 0 0 2px rgba(255, 255, 255, .6); }
+.slot .avatar.sm { width: 30px; height: 30px; margin-bottom: 1px; }

@@ -114,7 +114,7 @@ export interface PublicUser {
   tags?: UserTag[];
 }
 export type UserTag = { label: string; color: string; guest?: boolean };
-export type NickStyle = { color?: string; fire?: boolean; grad?: string; emoji?: string; frame?: string | boolean; dev?: boolean; cover?: boolean };
+export type NickStyle = { color?: string; fire?: boolean; grad?: string; emoji?: string; frame?: string | boolean; dev?: boolean; cover?: boolean; badges?: string[] };
 
 export interface Squad {
   id: number;

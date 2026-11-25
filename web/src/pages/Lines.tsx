@@ -1,6 +1,6 @@
 import { t } from '@shared/i18n';
 import type { LineupItem, PublicUser, Team } from '@shared/api';
-import { Nick, UserTags } from '@shared/ui';
+import { Avatar, Nick, UserTags } from '@shared/ui';
 
 export const FWD = ['LW', 'C', 'RW'] as const;
 export const DEF = ['LD', 'RD'] as const;
@@ -39,6 +39,7 @@ export default function Lines({ team = '', lines, lineup, players, myId, selecte
         <span className="pos">{SLOT_LABEL[slot]}</span>
         {p ? (
           <>
+            <Avatar user={{ ...p, style: null }} size="sm" />
             <span className="nm"><Nick user={p} text={p.first_name} /></span>
             <span className="no">
               #{p.number ?? '–'} {p.last_name?.[0] ? `${p.last_name[0]}.` : ''}

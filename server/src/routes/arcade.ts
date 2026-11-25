@@ -350,4 +350,51 @@ export default async function arcadeRoutes(app: FastifyInstance) {
       return { ok: true };
     },
   );
+
+  /* ---------- значки у ника (только владелец) ---------- */
+  const badgeRows = () =>
+    (
+      db
+        .prepare(
+          `SELECT b.id, b.user_id, b.badge, b.expires_at, b.at FROM user_badges b
+           WHERE b.expires_at IS NULL OR b.expires_at > ? ORDER BY b.id DESC`,
+        )
+        .all(nowIso()) as { id: number; user_id: number; badge: string; expires_at: string | null; at: string }[]
+    ).map((b) => {
+      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(b.user_id) as UserRow | undefined;
+      return { ...b, user: u ? publicUser(u) : { id: b.user_id, name: `id ${b.user_id}` } };
+    });
+  app.get('/api/admin/badges', admin, () => ({
+    active: badgeRows(),
+    members: (db.prepare(`SELECT * FROM users WHERE status = 'active' ORDER BY first_name`).all() as unknown as UserRow[]).map(publicUser),
+  }));
+  app.post<{ Body: { userId: number; badge: string; days?: number | null } }>(
+    '/api/admin/badges',
+    {
+      ...admin,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['userId', 'badge'],
+          properties: { userId: { type: 'integer' }, badge: { type: 'string', pattern: '^[a-z0-9-]{2,24}$' }, days: { type: ['integer', 'null'], minimum: 1, maximum: 3650 } },
+        },
+      },
+    },
+    (req, reply) => {
+      const u = db.prepare(`SELECT * FROM users WHERE id = ? AND status = 'active'`).get(req.body.userId) as UserRow | undefined;
+      if (!u) return reply.code(404).send({ error: 'Игрок не найден' });
+      const expires = req.body.days ? new Date(Date.now() + req.body.days * 864e5).toISOString() : null;
+      db.prepare(
+        `INSERT INTO user_badges(user_id, badge, expires_at, by_id, at) VALUES(?,?,?,?,?)
+         ON CONFLICT(user_id, badge) DO UPDATE SET expires_at = excluded.expires_at, by_id = excluded.by_id, at = excluded.at`,
+      ).run(u.id, req.body.badge, expires, req.user.id, nowIso());
+      resetStyleCache();
+      return { ok: true };
+    },
+  );
+  app.delete<{ Params: { id: string } }>('/api/admin/badges/:id', admin, (req) => {
+    db.prepare('DELETE FROM user_badges WHERE id = ?').run(Number(req.params.id));
+    resetStyleCache();
+    return { ok: true };
+  });
 }

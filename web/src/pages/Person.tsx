@@ -2,7 +2,8 @@ import { t } from '@shared/i18n';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, type PublicUser } from '@shared/api';
 import { fmt, POS_SHORT, ROLE_LABEL } from '@shared/format';
-import { askText, Avatar, Nick, Spinner, useAction, useApi, UserTags } from '@shared/ui';
+import { askText, Avatar, Nick, Spinner, useAction, useApi, useMe, UserTags } from '@shared/ui';
+import { BadgeAdmin } from '@shared/BadgeAdmin';
 
 type Ev = { id: number; type: string; title: string | null; starts_at: string; location: string | null; status: string; attended: number | null; line: number | null; score_us: number | null; score_them: number | null };
 type Stat = { trainings: number; games: number; ofTrainings: number };
@@ -29,6 +30,7 @@ export default function Person() {
   const nav = useNavigate();
   const { data, loading, reload } = useApi<PersonData>(`/api/people/${id}`, [id]);
   const { run } = useAction();
+  const { me } = useMe();
   if (loading || !data) return <Spinner />;
   const u = data.user;
   const guest = !!u.tags?.some((x) => x.guest);
@@ -134,6 +136,13 @@ export default function Person() {
           <div className="muted small" style={{ marginTop: 6 }}>{t('Активных ачивок нет')}</div>
         )}
       </div>
+
+      {me.user.owner && !data.noTelegram && (
+        <>
+          <div className="section-title">🏷 {t('Значки у ника')}</div>
+          <BadgeAdmin userId={u.id} onChange={reload} />
+        </>
+      )}
 
       {data.upcoming.length > 0 && (
         <>

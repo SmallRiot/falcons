@@ -5,13 +5,14 @@ import { api } from '@shared/api';
 import { fmt } from '@shared/format';
 import { ShopAdmin } from '@shared/ShopAdmin';
 import { GrantPoints } from '@shared/GrantPoints';
+import { BadgeAdmin } from '@shared/BadgeAdmin';
 import { ORDER_STATUS, PROVIDER_NAME, pts, type ArcadeStats } from '@shared/arcadeStats';
 import { ask, Avatar, Empty, Nick, ProofImage, Segmented, Spinner, toast, useAction, useApi } from '@shared/ui';
 
 /** Админ: аналитика «Ледового дропа» и заказы из магазина (выдать / отменить). */
 export default function AdminArcade() {
   const { data, loading, reload } = useApi<ArcadeStats>('/api/admin/arcade');
-  const [tab, setTab] = useState<'orders' | 'shop' | 'grant' | 'players' | 'stats' | 'ai'>('orders');
+  const [tab, setTab] = useState<'orders' | 'shop' | 'grant' | 'badges' | 'players' | 'stats' | 'ai'>('orders');
   const { busy, run } = useAction();
   if (loading || !data) return <Spinner />;
   const T = data.totals;
@@ -62,6 +63,7 @@ export default function AdminArcade() {
           ['orders', `${t('Заказы')} ${T.orders}`],
           ['shop', t('Магазин')],
           ['grant', t('🎁 Очки')],
+          ['badges', t('🏷 Значки')],
           ['players', t('Игроки')],
           ['stats', t('Цифры')],
           ['ai', t('ИИ')],
@@ -72,6 +74,8 @@ export default function AdminArcade() {
         <ShopAdmin />
       ) : tab === 'grant' ? (
         <GrantPoints data={data} onDone={reload} />
+      ) : tab === 'badges' ? (
+        <BadgeAdmin />
       ) : tab === 'ai' ? (
         <AiTab ai={data.ai} onVkid={() => run(async () => { await api.post('/api/admin/ai/vkid'); await reload(); }, t('Вкид отправлен в чат'))} busy={busy} />
       ) : tab === 'orders' ? (

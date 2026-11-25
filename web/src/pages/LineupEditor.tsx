@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Eraser, Send, Sparkles } from 'lucide-react';
 import { api, type EventDetail, type LineupItem, type PublicUser, type Team } from '@shared/api';
 import { haptic } from '@shared/tg';
-import { ask, Segmented, Spinner, toast, toastErr, useApi, UserTags } from '@shared/ui';
+import { ask, Avatar, Segmented, Spinner, toast, toastErr, useApi, UserTags } from '@shared/ui';
 import { fmt, POS_SHORT } from '@shared/format';
 import Lines, { TEAM_LABEL } from './Lines';
 import { autoFill, autoFillSplit } from '@shared/lineup';
@@ -172,8 +172,9 @@ export default function LineupEditor() {
                 className={`pchip ${sel?.kind === 'pool' && sel.userId === p.id ? 'sel' : ''}`}
                 onClick={() => onPool(p.id)}
               >
-                <span className="jersey">{p.number ?? '–'}</span>
+                <Avatar user={{ ...p, style: null }} size="sm" />
                 {p.first_name} {p.last_name?.[0] ? `${p.last_name[0]}.` : ''}
+                <span className="p">#{p.number ?? '–'}</span>
                 <span className="p">{p.position ? POS_SHORT[p.position] : ''}</span>
                 <UserTags user={p} compact />
               </button>

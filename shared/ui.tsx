@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { BADGES } from './badges';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, ImagePlus, X } from 'lucide-react';
@@ -207,6 +208,14 @@ export function Nick({ user, text }: { user: { style?: NickStyle | null }; text:
           {'</>'} DEV
         </span>
       ) : null}
+      {st.badges?.map((k) => {
+        const b = BADGES[k];
+        return b ? (
+          <span key={k} className="u-badge" title={b.hint} style={{ background: b.bg, color: b.fg, WebkitTextFillColor: b.fg }}>
+            {b.emoji} {b.label}
+          </span>
+        ) : null;
+      })}
     </span>
   );
 }

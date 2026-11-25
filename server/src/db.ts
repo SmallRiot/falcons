@@ -278,6 +278,18 @@ CREATE TABLE IF NOT EXISTS ai_facts (
 // гость может быть из другой команды — её название показываем тегом в пятёрках и списках
 addColumn('users', 'club', 'TEXT');
 
+// значки у ника (как «</> DEV»): выдаёт только владелец — на срок или навсегда (expires_at NULL)
+db.exec(`
+CREATE TABLE IF NOT EXISTS user_badges (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  badge       TEXT NOT NULL,
+  expires_at  TEXT,
+  by_id       INTEGER NOT NULL,
+  at          TEXT NOT NULL,
+  UNIQUE (user_id, badge)
+);`);
+
 export const nowIso = () => new Date().toISOString();
 
 export function getSetting(key: string, fallback: string): string {
@@ -314,7 +326,7 @@ export const displayName = (u: Pick<UserRow, 'first_name' | 'last_name'>) =>
   [u.first_name, u.last_name].filter(Boolean).join(' ');
 
 /** Оформление из магазина: цветной/огненный ник, эмодзи, золотая рамка (кэш на минуту). */
-export type NickStyle = { color?: string; fire?: boolean; grad?: string; emoji?: string; frame?: string; dev?: boolean; cover?: boolean };
+export type NickStyle = { color?: string; fire?: boolean; grad?: string; emoji?: string; frame?: string; dev?: boolean; cover?: boolean; badges?: string[] };
 let styleCache: { at: number; map: Map<number, NickStyle> } | null = null;
 export const resetStyleCache = () => void (styleCache = null);
 export function styleOf(userId: number): NickStyle | null {
@@ -334,6 +346,14 @@ export function styleOf(userId: number): NickStyle | null {
       if (r.item.startsWith('frame-') && r.option) st.frame = r.option;
       if (r.item === 'profile-cover') st.cover = true;
       map.set(r.user_id, st);
+    }
+    const badges = db
+      .prepare('SELECT user_id, badge FROM user_badges WHERE expires_at IS NULL OR expires_at > ? ORDER BY id')
+      .all(new Date().toISOString()) as { user_id: number; badge: string }[];
+    for (const b of badges) {
+      const st = map.get(b.user_id) ?? {};
+      st.badges = [...(st.badges ?? []), b.badge];
+      map.set(b.user_id, st);
     }
     styleCache = { at: Date.now(), map };
   }

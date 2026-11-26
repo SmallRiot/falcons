@@ -63,7 +63,7 @@ export default function AdminArcade() {
           ['orders', `${t('Заказы')} ${T.orders}`],
           ['shop', t('Магазин')],
           ['grant', t('🎁 Очки')],
-          ['badges', t('🏷 Значки')],
+          ['badges', t('Значки')],
           ['players', t('Игроки')],
           ['stats', t('Цифры')],
           ['ai', t('ИИ')],

@@ -139,7 +139,7 @@ export default function Person() {
 
       {me.user.owner && !data.noTelegram && (
         <>
-          <div className="section-title">🏷 {t('Значки у ника')}</div>
+          <div className="section-title">{t('Значки у ника')}</div>
           <BadgeAdmin userId={u.id} onChange={reload} />
         </>
       )}

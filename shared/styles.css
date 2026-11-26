@@ -455,11 +455,10 @@ textarea.input { height: auto; min-height: 84px; padding: 12px 14px; resize: ver
   background: linear-gradient(90deg, #9df3ca, #2ec4ff); -webkit-text-fill-color: #062018;
 }
 
-/* значки у ника от владельца: БОСС, ВИНО, ПИВО… */
+/* значки у ника от владельца — один в один как «</> DEV»: моноширинный, код-префикс, градиент */
 .u-badge {
-  display: inline-flex; align-items: center; gap: 2px; margin-left: 5px; padding: 1px 6px; border-radius: 6px; vertical-align: 2px;
+  display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 6px; border-radius: 6px; vertical-align: 2px;
   font: 800 10px/1.5 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: .04em; white-space: nowrap;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
 }
 .slot .u-badge, .pchip .u-badge { display: none; }
 

@@ -1,26 +1,30 @@
 /**
- * Значки у ника — как «</> DEV» у владельца. Выдаёт только владелец (на срок или навсегда).
+ * Значки у ника — в стиле «</> DEV» у владельца: моноширинный шрифт, код-префикс, градиент.
+ * Без эмодзи. Выдаёт только владелец (на срок или навсегда).
  * Ключ хранится в базе; если значок отсюда убрать, у людей он просто перестанет показываться.
  */
-export type Badge = { label: string; emoji: string; bg: string; fg: string; hint: string };
+export type Badge = { label: string; glyph: string; bg: string; fg: string; hint: string };
 
 export const BADGES: Record<string, Badge> = {
-  boss: { label: 'БОСС', emoji: '👑', bg: 'linear-gradient(90deg,#b8862b,#f6dc9c,#c8963e)', fg: '#2b1d00', hint: 'Главный по льду' },
-  wine: { label: 'ВИНО', emoji: '🍷', bg: 'linear-gradient(90deg,#5a0f2e,#a3214f)', fg: '#ffe3ee', hint: 'Сомелье раздевалки' },
-  beer: { label: 'ПИВО', emoji: '🍺', bg: 'linear-gradient(90deg,#f2a516,#ffd56b)', fg: '#3a2200', hint: 'Третий период — в баре' },
-  chacha: { label: 'ЧАЧА', emoji: '🥃', bg: 'linear-gradient(90deg,#d9c7a3,#f5ecd7)', fg: '#3a2a10', hint: 'Крепче только бросок' },
-  khinkali: { label: 'ХИНКАЛИ', emoji: '🥟', bg: 'linear-gradient(90deg,#f3e3c3,#ffd9a0)', fg: '#4a2c00', hint: 'Хвостики не ест' },
-  captain: { label: 'КЭП', emoji: '©️', bg: 'linear-gradient(90deg,#0d3b66,#2b88cf)', fg: '#ffffff', hint: 'Капитан' },
-  mvp: { label: 'MVP', emoji: '🏆', bg: 'linear-gradient(90deg,#7b61ff,#2ec4ff)', fg: '#ffffff', hint: 'Лучший игрок' },
-  goat: { label: 'GOAT', emoji: '🐐', bg: 'linear-gradient(90deg,#1b1b1b,#4a4a4a)', fg: '#f6dc9c', hint: 'Величайший всех времён' },
-  sniper: { label: 'СНАЙПЕР', emoji: '🎯', bg: 'linear-gradient(90deg,#c62828,#ff6b6b)', fg: '#ffffff', hint: 'Кладёт в девятку' },
-  wall: { label: 'СТЕНА', emoji: '🧱', bg: 'linear-gradient(90deg,#8d4b2c,#c2714f)', fg: '#ffffff', hint: 'Не пробить' },
-  tank: { label: 'ТАНК', emoji: '🚜', bg: 'linear-gradient(90deg,#3d5a2a,#6b8e3d)', fg: '#ffffff', hint: 'Едет — не остановить' },
-  fire: { label: 'ОГОНЬ', emoji: '🔥', bg: 'linear-gradient(90deg,#ff4d00,#ffb300)', fg: '#2b0a00', hint: 'В ударе' },
-  rookie: { label: 'НОВИЧОК', emoji: '🐣', bg: 'linear-gradient(90deg,#c8f7a0,#fff6a8)', fg: '#2c3a00', hint: 'Только встал на коньки' },
-  late: { label: 'ОПОЗДУН', emoji: '⏰', bg: 'linear-gradient(90deg,#9aa5b1,#cfd8e3)', fg: '#1c2530', hint: 'Приходит к третьему периоду' },
-  chill: { label: 'ЧИЛЛ', emoji: '😎', bg: 'linear-gradient(90deg,#2ec4ff,#9df3ca)', fg: '#06202a', hint: 'Спокоен как удав' },
-  penalty: { label: 'ШТРАФНИК', emoji: '🚨', bg: 'linear-gradient(90deg,#111,#e53935)', fg: '#ffffff', hint: 'Прописан на скамейке штрафников' },
-  veteran: { label: 'ВЕТЕРАН', emoji: '🎖', bg: 'linear-gradient(90deg,#4e5d2a,#a3a86b)', fg: '#ffffff', hint: 'В команде дольше всех' },
-  dj: { label: 'DJ', emoji: '🎧', bg: 'linear-gradient(90deg,#ff4fd8,#7b61ff)', fg: '#ffffff', hint: 'Музыка в раздевалке' },
+  boss: { glyph: '$', label: 'БОСС', bg: 'linear-gradient(90deg,#f6dc9c,#e0b25a)', fg: '#2a1a00', hint: 'Главный по льду' },
+  wine: { glyph: '◆', label: 'ВИНО', bg: 'linear-gradient(90deg,#f3a6c0,#c45c86)', fg: '#2a0614', hint: 'Сомелье раздевалки' },
+  beer: { glyph: '~', label: 'ПИВО', bg: 'linear-gradient(90deg,#ffe08a,#f5a623)', fg: '#2a1800', hint: 'Третий период — в баре' },
+  chacha: { glyph: '%', label: 'ЧАЧА', bg: 'linear-gradient(90deg,#f1ead8,#cdbb94)', fg: '#2a2010', hint: 'Крепче только бросок' },
+  khinkali: { glyph: '@', label: 'ХИНКАЛИ', bg: 'linear-gradient(90deg,#ffd9b0,#f2a66b)', fg: '#2a1200', hint: 'Хвостики не ест' },
+  captain: { glyph: '[C]', label: 'КЭП', bg: 'linear-gradient(90deg,#9fd0ff,#2b88cf)', fg: '#03192e', hint: 'Капитан' },
+  mvp: { glyph: '★', label: 'MVP', bg: 'linear-gradient(90deg,#c9b8ff,#7b61ff)', fg: '#120838', hint: 'Лучший игрок' },
+  goat: { glyph: '∞', label: 'GOAT', bg: 'linear-gradient(90deg,#3a3a3a,#111)', fg: '#f6dc9c', hint: 'Величайший всех времён' },
+  sniper: { glyph: '>>', label: 'СНАЙПЕР', bg: 'linear-gradient(90deg,#ffb3b3,#ff5a5a)', fg: '#2e0505', hint: 'Кладёт в девятку' },
+  wall: { glyph: '||', label: 'СТЕНА', bg: 'linear-gradient(90deg,#d7dee5,#8fa3b5)', fg: '#101c27', hint: 'Не пробить' },
+  tank: { glyph: '=>', label: 'ТАНК', bg: 'linear-gradient(90deg,#c8e6a0,#7fae4a)', fg: '#142200', hint: 'Едет — не остановить' },
+  fire: { glyph: '!!', label: 'ОГОНЬ', bg: 'linear-gradient(90deg,#ffc36b,#ff6a2b)', fg: '#2b0a00', hint: 'В ударе' },
+  rookie: { glyph: 'v0.1', label: 'НОВИЧОК', bg: 'linear-gradient(90deg,#e8ffd0,#b6f08a)', fg: '#1a2a00', hint: 'Только встал на коньки' },
+  late: { glyph: '+15m', label: 'ОПОЗДУН', bg: 'linear-gradient(90deg,#e3e8ee,#aab6c3)', fg: '#141c25', hint: 'Приходит к третьему периоду' },
+  chill: { glyph: 'zzz', label: 'ЧИЛЛ', bg: 'linear-gradient(90deg,#b8f3ff,#7fd6f5)', fg: '#03202a', hint: 'Спокоен как удав' },
+  penalty: { glyph: '2:00', label: 'ШТРАФНИК', bg: 'linear-gradient(90deg,#2a2a2a,#7a1010)', fg: '#ffd2d2', hint: 'Прописан на скамейке штрафников' },
+  veteran: { glyph: 'v9.9', label: 'ВЕТЕРАН', bg: 'linear-gradient(90deg,#e6e3c8,#a9a36b)', fg: '#1f1d06', hint: 'В команде дольше всех' },
+  dj: { glyph: '♪', label: 'DJ', bg: 'linear-gradient(90deg,#ffb0ec,#9b7bff)', fg: '#1c0630', hint: 'Музыка в раздевалке' },
 };
+
+/** Текст значка: «$ БОСС» — как «</> DEV». */
+export const badgeText = (b: Badge) => `${b.glyph} ${b.label}`;

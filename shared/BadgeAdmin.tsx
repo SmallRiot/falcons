@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { api, type PublicUser } from './api';
-import { BADGES } from './badges';
+import { BADGES, badgeText } from './badges';
 import { fmt } from './format';
 import { ask, Avatar, Nick, Spinner, toast, toastErr, useApi } from './ui';
 
@@ -41,7 +41,7 @@ export function BadgeAdmin({ userId, onChange }: { userId?: number; onChange?: (
     setBusy(true);
     try {
       await api.post('/api/admin/badges', { userId: picked.id, badge, days: term });
-      toast(`${b.emoji} ${b.label} → ${picked.first_name}${term ? ` на ${TERMS.find((x) => x[1] === term)?.[0].toLowerCase()}` : ' навсегда'}`);
+      toast(`${badgeText(b)} → ${picked.first_name}${term ? ` на ${TERMS.find((x) => x[1] === term)?.[0].toLowerCase()}` : ' навсегда'}`);
       await reload();
       onChange?.();
     } catch (e) {
@@ -65,7 +65,7 @@ export function BadgeAdmin({ userId, onChange }: { userId?: number; onChange?: (
   return (
     <div className="vstack" style={{ gap: 10 }}>
       <div className="card vstack" style={{ gap: 10 }}>
-        <b>🏷 Выдать значок</b>
+        <b>Выдать значок</b>
         <div className="muted small">Видишь только ты. Значок горит у ника везде: в составах, пятёрках, профиле.</div>
         {!userId &&
           (picked ? (
@@ -103,7 +103,7 @@ export function BadgeAdmin({ userId, onChange }: { userId?: number; onChange?: (
           {Object.entries(BADGES).map(([k, v]) => (
             <button key={k} className={`badge-opt ${badge === k ? 'on' : ''}`} onClick={() => setBadge(k)} title={v.hint}>
               <span className="u-badge" style={{ background: v.bg, color: v.fg, WebkitTextFillColor: v.fg, margin: 0 }}>
-                {v.emoji} {v.label}
+                {badgeText(v)}
               </span>
             </button>
           ))}
@@ -127,7 +127,7 @@ export function BadgeAdmin({ userId, onChange }: { userId?: number; onChange?: (
           </div>
         )}
         <button className="btn block" disabled={busy || !picked} onClick={give}>
-          {b.emoji} Выдать «{b.label}» {term ? `на ${TERMS.find((x) => x[1] === term)?.[0].toLowerCase()}` : 'навсегда'}
+          Выдать «{b.label}» {term ? `на ${TERMS.find((x) => x[1] === term)?.[0].toLowerCase()}` : 'навсегда'}
         </button>
       </div>
 
@@ -144,7 +144,7 @@ export function BadgeAdmin({ userId, onChange }: { userId?: number; onChange?: (
                     {!userId && <>{r.user.name} </>}
                     {v ? (
                       <span className="u-badge" style={{ background: v.bg, color: v.fg, WebkitTextFillColor: v.fg }}>
-                        {v.emoji} {v.label}
+                        {badgeText(v)}
                       </span>
                     ) : (
                       r.badge
